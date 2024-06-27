@@ -86,6 +86,7 @@ var (
 )
 
 const (
+	DefaultConfigPath          = "config.yaml"
 	DefaultHTTPIPV4Host        = "0.0.0.0"
 	DefaultHTTPIPV6Host        = "::"
 	DefaultHTTPPort            = 8080
@@ -98,7 +99,7 @@ const (
 )
 
 func RegisterFlags(cmd *cobra.Command) {
-	cmd.Flags().StringP(ConfigFileKey, "c", "", "Config file path")
+	cmd.Flags().StringP(ConfigFileKey, "c", DefaultConfigPath, "Config file path")
 	cmd.Flags().String(HTTPIPV4HostKey, DefaultHTTPIPV4Host, "HTTP server IPv4 host")
 	cmd.Flags().String(HTTPIPV6HostKey, DefaultHTTPIPV6Host, "HTTP server IPv6 host")
 	cmd.Flags().Uint16(HTTPPortKey, DefaultHTTPPort, "HTTP server port")
