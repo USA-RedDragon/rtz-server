@@ -114,3 +114,7 @@ func GenerateDongleID(db *gorm.DB) (string, error) {
 	}
 	return candidate, nil
 }
+
+func UpdateAthenaPingTimestamp(db *gorm.DB, id uint) error {
+	return db.Model(&Device{}).Where("id = ?", id).Update("athena_timestamp", time.Now().Unix()).Error
+}

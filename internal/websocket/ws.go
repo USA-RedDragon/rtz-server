@@ -7,16 +7,18 @@ import (
 	"strings"
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
+	"github.com/USA-RedDragon/connect-server/internal/db/models"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"gorm.io/gorm"
 )
 
 const bufferSize = 1024
 
 type Websocket interface {
-	OnMessage(ctx context.Context, r *http.Request, w Writer, msg []byte, t int)
-	OnConnect(ctx context.Context, r *http.Request, w Writer)
-	OnDisconnect(ctx context.Context, r *http.Request)
+	OnMessage(ctx context.Context, r *http.Request, w Writer, msg []byte, t int, device *models.Device, db *gorm.DB)
+	OnConnect(ctx context.Context, r *http.Request, w Writer, device *models.Device, db *gorm.DB)
+	OnDisconnect(ctx context.Context, r *http.Request, device *models.Device, db *gorm.DB)
 }
 
 type WSHandler struct {
@@ -61,28 +63,41 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 	}
 
 	return func(c *gin.Context) {
+		device, ok := c.MustGet("device").(*models.Device)
+		if !ok {
+			slog.Error("Failed to get device from context")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		db, ok := c.MustGet("db").(*gorm.DB)
+		if !ok {
+			slog.Error("Failed to get db from context")
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
 		conn, err := handler.wsUpgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
 			slog.Error("Failed to set websocket upgrade", "error", err)
+			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 		handler.conn = conn
 
 		defer func() {
-			handler.handler.OnDisconnect(c, c.Request)
+			handler.handler.OnDisconnect(c, c.Request, device, db)
 			_ = handler.conn.Close()
 		}()
 
-		handler.handle(c.Request.Context(), c.Request)
+		handler.handle(c.Request.Context(), c.Request, device, db)
 	}
 }
 
-func (h *WSHandler) handle(c context.Context, r *http.Request) {
+func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.Device, db *gorm.DB) {
 	writer := wsWriter{
 		writer: make(chan Message, bufferSize),
 		error:  make(chan string),
 	}
-	h.handler.OnConnect(c, r, writer)
+	h.handler.OnConnect(c, r, writer, device, db)
 
 	go func() {
 		for {
@@ -102,7 +117,7 @@ func (h *WSHandler) handle(c context.Context, r *http.Request) {
 					Data: []byte("PONG"),
 				})
 			default:
-				h.handler.OnMessage(c, r, writer, msg, t)
+				h.handler.OnMessage(c, r, writer, msg, t, device, db)
 			}
 		}
 	}()

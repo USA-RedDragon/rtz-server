@@ -6,9 +6,11 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/USA-RedDragon/connect-server/internal/db/models"
 	"github.com/USA-RedDragon/connect-server/internal/events"
 	"github.com/USA-RedDragon/connect-server/internal/websocket"
 	gorillaWebsocket "github.com/gorilla/websocket"
+	"gorm.io/gorm"
 )
 
 type EventsWebsocket struct {
@@ -40,15 +42,23 @@ func (c *EventsWebsocket) start() {
 	}
 }
 
-func (c *EventsWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket.Writer, msg []byte, msgType int) {
-	slog.Info("Received message:", "message", string(msg), "type", msgType)
+func (c *EventsWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket.Writer, msg []byte, msgType int, device *models.Device, db *gorm.DB) {
+	err := models.UpdateAthenaPingTimestamp(db, device.ID)
+	if err != nil {
+		slog.Warn("Error updating athena ping timestamp:", err)
+	}
+	slog.Info("Received message:", "message", string(msg), "type", msgType, "device", device.DongleID)
 }
 
-func (c *EventsWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer) {
+func (c *EventsWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer, device *models.Device, db *gorm.DB) {
 	newCtx, cancel := context.WithCancel(ctx)
 	c.cancel = cancel
 
-	slog.Info("New websocket connection")
+	slog.Info("New websocket connection from device:", "device", device.DongleID)
+	err := models.UpdateAthenaPingTimestamp(db, device.ID)
+	if err != nil {
+		slog.Warn("Error updating athena ping timestamp:", err)
+	}
 
 	c.connectedCount++
 
@@ -89,8 +99,8 @@ func (c *EventsWebsocket) OnConnect(ctx context.Context, _ *http.Request, w webs
 	}()
 }
 
-func (c *EventsWebsocket) OnDisconnect(ctx context.Context, _ *http.Request) {
-	slog.Info("Websocket disconnected")
+func (c *EventsWebsocket) OnDisconnect(ctx context.Context, _ *http.Request, device *models.Device, db *gorm.DB) {
+	slog.Info("Websocket disconnected from device:", "device", device.DongleID)
 	c.connectedCount--
 	c.cancel()
 }

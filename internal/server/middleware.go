@@ -88,6 +88,12 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 			return
 		}
 
+		device, err := models.FindDeviceByDongleID(db, dongleID)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
 		// Verify the token
 		token, err := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name})).Parse(cookie, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
@@ -100,11 +106,6 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 			// forcing a check and exiting if not set
 			if claims.ExpiresAt == nil {
 				return nil, errors.New("token has no expiration")
-			}
-
-			device, err := models.FindDeviceByDongleID(db, dongleID)
-			if err != nil {
-				return nil, fmt.Errorf("failed to find device: %w", err)
 			}
 
 			blk, _ := pem.Decode([]byte(device.PublicKey))
@@ -126,7 +127,7 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		fmt.Println(token.Claims)
+		c.Set("device", device)
 
 		c.Next()
 	}
