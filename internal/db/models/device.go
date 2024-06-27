@@ -36,6 +36,7 @@ type Device struct {
 	LastGPSSpeed     float64    `json:"last_gps_speed"`
 	LastGPSBearing   float64    `json:"last_gps_bearing"`
 	OpenPilotVersion string     `json:"openpilot_version"`
+	LastAthenaPing   int64      `json:"last_athena_ping"`
 
 	OwnerID uint `json:"-"`
 
@@ -116,5 +117,5 @@ func GenerateDongleID(db *gorm.DB) (string, error) {
 }
 
 func UpdateAthenaPingTimestamp(db *gorm.DB, id uint) error {
-	return db.Model(&Device{}).Where("id = ?", id).Update("athena_timestamp", time.Now().Unix()).Error
+	return db.Model(&Device{}).Where("id = ?", id).Update("last_athena_ping", time.Now().Unix()).Error
 }
