@@ -12,7 +12,13 @@ import (
 )
 
 type Config struct {
-	HTTP HTTP `json:"http"`
+	HTTP        HTTP        `json:"http"`
+	Persistence Persistence `json:"persistence"`
+}
+
+type Persistence struct {
+	Database string `json:"database"`
+	Uploads  string `json:"uploads"`
 }
 
 type HTTPListener struct {
@@ -59,6 +65,8 @@ var (
 	HTTPMetricsIPV6HostKey = "http.metrics.ipv6_host"
 	HTTPMetricsPortKey     = "http.metrics.port"
 	HTTPCORSHostsKey       = "http.cors_hosts"
+	PersistenceDatabaseKey = "persistence.database"
+	PersistenceUploadsKey  = "persistence.uploads"
 )
 
 const (
@@ -68,6 +76,8 @@ const (
 	DefaultHTTPMetricsIPV4Host = "127.0.0.1"
 	DefaultHTTPMetricsIPV6Host = "::1"
 	DefaultHTTPMetricsPort     = 8081
+	DefaultPersistenceDatabase = "connect.db"
+	DefaultPersistenceUploads  = "uploads/"
 )
 
 func RegisterFlags(cmd *cobra.Command) {
@@ -84,6 +94,8 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(HTTPMetricsIPV6HostKey, DefaultHTTPMetricsIPV6Host, "Metrics server IPv6 host")
 	cmd.Flags().Uint16(HTTPMetricsPortKey, DefaultHTTPMetricsPort, "Metrics server port")
 	cmd.Flags().StringSlice(HTTPCORSHostsKey, []string{}, "Comma-separated list of CORS hosts")
+	cmd.Flags().String(PersistenceDatabaseKey, DefaultPersistenceDatabase, "Database file path")
+	cmd.Flags().String(PersistenceUploadsKey, DefaultPersistenceUploads, "Uploads directory")
 }
 
 func (c *Config) Validate() error {
@@ -149,6 +161,12 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 	}
 	if config.HTTP.Metrics.Port == 0 {
 		config.HTTP.Metrics.Port = DefaultHTTPMetricsPort
+	}
+	if config.Persistence.Database == "" {
+		config.Persistence.Database = DefaultPersistenceDatabase
+	}
+	if config.Persistence.Uploads == "" {
+		config.Persistence.Uploads = DefaultPersistenceUploads
 	}
 
 	err = config.Validate()
@@ -242,6 +260,20 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		config.HTTP.CORSHosts, err = cmd.Flags().GetStringSlice(HTTPCORSHostsKey)
 		if err != nil {
 			return fmt.Errorf("failed to get CORS hosts: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(PersistenceDatabaseKey) {
+		config.Persistence.Database, err = cmd.Flags().GetString(PersistenceDatabaseKey)
+		if err != nil {
+			return fmt.Errorf("failed to get database path: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(PersistenceUploadsKey) {
+		config.Persistence.Uploads, err = cmd.Flags().GetString(PersistenceUploadsKey)
+		if err != nil {
+			return fmt.Errorf("failed to get uploads directory: %w", err)
 		}
 	}
 

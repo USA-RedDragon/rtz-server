@@ -49,3 +49,10 @@ http:
 
     # The port to bind the Prometheus metrics server to, both IPv4 and IPv6 share the same port
     port: 8081
+
+# Persistence configuration
+persistence:
+  # Path to the SQLite3 database file
+  database: 'connect.sqlite3'
+  # Path where upload files are stored
+  uploads: 'uploads/'
