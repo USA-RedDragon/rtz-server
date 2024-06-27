@@ -37,8 +37,7 @@ type Device struct {
 	LastGPSBearing   float64    `json:"last_gps_bearing"`
 	OpenPilotVersion string     `json:"openpilot_version"`
 
-	Owner   User `json:"owner" gorm:"foreignKey:OwnerID"`
-	OwnerID uint `json:"-"`
+	UserID uint `json:"-"`
 
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"-"`
@@ -57,25 +56,25 @@ func DeviceIDExists(db *gorm.DB, id uint) (bool, error) {
 
 func FindDeviceByID(db *gorm.DB, id uint) (Device, error) {
 	var device Device
-	err := db.Preload("Owner").First(&device, id).Error
+	err := db.Preload("User").First(&device, id).Error
 	return device, err
 }
 
 func FindDeviceByDongleID(db *gorm.DB, id string) (Device, error) {
 	var device Device
-	err := db.Preload("Owner").Where("dongle_id = ?", id).First(&device).Error
+	err := db.Preload("User").Where("dongle_id = ?", id).First(&device).Error
 	return device, err
 }
 
 func FindDeviceBySerial(db *gorm.DB, serial string) (Device, error) {
 	var device Device
-	err := db.Preload("Owner").Where("serial = ?", serial).First(&device).Error
+	err := db.Preload("User").Where("serial = ?", serial).First(&device).Error
 	return device, err
 }
 
 func ListDevices(db *gorm.DB) ([]Device, error) {
 	var devices []Device
-	err := db.Preload("Owner").Order("id asc").Find(&devices).Error
+	err := db.Preload("User").Order("id asc").Find(&devices).Error
 	return devices, err
 }
 
@@ -94,18 +93,6 @@ func DeleteDevice(db *gorm.DB, id uint) error {
 		return err
 	}
 	return nil
-}
-
-func GetUserDevices(db *gorm.DB, id uint) ([]Device, error) {
-	var devices []Device
-	err := db.Preload("Owner").Where("owner_id = ?", id).Order("id asc").Find(&devices).Error
-	return devices, err
-}
-
-func CountUserDevices(db *gorm.DB, id uint) (int, error) {
-	var count int64
-	err := db.Model(&Device{}).Where("owner_id = ?", id).Count(&count).Error
-	return int(count), err
 }
 
 // GenerateDonleID generates a unique random dongle ID

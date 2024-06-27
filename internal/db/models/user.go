@@ -18,6 +18,7 @@ type User struct {
 	Password  string         `json:"-"`
 	Points    uint           `json:"points"`
 	Superuser bool           `json:"superuser" gorm:"default:false"`
+	Devices   []Device       `json:"-"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"-"`
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
@@ -35,13 +36,13 @@ func UserIDExists(db *gorm.DB, id uint) (bool, error) {
 
 func FindUserByID(db *gorm.DB, id uint) (User, error) {
 	var user User
-	err := db.First(&user, id).Error
+	err := db.Preload("Devices").First(&user, id).Error
 	return user, err
 }
 
 func ListUsers(db *gorm.DB) ([]User, error) {
 	var users []User
-	err := db.Order("id asc").Find(&users).Error
+	err := db.Preload("Devices").Order("id asc").Find(&users).Error
 	return users, err
 }
 
