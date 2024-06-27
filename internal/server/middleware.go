@@ -94,12 +94,14 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 			return
 		}
 
+		claims := new(jwt.RegisteredClaims)
+
 		// Verify the token
-		token, err := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name})).Parse(cookie, func(token *jwt.Token) (interface{}, error) {
+		token, err := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name})).ParseWithClaims(cookie, claims, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 				return nil, fmt.Errorf("invalid signing method: %s", token.Header["alg"])
 			}
-			claims := token.Claims.(*jwt.RegisteredClaims)
+			claims = token.Claims.(*jwt.RegisteredClaims)
 
 			// ParseWithClaims will skip expiration check
 			// if expiration has default value;
@@ -128,6 +130,8 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 		}
 
 		c.Set("device", device)
+
+		fmt.Println(claims)
 
 		c.Next()
 	}
