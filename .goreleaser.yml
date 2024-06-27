@@ -16,6 +16,8 @@ dockers:
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:latest-arm64"
     use: buildx
     goarch: arm64
+    extra_files:
+      - hack/passwd
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -34,6 +36,8 @@ dockers:
     use: buildx
     goarch: amd64
     goamd64: v1
+    extra_files:
+      - hack/passwd
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -52,6 +56,8 @@ dockers:
     use: buildx
     goarch: amd64
     goamd64: v2
+    extra_files:
+      - hack/passwd
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -70,6 +76,8 @@ dockers:
     use: buildx
     goarch: amd64
     goamd64: v3
+    extra_files:
+      - hack/passwd
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -88,6 +96,8 @@ dockers:
     use: buildx
     goarch: amd64
     goamd64: v4
+    extra_files:
+      - hack/passwd
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
