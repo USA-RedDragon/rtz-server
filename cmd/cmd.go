@@ -66,7 +66,6 @@ func run(cmd *cobra.Command, _ []string) error {
 		close(eventChannel)
 		if err != nil {
 			slog.Error("Shutdown error", "error", err.Error())
-			os.Exit(1)
 		}
 		slog.Info("Shutdown complete")
 	}
