@@ -2,6 +2,7 @@ package server
 
 import (
 	"log/slog"
+	"net/http"
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/gin-gonic/gin"
@@ -49,5 +50,19 @@ func dbMiddleware(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Set("db", db)
 		c.Next()
+	}
+}
+
+// Requires an Authorization: JWT <token> header
+func requireAuth(_ *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+	}
+}
+
+// Requires a jwt cookie
+func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 	}
 }
