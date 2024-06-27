@@ -16,6 +16,29 @@ func applyRoutes(r *gin.Engine, config *config.HTTP, eventsChannel chan events.E
 		c.String(http.StatusOK, "OK")
 	})
 
+	apiV1 := r.Group("/v1")
+	apiV1.GET("/navigation/:dongle_id/next", func(c *gin.Context) {
+		slog.Info("Get Next Navigation", "url", c.Request.URL.String())
+	})
+
+	apiV1.GET("/navigation/:dongle_id/locations", func(c *gin.Context) {
+		slog.Info("Get Locations", "url", c.Request.URL.String())
+	})
+
+	apiV11 := r.Group("/v1.1")
+	apiV11.GET("/devices/:dongle_id/", func(c *gin.Context) {
+		slog.Info("Get Device", "url", c.Request.URL.String())
+	})
+
+	apiV11.GET("/devices/:dongle_id/stats", func(c *gin.Context) {
+		slog.Info("Get Stats", "url", c.Request.URL.String())
+	})
+
+	apiV14 := r.Group("/v1.4")
+	apiV14.GET("/:dongle_id/upload_url", func(c *gin.Context) {
+		slog.Info("Get Upload URL", "url", c.Request.URL.String())
+	})
+
 	apiV2 := r.Group("/v2")
 	apiV2.POST("/pilotauth", func(c *gin.Context) {
 		slog.Info("Pilot Auth", "url", c.Request.URL.String())
