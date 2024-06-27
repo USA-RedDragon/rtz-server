@@ -41,7 +41,27 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 
 	apiV11 := r.Group("/v1.1")
 	apiV11.GET("/devices/:dongle_id/", setDevice(), authMiddleware, func(c *gin.Context) {
-		slog.Info("Get Device", "url", c.Request.URL.String())
+		db, ok := c.MustGet("db").(*gorm.DB)
+		if !ok {
+			slog.Error("Failed to get db from context")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		dongleID := c.Param("dongle_id")
+		if dongleID == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+			return
+		}
+
+		device, err := models.FindDeviceByDongleID(db, dongleID)
+		if err != nil {
+			slog.Error("Failed to find device", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		c.JSON(http.StatusOK, device)
 	})
 
 	apiV11.GET("/devices/:dongle_id/stats", setDevice(), authMiddleware, func(c *gin.Context) {
