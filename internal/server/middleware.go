@@ -129,7 +129,7 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		c.Set("device", device)
+		c.Set("device", &device)
 
 		fmt.Println(claims)
 
