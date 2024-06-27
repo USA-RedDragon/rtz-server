@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/go-errors/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"gopkg.in/yaml.v3"
@@ -154,7 +155,9 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 	}
 	if configPath != "" {
 		data, err := os.ReadFile(configPath)
-		if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			// This is okay, we default to reading a config file
+		} else if err != nil {
 			return &config, fmt.Errorf("failed to read config: %w", err)
 		}
 
