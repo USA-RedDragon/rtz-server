@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -13,6 +14,7 @@ import (
 	"github.com/USA-RedDragon/connect-server/internal/utils"
 	"github.com/USA-RedDragon/connect-server/internal/websocket"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events.Event) {
@@ -122,7 +124,46 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 			return
 		}
 
-		slog.Info("Pilot Auth", "imei", imei, "imei2", imei2, "serial", param_serial, "public_key", key, "register_token", param_register_token)
+		type Claims struct {
+			Register bool `json:"register,omitempty"`
+			jwt.RegisteredClaims
+		}
+
+		var claims *Claims
+
+		token, err := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name})).
+			ParseWithClaims(param_register_token, new(Claims), func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+					slog.Error("Invalid signing method", "method", token.Header["alg"])
+				}
+				claims = token.Claims.(*Claims)
+
+				// ParseWithClaims will skip expiration check
+				// if expiration has default value;
+				// forcing a check and exiting if not set
+				if claims.ExpiresAt == nil {
+					return nil, errors.New("token has no expiration")
+				}
+
+				if !claims.Register {
+					return nil, errors.New("register_token is not a register token")
+				}
+
+				return key, nil
+			})
+		if err != nil {
+			slog.Error("Failed to parse token", "error", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "register_token is invalid"})
+			return
+		}
+
+		if !token.Valid {
+			slog.Error("Invalid token")
+			c.JSON(http.StatusBadRequest, gin.H{"error": "register_token is invalid"})
+			return
+		}
+
+		slog.Info("Pilot Auth", "imei", imei, "imei2", imei2, "serial", param_serial, "claims", claims)
 
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "ok"})
 	})
