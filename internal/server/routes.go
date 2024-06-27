@@ -1,6 +1,8 @@
 package server
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -112,7 +114,15 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 		}
 		// Validate register_token as JWT signed by the public key
 
-		slog.Info("Pilot Auth", "imei", imei, "imei2", imei2, "serial", param_serial, "public_key", param_public_key, "register_token", param_register_token)
+		blk, _ := pem.Decode([]byte(param_public_key))
+		key, err := x509.ParsePKIXPublicKey(blk.Bytes)
+		if err != nil {
+			slog.Error("Failed to parse public key", "error", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "public_key is invalid"})
+			return
+		}
+
+		slog.Info("Pilot Auth", "imei", imei, "imei2", imei2, "serial", param_serial, "public_key", key, "register_token", param_register_token)
 
 		c.JSON(http.StatusInternalServerError, gin.H{"status": "ok"})
 	})
