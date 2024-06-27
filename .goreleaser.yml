@@ -18,6 +18,7 @@ dockers:
     goarch: arm64
     extra_files:
       - hack/passwd
+      - hack/group
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -38,6 +39,7 @@ dockers:
     goamd64: v1
     extra_files:
       - hack/passwd
+      - hack/group
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -58,6 +60,7 @@ dockers:
     goamd64: v2
     extra_files:
       - hack/passwd
+      - hack/group
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -78,6 +81,7 @@ dockers:
     goamd64: v3
     extra_files:
       - hack/passwd
+      - hack/group
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
@@ -98,6 +102,7 @@ dockers:
     goamd64: v4
     extra_files:
       - hack/passwd
+      - hack/group
     build_flag_templates:
       - "--pull"
       - "--label=org.opencontainers.image.created={{.Date}}"
