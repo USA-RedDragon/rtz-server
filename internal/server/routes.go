@@ -55,6 +55,10 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 
 	apiV2 := r.Group("/v2")
 	apiV2.POST("/pilotauth", func(c *gin.Context) {
+		if !config.Registration.Enabled {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Registration is disabled"})
+			return
+		}
 		param_imei, ok := c.GetQuery("imei")
 		if !ok {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "imei is required"})
