@@ -40,7 +40,8 @@ func (c *EventsWebsocket) start() {
 	}
 }
 
-func (c *EventsWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket.Writer, _ []byte, _ int) {
+func (c *EventsWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket.Writer, msg []byte, msgType int) {
+	slog.Info("Received message:", "message", string(msg), "type", msgType)
 }
 
 func (c *EventsWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer) {
