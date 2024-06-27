@@ -35,13 +35,13 @@ func UserIDExists(db *gorm.DB, id uint) (bool, error) {
 
 func FindUserByID(db *gorm.DB, id uint) (User, error) {
 	var user User
-	err := db.Preload("Devices").First(&user, id).Error
+	err := db.First(&user, id).Error
 	return user, err
 }
 
 func ListUsers(db *gorm.DB) ([]User, error) {
 	var users []User
-	err := db.Preload("Devices").Order("id asc").Find(&users).Error
+	err := db.Order("id asc").Find(&users).Error
 	return users, err
 }
 
