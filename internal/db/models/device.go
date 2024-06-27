@@ -22,6 +22,7 @@ type Device struct {
 	DongleID  string `json:"dongle_id" gorm:"uniqueIndex" binding:"required"`
 	Serial    string `json:"serial" gorm:"uniqueIndex" binding:"required"`
 	PublicKey string `json:"public_key" gorm:"uniqueIndex" binding:"required"`
+	IsPaired  bool   `json:"is_paired" gorm:"default:false"`
 	// Prime defaults to true
 	Prime bool `json:"prime" gorm:"default:true"`
 	// PrimeType defaults to 1 for "standard prime"
