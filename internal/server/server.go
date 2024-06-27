@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/sync/errgroup"
+	"gorm.io/gorm"
 )
 
 type Server struct {
@@ -29,7 +30,7 @@ type Server struct {
 
 const defTimeout = 5 * time.Second
 
-func NewServer(config *config.HTTP, eventsChannel chan events.Event) *Server {
+func NewServer(config *config.HTTP, eventsChannel chan events.Event, db *gorm.DB) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	if config.PProf.Enabled {
 		gin.SetMode(gin.DebugMode)
@@ -46,7 +47,7 @@ func NewServer(config *config.HTTP, eventsChannel chan events.Event) *Server {
 		writeTimeout = 60 * time.Second
 	}
 
-	applyMiddleware(r, config, "api")
+	applyMiddleware(r, config, "api", db)
 	applyRoutes(r, config, eventsChannel)
 
 	var metricsIPV4Server *http.Server
@@ -54,7 +55,7 @@ func NewServer(config *config.HTTP, eventsChannel chan events.Event) *Server {
 
 	if config.Metrics.Enabled {
 		metricsRouter := gin.New()
-		applyMiddleware(metricsRouter, config, "metrics")
+		applyMiddleware(metricsRouter, config, "metrics", db)
 
 		metricsRouter.GET("/metrics", gin.WrapH(promhttp.Handler()))
 		metricsIPV4Server = &http.Server{

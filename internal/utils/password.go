@@ -1,0 +1,107 @@
+package utils
+
+import (
+	"crypto/rand"
+	"crypto/subtle"
+	"encoding/base64"
+	"errors"
+	"fmt"
+	"strings"
+
+	"golang.org/x/crypto/argon2"
+)
+
+const (
+	memory      = 64 * 1024
+	iterations  = 3
+	parallelism = 8
+	saltLength  = 16
+	keyLength   = 32
+)
+
+type argon2Params struct {
+	memory      uint32
+	iterations  uint32
+	parallelism uint8
+	saltLength  uint32
+	keyLength   uint32
+	salt        []byte
+}
+
+var (
+	ErrInvalidHash         = errors.New("the encoded hash is not in the correct format")
+	ErrIncompatibleVersion = errors.New("incompatible version of argon2")
+	ErrNoRandom            = errors.New("no random source available")
+)
+
+func HashPassword(password string, salt string) (string, error) {
+	var params = argon2Params{
+		memory:      memory,
+		iterations:  iterations,
+		parallelism: parallelism,
+		saltLength:  saltLength,
+		keyLength:   keyLength,
+		salt:        make([]byte, saltLength),
+	}
+	// Fill the salt with cryptographically secure random bytes.
+	n, err := rand.Read(params.salt)
+	if err != nil {
+		return "", fmt.Errorf("failed to read random bytes: %w", err)
+	}
+	if n != int(saltLength) {
+		return "", fmt.Errorf("failed to read enough random bytes: %w", err)
+	}
+
+	bytes := argon2.IDKey([]byte(password+salt), params.salt, params.iterations, params.memory, params.parallelism, params.keyLength)
+	b64Salt := base64.RawStdEncoding.EncodeToString(params.salt)
+	b64Hash := base64.RawStdEncoding.EncodeToString(bytes)
+
+	// Return a string using the standard encoded hash representation.
+	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s", argon2.Version, params.memory, params.iterations, params.parallelism, b64Salt, b64Hash), nil
+}
+
+func VerifyPassword(password, compareHash string, pwsalt string) (bool, error) {
+	vals := strings.Split(compareHash, "$")
+	const argon2Vals = 6
+	if len(vals) != argon2Vals {
+		return false, ErrInvalidHash
+	}
+
+	var version int
+	_, err := fmt.Sscanf(vals[2], "v=%d", &version)
+	if err != nil {
+		return false, ErrInvalidHash
+	}
+	if version != argon2.Version {
+		return false, ErrIncompatibleVersion
+	}
+
+	p := &argon2Params{}
+	_, err = fmt.Sscanf(vals[3], "m=%d,t=%d,p=%d", &p.memory, &p.iterations, &p.parallelism)
+	if err != nil {
+		return false, ErrInvalidHash
+	}
+
+	salt, err := base64.RawStdEncoding.Strict().DecodeString(vals[4])
+	if err != nil {
+		return false, ErrInvalidHash
+	}
+	p.saltLength = uint32(len(salt))
+
+	hash, err := base64.RawStdEncoding.Strict().DecodeString(vals[5])
+	if err != nil {
+		return false, ErrInvalidHash
+	}
+	p.keyLength = uint32(len(hash))
+
+	// Derive the key from the other password using the same parameters.
+	otherHash := argon2.IDKey([]byte(password+pwsalt), salt, p.iterations, p.memory, p.parallelism, p.keyLength)
+
+	// Check that the contents of the hashed passwords are identical. Note
+	// that we are using the subtle.ConstantTimeCompare() function for this
+	// to help prevent timing attacks.
+	if subtle.ConstantTimeCompare(hash, otherHash) == 1 {
+		return true, nil
+	}
+	return false, nil
+}

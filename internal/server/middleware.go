@@ -8,9 +8,10 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+	"gorm.io/gorm"
 )
 
-func applyMiddleware(r *gin.Engine, config *config.HTTP, otelComponent string) {
+func applyMiddleware(r *gin.Engine, config *config.HTTP, otelComponent string, db *gorm.DB) {
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
 	r.TrustedPlatform = "X-Real-IP"
@@ -19,6 +20,8 @@ func applyMiddleware(r *gin.Engine, config *config.HTTP, otelComponent string) {
 	if err != nil {
 		slog.Error("Failed to set trusted proxies", "error", err.Error())
 	}
+
+	r.Use(dbMiddleware(db))
 
 	if config.Tracing.Enabled {
 		r.Use(otelgin.Middleware(otelComponent))
@@ -38,6 +41,13 @@ func tracingProvider(config *config.HTTP) gin.HandlerFunc {
 				)
 			}
 		}
+		c.Next()
+	}
+}
+
+func dbMiddleware(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("db", db)
 		c.Next()
 	}
 }

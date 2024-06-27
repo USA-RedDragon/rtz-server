@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
+	"github.com/USA-RedDragon/connect-server/internal/db"
 	"github.com/USA-RedDragon/connect-server/internal/events"
 	"github.com/USA-RedDragon/connect-server/internal/server"
 	"github.com/spf13/cobra"
@@ -39,6 +40,18 @@ func run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	// Check access to the upload directory
+	err = os.MkdirAll(config.Persistence.Uploads, 0755)
+	if err != nil {
+		return fmt.Errorf("failed to create uploads directory: %w", err)
+	}
+
+	db, err := db.MakeDB(config)
+	if err != nil {
+		return fmt.Errorf("failed to make database: %w", err)
+	}
+	slog.Info("Database connection established")
+
 	// Initialize the websocket event bus
 	eventBus := events.NewEventBus()
 	slog.Info("Event bus started")
@@ -46,7 +59,7 @@ func run(cmd *cobra.Command, _ []string) error {
 	eventChannel := eventBus.GetChannel()
 
 	slog.Info("Starting HTTP server")
-	server := server.NewServer(&config.HTTP, eventChannel)
+	server := server.NewServer(&config.HTTP, eventChannel, db)
 	err = server.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start HTTP server: %w", err)
