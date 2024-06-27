@@ -9,12 +9,14 @@ import (
 	"strconv"
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
+	"github.com/USA-RedDragon/connect-server/internal/db/models"
 	"github.com/USA-RedDragon/connect-server/internal/events"
 	websocketControllers "github.com/USA-RedDragon/connect-server/internal/server/websocket"
 	"github.com/USA-RedDragon/connect-server/internal/utils"
 	"github.com/USA-RedDragon/connect-server/internal/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"gorm.io/gorm"
 )
 
 func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events.Event) {
@@ -53,7 +55,6 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 
 	apiV2 := r.Group("/v2")
 	apiV2.POST("/pilotauth", func(c *gin.Context) {
-		slog.Info("Pilot Auth", "url", c.Request.URL.String())
 		param_imei, ok := c.GetQuery("imei")
 		if !ok {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "imei is required"})
@@ -114,7 +115,6 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 			c.JSON(http.StatusBadRequest, gin.H{"error": "register_token is required"})
 			return
 		}
-		// Validate register_token as JWT signed by the public key
 
 		blk, _ := pem.Decode([]byte(param_public_key))
 		key, err := x509.ParsePKIXPublicKey(blk.Bytes)
@@ -163,9 +163,39 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 			return
 		}
 
-		slog.Info("Pilot Auth", "imei", imei, "imei2", imei2, "serial", param_serial, "claims", claims)
+		db, ok := c.MustGet("db").(*gorm.DB)
+		if !ok {
+			slog.Error("Failed to get db from context")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
 
-		c.JSON(http.StatusInternalServerError, gin.H{"status": "ok"})
+		_, err = models.FindDeviceBySerial(db, param_serial)
+		// We can ignore the error here, as we're just checking if the device exists
+		if err == nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "serial is already registered"})
+			return
+		}
+
+		dongleID, err := models.GenerateDongleID(db)
+		if err != nil {
+			slog.Error("Failed to generate dongle ID", "error", err)
+		}
+
+		err = db.Create(&models.Device{
+			DongleID:  dongleID,
+			Serial:    param_serial,
+			PublicKey: param_public_key,
+		}).Error
+		if err != nil {
+			slog.Error("Failed to create device", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		slog.Info("Pilot Auth", "imei", imei, "imei2", imei2, "serial", param_serial, "claims", claims, "dongle_id", dongleID)
+
+		c.JSON(http.StatusOK, gin.H{})
 	})
 
 	r.NoRoute(func(c *gin.Context) {

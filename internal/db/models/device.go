@@ -1,6 +1,9 @@
 package models
 
 import (
+	"crypto/rand"
+	"encoding/base64"
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -18,8 +21,6 @@ type Device struct {
 	ID        uint   `json:"-" gorm:"primaryKey" binding:"required"`
 	DongleID  string `json:"dongle_id" gorm:"uniqueIndex" binding:"required"`
 	Serial    string `json:"serial" gorm:"uniqueIndex" binding:"required"`
-	Alias     string `json:"alias"`
-	IsPaired  bool   `json:"is_paired" gorm:"default:false"`
 	PublicKey string `json:"public_key" gorm:"uniqueIndex" binding:"required"`
 	// Prime defaults to true
 	Prime bool `json:"prime" gorm:"default:true"`
@@ -60,6 +61,18 @@ func FindDeviceByID(db *gorm.DB, id uint) (Device, error) {
 	return device, err
 }
 
+func FindDeviceByDongleID(db *gorm.DB, id string) (Device, error) {
+	var device Device
+	err := db.Preload("Owner").Where("dongle_id = ?", id).First(&device).Error
+	return device, err
+}
+
+func FindDeviceBySerial(db *gorm.DB, serial string) (Device, error) {
+	var device Device
+	err := db.Preload("Owner").Where("serial = ?", serial).First(&device).Error
+	return device, err
+}
+
 func ListDevices(db *gorm.DB) ([]Device, error) {
 	var devices []Device
 	err := db.Preload("Owner").Order("id asc").Find(&devices).Error
@@ -93,4 +106,24 @@ func CountUserDevices(db *gorm.DB, id uint) (int, error) {
 	var count int64
 	err := db.Model(&Device{}).Where("owner_id = ?", id).Count(&count).Error
 	return int(count), err
+}
+
+// GenerateDonleID generates a unique random dongle ID
+func GenerateDongleID(db *gorm.DB) (string, error) {
+	buff := make([]byte, 32)
+	len, err := rand.Read(buff)
+	if err != nil {
+		return "", err
+	}
+	if len != 32 {
+		return "", fmt.Errorf("not enough random bytes")
+	}
+	candidate := base64.RawURLEncoding.EncodeToString(buff)[:16]
+
+	_, err = FindDeviceByDongleID(db, candidate)
+	if err == nil {
+		// The device already exists, so try again
+		return GenerateDongleID(db)
+	}
+	return candidate, nil
 }
