@@ -18,7 +18,6 @@ type User struct {
 	Password  string         `json:"-"`
 	Points    uint           `json:"points"`
 	Superuser bool           `json:"superuser" gorm:"default:false"`
-	Devices   []Device       `json:"-"`
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"-"`
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`

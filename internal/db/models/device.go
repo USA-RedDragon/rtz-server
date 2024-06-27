@@ -37,7 +37,7 @@ type Device struct {
 	LastGPSBearing   float64    `json:"last_gps_bearing"`
 	OpenPilotVersion string     `json:"openpilot_version"`
 
-	UserID uint `json:"-"`
+	OwnerID uint `json:"-"`
 
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"-"`
@@ -56,25 +56,25 @@ func DeviceIDExists(db *gorm.DB, id uint) (bool, error) {
 
 func FindDeviceByID(db *gorm.DB, id uint) (Device, error) {
 	var device Device
-	err := db.Preload("User").First(&device, id).Error
+	err := db.First(&device, id).Error
 	return device, err
 }
 
 func FindDeviceByDongleID(db *gorm.DB, id string) (Device, error) {
 	var device Device
-	err := db.Preload("User").Where("dongle_id = ?", id).First(&device).Error
+	err := db.Where("dongle_id = ?", id).First(&device).Error
 	return device, err
 }
 
 func FindDeviceBySerial(db *gorm.DB, serial string) (Device, error) {
 	var device Device
-	err := db.Preload("User").Where("serial = ?", serial).First(&device).Error
+	err := db.Where("serial = ?", serial).First(&device).Error
 	return device, err
 }
 
 func ListDevices(db *gorm.DB) ([]Device, error) {
 	var devices []Device
-	err := db.Preload("User").Order("id asc").Find(&devices).Error
+	err := db.Order("id asc").Find(&devices).Error
 	return devices, err
 }
 
@@ -95,7 +95,7 @@ func DeleteDevice(db *gorm.DB, id uint) error {
 	return nil
 }
 
-// GenerateDonleID generates a unique random dongle ID
+// GenerateDognleID generates a unique random dongle ID
 func GenerateDongleID(db *gorm.DB) (string, error) {
 	buff := make([]byte, 32)
 	len, err := rand.Read(buff)
