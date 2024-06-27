@@ -15,7 +15,7 @@ import (
 )
 
 func MakeDB(config *config.Config) (db *gorm.DB, err error) {
-	db, err = gorm.Open(sqlite.Open(config.Persistence.Database), &gorm.Config{})
+	db, err = gorm.Open(sqlite.Open(config.Persistence.Database+"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)"), &gorm.Config{})
 	if err != nil {
 		return db, fmt.Errorf("failed to open database: %w", err)
 	}
