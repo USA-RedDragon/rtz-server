@@ -1,0 +1,51 @@
+# This is an example configuration file for the connect server
+# Copy this file to config.yaml and modify it to suit your needs.
+
+# HTTP server configuration
+http:
+
+  # The IPv4 address to bind the HTTP server to
+  ipv4_host: '0.0.0.0' # 0.0.0.0 = all interfaces
+
+  # The IPv6 address to bind the HTTP server to
+  ipv6_host: '::' # :: = all interfaces
+
+  # The port to bind the HTTP server to, both IPv4 and IPv6 share the same port
+  port: 8080
+
+  # Sets Gin's trusted proxies. This is useful when you have a reverse proxy in front of your application that sets the X-Forwarded-For header.
+  # This is a list of IP addresses or CIDR ranges that are trusted proxies.
+  trusted_proxies: []
+
+  # Sets which hosts are allowed by CORS. This is a list of hostnames or IP addresses.
+  cors_hosts: []
+
+  # OpenTelemetry configuration
+  tracing:
+
+    # Enable OpenTelemetry tracing
+    enabled: false
+
+    # The OpenTelemetry collector endpoint
+    otlp_endpoint: ''
+
+  # Golang pprof configuration
+  pprof:
+
+    # Enable Golang pprof
+    enabled: false
+
+  # Prometheus metrics configuration
+  metrics:
+
+    # Enable Prometheus metrics
+    enabled: false
+
+    # The IPv4 address to bind the Prometheus metrics server to
+    ipv4_host: '127.0.0.1' # 127.0.0.1 = localhost
+
+    # The IPv6 address to bind the Prometheus metrics server to
+    ipv6_host: '::1' # ::1 = localhost
+
+    # The port to bind the Prometheus metrics server to, both IPv4 and IPv6 share the same port
+    port: 8081

@@ -1,0 +1,89 @@
+name: Unit test
+
+on:
+  workflow_call:
+    inputs:
+      coverage:
+        type: boolean
+        description: 'Run coverage tests'
+        required: false
+        default: false
+    secrets:
+      codecov_token:
+        description: 'Codecov token'
+        required: false
+      token:
+        description: 'GitHub token'
+        required: false
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - run: go generate ./...
+
+      - name: Unit tests
+        if: '!inputs.coverage'
+        run: |
+          go install github.com/jstemmer/go-junit-report/v2@latest
+          go install github.com/vakenbolt/go-test-report@latest
+          env CGO_ENABLED=0 go test -v ./... 2>&1 > out.txt || true
+          env CGO_ENABLED=0 go test -v ./... -json 2>&1 > json-out.txt || true
+          cat out.txt | go-junit-report -out report.xml -iocopy
+          cat json-out.txt | go-test-report -o report.html
+
+      - name: Unit tests coverage
+        if: inputs.coverage
+        run: |
+          env CGO_ENABLED=0 go test -v ./... -coverprofile coverage.out -coverpkg=./... -covermode atomic
+
+      - uses: codecov/codecov-action@v4
+        if: always() && inputs.coverage
+        with:
+          token: ${{ secrets.codecov_token }}
+          fail_ci_if_error: true
+
+      - uses: actions/upload-artifact@v4
+        if: always() && inputs.coverage
+        with:
+          name: coverage
+          path: coverage.out
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish Test Report
+        if: always() && !inputs.coverage
+        uses: mikepenz/action-junit-report@v4
+        with:
+          report_paths: "report.xml"
+          require_tests: true
+          check_retries: true
+          detailed_summary: true
+          fail_on_failure: true
+          token: ${{ secrets.token }}
+          check_name: Unit Tests
+
+      - uses: actions/upload-artifact@v4
+        if: always() && !inputs.coverage
+        with:
+          name: test-report-xml
+          path: report.xml
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/upload-artifact@v4
+        if: always() && !inputs.coverage
+        with:
+          name: test-report-html
+          path: report.html
+          if-no-files-found: error
+          retention-days: 30
