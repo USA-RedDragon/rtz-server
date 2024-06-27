@@ -16,5 +16,7 @@ jobs:
       contents: write
       packages: write
     uses: USA-RedDragon/reusable-actions/.github/workflows/goreleaser.yaml@v1.1.0
+    with:
+      setup-node: true
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
