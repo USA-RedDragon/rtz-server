@@ -73,13 +73,12 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 			c.JSON(http.StatusBadRequest, gin.H{"error": "imei2 is required"})
 			return
 		}
-		if len(param_imei2) != 15 {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "imei2 must be 15 characters"})
-			return
-		}
-		imei2, err := strconv.ParseInt(param_imei2, 10, 64)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "imei2 is not an integer"})
+		var imei2 int64
+		if len(param_imei2) != 0 {
+			imei2, err = strconv.ParseInt(param_imei2, 10, 64)
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "imei2 is not an integer"})
+			}
 		}
 		if !utils.LuhnValid(int(imei2)) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "imei2 is invalid"})
