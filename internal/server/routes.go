@@ -21,6 +21,10 @@ func applyRoutes(r *gin.Engine, config *config.HTTP, eventsChannel chan events.E
 		slog.Info("Get Next Navigation", "url", c.Request.URL.String())
 	})
 
+	apiV1.DELETE("/navigation/:dongle_id/next", func(c *gin.Context) {
+		slog.Info("Delete Next Navigation", "url", c.Request.URL.String())
+	})
+
 	apiV1.GET("/navigation/:dongle_id/locations", func(c *gin.Context) {
 		slog.Info("Get Locations", "url", c.Request.URL.String())
 	})
