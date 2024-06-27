@@ -11,7 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func applyRoutes(r *gin.Engine, config *config.HTTP, eventsChannel chan events.Event) {
+func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events.Event) {
 	r.GET("/health", func(c *gin.Context) {
 		c.String(http.StatusOK, "OK")
 	})

@@ -59,7 +59,7 @@ func run(cmd *cobra.Command, _ []string) error {
 	eventChannel := eventBus.GetChannel()
 
 	slog.Info("Starting HTTP server")
-	server := server.NewServer(&config.HTTP, eventChannel, db)
+	server := server.NewServer(config, eventChannel, db)
 	err = server.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start HTTP server: %w", err)

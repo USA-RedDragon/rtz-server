@@ -25,25 +25,25 @@ type Server struct {
 	metricsIPV4Server *http.Server
 	metricsIPV6Server *http.Server
 	stopped           atomic.Bool
-	config            *config.HTTP
+	config            *config.Config
 }
 
 const defTimeout = 5 * time.Second
 
-func NewServer(config *config.HTTP, eventsChannel chan events.Event, db *gorm.DB) *Server {
+func NewServer(config *config.Config, eventsChannel chan events.Event, db *gorm.DB) *Server {
 	gin.SetMode(gin.ReleaseMode)
-	if config.PProf.Enabled {
+	if config.HTTP.PProf.Enabled {
 		gin.SetMode(gin.DebugMode)
 	}
 
 	r := gin.New()
 
-	if config.PProf.Enabled {
+	if config.HTTP.PProf.Enabled {
 		pprof.Register(r)
 	}
 
 	writeTimeout := defTimeout
-	if config.PProf.Enabled {
+	if config.HTTP.PProf.Enabled {
 		writeTimeout = 60 * time.Second
 	}
 
@@ -53,19 +53,19 @@ func NewServer(config *config.HTTP, eventsChannel chan events.Event, db *gorm.DB
 	var metricsIPV4Server *http.Server
 	var metricsIPV6Server *http.Server
 
-	if config.Metrics.Enabled {
+	if config.HTTP.Metrics.Enabled {
 		metricsRouter := gin.New()
 		applyMiddleware(metricsRouter, config, "metrics", db)
 
 		metricsRouter.GET("/metrics", gin.WrapH(promhttp.Handler()))
 		metricsIPV4Server = &http.Server{
-			Addr:              fmt.Sprintf("%s:%d", config.Metrics.IPV4Host, config.Metrics.Port),
+			Addr:              fmt.Sprintf("%s:%d", config.HTTP.Metrics.IPV4Host, config.HTTP.Metrics.Port),
 			ReadHeaderTimeout: defTimeout,
 			WriteTimeout:      writeTimeout,
 			Handler:           metricsRouter,
 		}
 		metricsIPV6Server = &http.Server{
-			Addr:              fmt.Sprintf("[%s]:%d", config.Metrics.IPV6Host, config.Metrics.Port),
+			Addr:              fmt.Sprintf("[%s]:%d", config.HTTP.Metrics.IPV6Host, config.HTTP.Metrics.Port),
 			ReadHeaderTimeout: defTimeout,
 			WriteTimeout:      defTimeout,
 			Handler:           metricsRouter,
@@ -74,13 +74,13 @@ func NewServer(config *config.HTTP, eventsChannel chan events.Event, db *gorm.DB
 
 	return &Server{
 		ipv4Server: &http.Server{
-			Addr:              fmt.Sprintf("%s:%d", config.IPV4Host, config.Port),
+			Addr:              fmt.Sprintf("%s:%d", config.HTTP.IPV4Host, config.HTTP.Port),
 			ReadHeaderTimeout: defTimeout,
 			WriteTimeout:      writeTimeout,
 			Handler:           r,
 		},
 		ipv6Server: &http.Server{
-			Addr:              fmt.Sprintf("[%s]:%d", config.IPV6Host, config.Port),
+			Addr:              fmt.Sprintf("[%s]:%d", config.HTTP.IPV6Host, config.HTTP.Port),
 			ReadHeaderTimeout: defTimeout,
 			WriteTimeout:      defTimeout,
 			Handler:           r,
@@ -120,9 +120,9 @@ func (s *Server) Start() error {
 			}
 		}()
 	}
-	slog.Info("HTTP server started", "ipv4", s.config.IPV4Host, "ipv6", s.config.IPV6Host, "port", s.config.Port)
+	slog.Info("HTTP server started", "ipv4", s.config.HTTP.IPV4Host, "ipv6", s.config.HTTP.IPV6Host, "port", s.config.HTTP.Port)
 
-	if s.config.Metrics.Enabled {
+	if s.config.HTTP.Metrics.Enabled {
 		if s.metricsIPV4Server != nil {
 			metricsIPV4Listener, err := net.Listen("tcp4", s.metricsIPV4Server.Addr)
 			if err != nil {
@@ -150,7 +150,7 @@ func (s *Server) Start() error {
 				}
 			}()
 		}
-		slog.Info("Metrics server started", "ipv4", s.config.Metrics.IPV4Host, "ipv6", s.config.Metrics.IPV6Host, "port", s.config.Metrics.Port)
+		slog.Info("Metrics server started", "ipv4", s.config.HTTP.Metrics.IPV4Host, "ipv6", s.config.HTTP.Metrics.IPV6Host, "port", s.config.HTTP.Metrics.Port)
 	}
 
 	go func() {

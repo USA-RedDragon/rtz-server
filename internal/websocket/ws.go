@@ -25,7 +25,7 @@ type WSHandler struct {
 	conn       *websocket.Conn
 }
 
-func CreateHandler(ws Websocket, config *config.HTTP) func(*gin.Context) {
+func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 	handler := &WSHandler{
 		wsUpgrader: websocket.Upgrader{
 			HandshakeTimeout: 0,
@@ -41,7 +41,7 @@ func CreateHandler(ws Websocket, config *config.HTTP) func(*gin.Context) {
 					return true
 				}
 				origin = strings.ToLower(origin)
-				for _, host := range config.CORSHosts {
+				for _, host := range config.HTTP.CORSHosts {
 					host = strings.ToLower(host)
 					if strings.HasSuffix(host, ":443") && strings.HasPrefix(origin, "https://") {
 						host = strings.TrimSuffix(host, ":443")

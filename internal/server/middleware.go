@@ -11,27 +11,27 @@ import (
 	"gorm.io/gorm"
 )
 
-func applyMiddleware(r *gin.Engine, config *config.HTTP, otelComponent string, db *gorm.DB) {
+func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string, db *gorm.DB) {
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
 	r.TrustedPlatform = "X-Real-IP"
 
-	err := r.SetTrustedProxies(config.TrustedProxies)
+	err := r.SetTrustedProxies(config.HTTP.TrustedProxies)
 	if err != nil {
 		slog.Error("Failed to set trusted proxies", "error", err.Error())
 	}
 
 	r.Use(dbMiddleware(db))
 
-	if config.Tracing.Enabled {
+	if config.HTTP.Tracing.Enabled {
 		r.Use(otelgin.Middleware(otelComponent))
 		r.Use(tracingProvider(config))
 	}
 }
 
-func tracingProvider(config *config.HTTP) gin.HandlerFunc {
+func tracingProvider(config *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if config.Tracing.OTLPEndpoint != "" {
+		if config.HTTP.Tracing.OTLPEndpoint != "" {
 			ctx := c.Request.Context()
 			span := trace.SpanFromContext(ctx)
 			if span.IsRecording() {
