@@ -27,29 +27,29 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 	authMiddleware := requireAuth(config)
 
 	apiV1 := r.Group("/v1")
-	apiV1.GET("/navigation/:dongle_id/next", authMiddleware, func(c *gin.Context) {
+	apiV1.GET("/navigation/:dongle_id/next", setDevice(), authMiddleware, func(c *gin.Context) {
 		slog.Info("Get Next Navigation", "url", c.Request.URL.String())
 	})
 
-	apiV1.DELETE("/navigation/:dongle_id/next", authMiddleware, func(c *gin.Context) {
+	apiV1.DELETE("/navigation/:dongle_id/next", setDevice(), authMiddleware, func(c *gin.Context) {
 		slog.Info("Delete Next Navigation", "url", c.Request.URL.String())
 	})
 
-	apiV1.GET("/navigation/:dongle_id/locations", authMiddleware, func(c *gin.Context) {
+	apiV1.GET("/navigation/:dongle_id/locations", setDevice(), authMiddleware, func(c *gin.Context) {
 		slog.Info("Get Locations", "url", c.Request.URL.String())
 	})
 
 	apiV11 := r.Group("/v1.1")
-	apiV11.GET("/devices/:dongle_id/", authMiddleware, func(c *gin.Context) {
+	apiV11.GET("/devices/:dongle_id/", setDevice(), authMiddleware, func(c *gin.Context) {
 		slog.Info("Get Device", "url", c.Request.URL.String())
 	})
 
-	apiV11.GET("/devices/:dongle_id/stats", authMiddleware, func(c *gin.Context) {
+	apiV11.GET("/devices/:dongle_id/stats", setDevice(), authMiddleware, func(c *gin.Context) {
 		slog.Info("Get Stats", "url", c.Request.URL.String())
 	})
 
 	apiV14 := r.Group("/v1.4")
-	apiV14.GET("/:dongle_id/upload_url", authMiddleware, func(c *gin.Context) {
+	apiV14.GET("/:dongle_id/upload_url", setDevice(), authMiddleware, func(c *gin.Context) {
 		slog.Info("Get Upload URL", "url", c.Request.URL.String())
 	})
 
@@ -197,8 +197,6 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 			return
 		}
 
-		slog.Info("Pilot Auth", "imei", imei, "imei2", imei2, "serial", param_serial, "claims", claims, "dongle_id", dongleID)
-
 		c.JSON(http.StatusOK, gin.H{"dongle_id": dongleID})
 	})
 
@@ -208,5 +206,5 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 	})
 
 	wsV2 := r.Group("/ws/v2")
-	wsV2.GET("/:dongle_id", requireCookieAuth(config), websocket.CreateHandler(websocketControllers.CreateEventsWebsocket(eventsChannel), config))
+	wsV2.GET("/:dongle_id", setDevice(), requireCookieAuth(config), websocket.CreateHandler(websocketControllers.CreateEventsWebsocket(eventsChannel), config))
 }

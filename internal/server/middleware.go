@@ -66,6 +66,30 @@ func requireAuth(_ *config.Config) gin.HandlerFunc {
 	}
 }
 
+func setDevice() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		dongleID, ok := c.Params.Get("dongle_id")
+		if !ok {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+			return
+		}
+		db, ok := c.MustGet("db").(*gorm.DB)
+		if !ok {
+			slog.Error("Failed to get db from context")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		device, err := models.FindDeviceByDongleID(db, dongleID)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+		c.Set("device", &device)
+
+		c.Next()
+	}
+}
+
 // Requires a jwt cookie
 func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -75,22 +99,10 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		dongleID, ok := c.Params.Get("dongle_id")
+		device, ok := c.MustGet("device").(*models.Device)
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
-			return
-		}
-
-		db, ok := c.MustGet("db").(*gorm.DB)
-		if !ok {
-			slog.Error("Failed to get db from context")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-
-		device, err := models.FindDeviceByDongleID(db, dongleID)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			slog.Error("Failed to get device from context")
+			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
 
@@ -128,8 +140,6 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
 		}
-
-		c.Set("device", &device)
 
 		fmt.Println(claims)
 
