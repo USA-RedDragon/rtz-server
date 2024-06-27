@@ -9,6 +9,7 @@ import (
 	"github.com/USA-RedDragon/connect-server/internal/utils"
 	gorm_seeder "github.com/kachit/gorm-seeder"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type User struct {
@@ -24,12 +25,6 @@ type User struct {
 
 func (u User) TableName() string {
 	return "users"
-}
-
-func UserExists(db *gorm.DB, user User) (bool, error) {
-	var count int64
-	err := db.Model(&User{}).Where("ID = ?", user.ID).Limit(1).Count(&count).Error
-	return count > 0, err
 }
 
 func UserIDExists(db *gorm.DB, id uint) (bool, error) {
@@ -96,7 +91,7 @@ func (s *UsersSeeder) Clear(db *gorm.DB) error {
 
 func DeleteUser(db *gorm.DB, id uint) error {
 	err := db.Transaction(func(tx *gorm.DB) error {
-		tx.Unscoped().Delete(&User{ID: id})
+		tx.Unscoped().Select(clause.Associations, "Devices").Delete(&User{ID: id})
 		return nil
 	})
 	if err != nil {
