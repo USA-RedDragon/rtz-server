@@ -205,8 +205,6 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		fmt.Println(claims)
-
 		c.Next()
 	}
 }
