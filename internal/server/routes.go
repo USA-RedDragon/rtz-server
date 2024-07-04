@@ -156,28 +156,27 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 
 			user, err = models.FindUserByGoogleID(db, id)
 			if err != nil {
-				slog.Error("Failed to register or login user", "error", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-				return
-			}
-			if user == (models.User{}) && config.Registration.Enabled {
-				err = db.Create(&models.User{
-					GoogleUserID: id,
-				}).Error
-				if err != nil {
-					slog.Error("Failed to create user", "error", err)
+				if errors.Is(err, gorm.ErrRecordNotFound) && config.Registration.Enabled {
+					// Create user
+					err = db.Create(&models.User{
+						GoogleUserID: id,
+					}).Error
+					if err != nil {
+						slog.Error("Failed to create user", "error", err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+						return
+					}
+					user, err = models.FindUserByGoogleID(db, id)
+					if err != nil {
+						slog.Error("Failed to find user", "error", err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+						return
+					}
+				} else {
+					slog.Error("Failed to register or login user", "error", err)
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 					return
 				}
-				user, err = models.FindUserByGoogleID(db, id)
-				if err != nil {
-					slog.Error("Failed to find user", "error", err)
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-					return
-				}
-			} else if user == (models.User{}) {
-				c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-				return
 			}
 		case "h":
 			urldata := url.Values{}
@@ -227,36 +226,30 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 
 			user, err = models.FindUserByGitHubID(db, id)
 			if err != nil {
-				slog.Error("Failed to register or login user", "error", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-				return
-			}
-			if user == (models.User{}) && config.Registration.Enabled {
-				err = db.Create(&models.User{
-					GitHubUserID: id,
-				}).Error
-				if err != nil {
-					slog.Error("Failed to create user", "error", err)
+				if errors.Is(err, gorm.ErrRecordNotFound) && config.Registration.Enabled {
+					// Create user
+					err = db.Create(&models.User{
+						GitHubUserID: id,
+					}).Error
+					if err != nil {
+						slog.Error("Failed to create user", "error", err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+						return
+					}
+					user, err = models.FindUserByGitHubID(db, id)
+					if err != nil {
+						slog.Error("Failed to find user", "error", err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+						return
+					}
+				} else {
+					slog.Error("Failed to register or login user", "error", err)
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 					return
 				}
-				user, err = models.FindUserByGitHubID(db, id)
-				if err != nil {
-					slog.Error("Failed to find user", "error", err)
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-					return
-				}
-			} else if user == (models.User{}) {
-				c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-				return
 			}
 		default:
 			c.JSON(http.StatusBadRequest, gin.H{"error": "provider is invalid"})
-			return
-		}
-
-		if user == (models.User{}) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 			return
 		}
 
