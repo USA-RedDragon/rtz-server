@@ -3,4 +3,3 @@
 *.sqlite3-wal
 config.yaml
 uploads/
-internal/server/frontend
