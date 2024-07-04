@@ -1,13 +1,8 @@
 package models
 
 import (
-	"fmt"
-	"log/slog"
 	"time"
 
-	"github.com/USA-RedDragon/connect-server/internal/config"
-	"github.com/USA-RedDragon/connect-server/internal/utils"
-	gorm_seeder "github.com/kachit/gorm-seeder"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -15,7 +10,7 @@ import (
 type User struct {
 	ID        uint           `json:"id" gorm:"primaryKey" binding:"required"`
 	Username  string         `json:"username" gorm:"uniqueIndex" binding:"required"`
-	Password  string         `json:"-"`
+	Email     string         `json:"email" gorm:"uniqueIndex" binding:"required"`
 	Points    uint           `json:"points"`
 	Superuser bool           `json:"superuser" gorm:"default:false"`
 	CreatedAt time.Time      `json:"created_at"`
@@ -49,44 +44,6 @@ func CountUsers(db *gorm.DB) (int, error) {
 	var count int64
 	err := db.Model(&User{}).Count(&count).Error
 	return int(count), err
-}
-
-type UsersSeeder struct {
-	gorm_seeder.SeederAbstract
-	config *config.Config
-}
-
-const UserSeederRows = 1
-
-func NewUsersSeeder(cfg gorm_seeder.SeederConfiguration, config *config.Config) UsersSeeder {
-	return UsersSeeder{gorm_seeder.NewSeederAbstract(cfg), config}
-}
-
-func (s *UsersSeeder) Seed(db *gorm.DB) error {
-	if s.config.Registration.InitialAdmin.Username == "" {
-		return fmt.Errorf("initial admin username is not set")
-	}
-	if s.config.Registration.InitialAdmin.Password == "" {
-		return fmt.Errorf("initial admin password is not set")
-	}
-	hashedPassword, err := utils.HashPassword(s.config.Registration.InitialAdmin.Password, s.config.Registration.PasswordSalt)
-	if err != nil {
-		return err
-	}
-	var users = []User{
-		{
-			ID:        0,
-			Username:  s.config.Registration.InitialAdmin.Username,
-			Password:  hashedPassword,
-			Superuser: true,
-		},
-	}
-	slog.Info("Initial admin user created.")
-	return db.CreateInBatches(users, s.Configuration.Rows).Error
-}
-
-func (s *UsersSeeder) Clear(db *gorm.DB) error {
-	return db.Delete(&User{ID: 0}).Error
 }
 
 func DeleteUser(db *gorm.DB, id uint) error {

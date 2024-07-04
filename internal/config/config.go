@@ -36,9 +36,7 @@ type GitHub struct {
 }
 
 type Registration struct {
-	Enabled      bool         `json:"enabled"`
-	PasswordSalt string       `json:"password_salt" yaml:"password_salt"`
-	InitialAdmin InitialAdmin `json:"initial_admin" yaml:"initial_admin"`
+	Enabled bool `json:"enabled"`
 }
 
 type InitialAdmin struct {
@@ -82,30 +80,27 @@ type HTTP struct {
 
 //nolint:golint,gochecknoglobals
 var (
-	ConfigFileKey                       = "config"
-	HTTPIPV4HostKey                     = "http.ipv4_host"
-	HTTPIPV6HostKey                     = "http.ipv6_host"
-	HTTPPortKey                         = "http.port"
-	HTTPTracingEnabledKey               = "http.tracing.enabled"
-	HTTPTracingOTLPEndKey               = "http.tracing.otlp_endpoint"
-	HTTPPProfEnabledKey                 = "http.pprof.enabled"
-	HTTPTrustedProxiesKey               = "http.trusted_proxies"
-	HTTPMetricsEnabledKey               = "http.metrics.enabled"
-	HTTPMetricsIPV4HostKey              = "http.metrics.ipv4_host"
-	HTTPMetricsIPV6HostKey              = "http.metrics.ipv6_host"
-	HTTPMetricsPortKey                  = "http.metrics.port"
-	HTTPCORSHostsKey                    = "http.cors_hosts"
-	PersistenceDatabaseKey              = "persistence.database"
-	PersistenceUploadsKey               = "persistence.uploads"
-	RegistrationEnabledKey              = "registration.enabled"
-	RegistrationPasswordSaltKey         = "registration.password_salt"
-	RegistrationInitialAdminUsernameKey = "registration.initial_admin.username"
-	RegistrationInitialAdminPasswordKey = "registration.initial_admin.password"
-	AuthGoogleRedirectURI               = "auth.google.redirect_uri"
-	AuthGoogleClientID                  = "auth.google.client_id"
-	AuthGoogleClientSecret              = "auth.google.client_secret"
-	AuthGitHubClientID                  = "auth.github.client_id"
-	AuthGitHubClientSecret              = "auth.github.client_secret"
+	ConfigFileKey          = "config"
+	HTTPIPV4HostKey        = "http.ipv4_host"
+	HTTPIPV6HostKey        = "http.ipv6_host"
+	HTTPPortKey            = "http.port"
+	HTTPTracingEnabledKey  = "http.tracing.enabled"
+	HTTPTracingOTLPEndKey  = "http.tracing.otlp_endpoint"
+	HTTPPProfEnabledKey    = "http.pprof.enabled"
+	HTTPTrustedProxiesKey  = "http.trusted_proxies"
+	HTTPMetricsEnabledKey  = "http.metrics.enabled"
+	HTTPMetricsIPV4HostKey = "http.metrics.ipv4_host"
+	HTTPMetricsIPV6HostKey = "http.metrics.ipv6_host"
+	HTTPMetricsPortKey     = "http.metrics.port"
+	HTTPCORSHostsKey       = "http.cors_hosts"
+	PersistenceDatabaseKey = "persistence.database"
+	PersistenceUploadsKey  = "persistence.uploads"
+	RegistrationEnabledKey = "registration.enabled"
+	AuthGoogleRedirectURI  = "auth.google.redirect_uri"
+	AuthGoogleClientID     = "auth.google.client_id"
+	AuthGoogleClientSecret = "auth.google.client_secret"
+	AuthGitHubClientID     = "auth.github.client_id"
+	AuthGitHubClientSecret = "auth.github.client_secret"
 )
 
 const (
@@ -138,9 +133,6 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(PersistenceDatabaseKey, DefaultPersistenceDatabase, "Database file path")
 	cmd.Flags().String(PersistenceUploadsKey, DefaultPersistenceUploads, "Uploads directory")
 	cmd.Flags().Bool(RegistrationEnabledKey, DefaultRegistrationEnabled, "Enable registration")
-	cmd.Flags().String(RegistrationPasswordSaltKey, "", "Password salt")
-	cmd.Flags().String(RegistrationInitialAdminUsernameKey, "", "Initial admin username")
-	cmd.Flags().String(RegistrationInitialAdminPasswordKey, "", "Initial admin password")
 	cmd.Flags().String(AuthGoogleRedirectURI, "", "Google OAuth redirect URI")
 	cmd.Flags().String(AuthGoogleClientID, "", "Google OAuth client ID")
 	cmd.Flags().String(AuthGoogleClientSecret, "", "Google OAuth client secret")
@@ -149,9 +141,6 @@ func RegisterFlags(cmd *cobra.Command) {
 }
 
 func (c *Config) Validate() error {
-	if c.Registration.PasswordSalt == "" {
-		return fmt.Errorf("password salt is required")
-	}
 	return nil
 }
 
@@ -336,27 +325,6 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		config.Registration.Enabled, err = cmd.Flags().GetBool(RegistrationEnabledKey)
 		if err != nil {
 			return fmt.Errorf("failed to get registration enabled: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(RegistrationPasswordSaltKey) {
-		config.Registration.PasswordSalt, err = cmd.Flags().GetString(RegistrationPasswordSaltKey)
-		if err != nil {
-			return fmt.Errorf("failed to get registration password salt: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(RegistrationInitialAdminUsernameKey) {
-		config.Registration.InitialAdmin.Username, err = cmd.Flags().GetString(RegistrationInitialAdminUsernameKey)
-		if err != nil {
-			return fmt.Errorf("failed to get registration initial admin username: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(RegistrationInitialAdminPasswordKey) {
-		config.Registration.InitialAdmin.Password, err = cmd.Flags().GetString(RegistrationInitialAdminPasswordKey)
-		if err != nil {
-			return fmt.Errorf("failed to get registration initial admin password: %w", err)
 		}
 	}
 

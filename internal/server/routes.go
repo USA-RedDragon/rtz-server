@@ -96,7 +96,7 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 			c.JSON(http.StatusBadRequest, gin.H{"error": "scope is required"})
 			return
 		}
-		if scope != "openid" {
+		if scope != "https://www.googleapis.com/auth/userinfo.email" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "scope is invalid"})
 			return
 		}

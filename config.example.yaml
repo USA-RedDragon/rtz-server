@@ -61,12 +61,6 @@ persistence:
 registration:
   # Enable user registration
   enabled: false
-  # Password salt for hashing passwords
-  password_salt: 'change-me-please-for-the-love-of-all-things-holy-and-unholy'
-  # Initial admin user, only effective the first time the server is started
-  initial_admin:
-    username: 'admin'
-    password: 'change-me-please-for-the-love-of-all-things-holy-and-unholy'
 
 auth:
   google:
