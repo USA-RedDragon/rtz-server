@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -113,6 +114,9 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 		data.Set("redirect_uri", config.Auth.Google.RedirectURI)
 		data.Set("grant_type", "authorization_code")
 
+		slog.Info("Google Token URL", "url", tokenURL)
+		slog.Info("Google Token Data", "data", data.Encode())
+
 		req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
 		if err != nil {
 			slog.Error("Failed to create request", "error", err)
@@ -161,7 +165,6 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 			return
 		}
 
-		tokenURL := "https://github.com/login/oauth/access_token"
 		client := http.Client{
 			Timeout: 5 * time.Second,
 		}
@@ -171,13 +174,15 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 		data.Set("client_id", config.Auth.GitHub.ClientID)
 		data.Set("client_secret", config.Auth.GitHub.ClientSecret)
 
-		req, err := http.NewRequest(http.MethodPost, tokenURL+"?"+data.Encode(), nil)
+		tokenURL := fmt.Sprintf("https://github.com/login/oauth/access_token?code=%s&client_id=%s&client_secret=%s", code, config.Auth.GitHub.ClientID, config.Auth.GitHub.ClientSecret)
+		slog.Info("GitHub Token URL", "url", tokenURL)
+
+		req, err := http.NewRequest(http.MethodPost, tokenURL, nil)
 		if err != nil {
 			slog.Error("Failed to create request", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 		req.Header.Add("Accept", "application/json")
 
 		resp, err := client.Do(req)
