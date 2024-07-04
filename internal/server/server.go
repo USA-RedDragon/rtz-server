@@ -37,8 +37,7 @@ type Router struct {
 }
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	// remove trailing slash
-	if strings.HasSuffix(req.RequestURI, "/") {
+	if strings.HasSuffix(req.URL.Path, "/") {
 		req.URL.Path = filepath.Clean(req.URL.Path)
 	}
 	r.Engine.ServeHTTP(w, req)
