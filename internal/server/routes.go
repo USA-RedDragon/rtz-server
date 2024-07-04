@@ -43,6 +43,7 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 
 func v1(group *gin.RouterGroup, config *config.Config) {
 	group.GET("/me", requireJWTAuth(config), controllersV1.GETMe)
+	group.GET("/me/devices", requireJWTAuth(config), controllersV1.GETMyDevices)
 	group.GET("/navigation/:dongle_id/next", setDevice(), requireAuth(config), controllersV1.GETNavigationNext)
 	group.DELETE("/navigation/:dongle_id/next", setDevice(), requireAuth(config), controllersV1.DELETENavigationNext)
 	group.GET("/navigation/:dongle_id/locations", setDevice(), requireAuth(config), controllersV1.GETNavigationLocations)

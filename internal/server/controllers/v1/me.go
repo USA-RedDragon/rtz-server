@@ -34,3 +34,8 @@ func GETMe(c *gin.Context) {
 
 	c.JSON(http.StatusOK, userResp)
 }
+
+func GETMyDevices(c *gin.Context) {
+	slog.Info("Get Devices", "url", c.Request.URL.String())
+	c.JSON(http.StatusOK, []v1.GETMyDevicesResponse{})
+}
