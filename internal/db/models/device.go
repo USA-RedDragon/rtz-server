@@ -52,7 +52,7 @@ func (u Device) TableName() string {
 
 func DeviceIDExists(db *gorm.DB, id uint) (bool, error) {
 	var count int64
-	err := db.Model(&Device{}).Where("ID = ?", id).Limit(1).Count(&count).Error
+	err := db.Model(&Device{}).Where(&Device{ID: id}).Limit(1).Count(&count).Error
 	return count > 0, err
 }
 
@@ -64,13 +64,13 @@ func FindDeviceByID(db *gorm.DB, id uint) (Device, error) {
 
 func FindDeviceByDongleID(db *gorm.DB, id string) (Device, error) {
 	var device Device
-	err := db.Where("dongle_id = ?", id).First(&device).Error
+	err := db.Where(&Device{DongleID: id}).First(&device).Error
 	return device, err
 }
 
 func FindDeviceBySerial(db *gorm.DB, serial string) (Device, error) {
 	var device Device
-	err := db.Where("serial = ?", serial).First(&device).Error
+	err := db.Where(&Device{Serial: serial}).First(&device).Error
 	return device, err
 }
 
@@ -118,5 +118,5 @@ func GenerateDongleID(db *gorm.DB) (string, error) {
 }
 
 func UpdateAthenaPingTimestamp(db *gorm.DB, id uint) error {
-	return db.Model(&Device{}).Where("id = ?", id).Update("last_athena_ping", time.Now().Unix()).Error
+	return db.Model(&Device{}).Where(&Device{ID: id}).Update("LastAthenaPing", time.Now().Unix()).Error
 }

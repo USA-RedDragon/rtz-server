@@ -23,7 +23,7 @@ func (u User) TableName() string {
 
 func UserIDExists(db *gorm.DB, id uint) (bool, error) {
 	var count int64
-	err := db.Model(&User{}).Where("ID = ?", id).Limit(1).Count(&count).Error
+	err := db.Model(&User{}).Where(&User{ID: id}).Limit(1).Count(&count).Error
 	return count > 0, err
 }
 
@@ -35,13 +35,13 @@ func FindUserByID(db *gorm.DB, id uint) (User, error) {
 
 func FindUserByGitHubID(db *gorm.DB, id int) (User, error) {
 	var user User
-	err := db.Where("github_user_id = ?", id).First(&user).Error
+	err := db.Where(&User{GitHubUserID: id}).First(&user).Error
 	return user, err
 }
 
 func FindUserByGoogleID(db *gorm.DB, id string) (User, error) {
 	var user User
-	err := db.Where("google_user_id = ?", id).First(&user).Error
+	err := db.Where(&User{GoogleUserID: id}).First(&user).Error
 	return user, err
 }
 
