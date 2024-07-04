@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -30,6 +32,18 @@ type Server struct {
 
 const defTimeout = 5 * time.Second
 
+type Router struct {
+	*gin.Engine
+}
+
+func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// remove trailing slash
+	if strings.HasSuffix(req.RequestURI, "/") {
+		req.URL.Path = filepath.Clean(req.URL.Path)
+	}
+	r.Engine.ServeHTTP(w, req)
+}
+
 func NewServer(config *config.Config, eventsChannel chan events.Event, db *gorm.DB) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	if config.HTTP.PProf.Enabled {
@@ -37,6 +51,12 @@ func NewServer(config *config.Config, eventsChannel chan events.Event, db *gorm.
 	}
 
 	r := gin.New()
+	r.RedirectTrailingSlash = false
+	r.RedirectFixedPath = false
+
+	skipContextPathRouter := Router{
+		Engine: r,
+	}
 
 	if config.HTTP.PProf.Enabled {
 		pprof.Register(r)
@@ -77,13 +97,13 @@ func NewServer(config *config.Config, eventsChannel chan events.Event, db *gorm.
 			Addr:              fmt.Sprintf("%s:%d", config.HTTP.IPV4Host, config.HTTP.Port),
 			ReadHeaderTimeout: defTimeout,
 			WriteTimeout:      writeTimeout,
-			Handler:           r,
+			Handler:           &skipContextPathRouter,
 		},
 		ipv6Server: &http.Server{
 			Addr:              fmt.Sprintf("[%s]:%d", config.HTTP.IPV6Host, config.HTTP.Port),
 			ReadHeaderTimeout: defTimeout,
 			WriteTimeout:      defTimeout,
-			Handler:           r,
+			Handler:           &skipContextPathRouter,
 		},
 		metricsIPV4Server: metricsIPV4Server,
 		metricsIPV6Server: metricsIPV6Server,
