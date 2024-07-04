@@ -96,7 +96,7 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 			c.JSON(http.StatusBadRequest, gin.H{"error": "scope is required"})
 			return
 		}
-		if scope != "https://www.googleapis.com/auth/userinfo.email" {
+		if !strings.Contains(scope, "https://www.googleapis.com/auth/userinfo.email") {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "scope is invalid"})
 			return
 		}
@@ -171,7 +171,7 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 		data.Set("client_id", config.Auth.GitHub.ClientID)
 		data.Set("client_secret", config.Auth.GitHub.ClientSecret)
 
-		req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
+		req, err := http.NewRequest(http.MethodPost, tokenURL+"?"+data.Encode(), nil)
 		if err != nil {
 			slog.Error("Failed to create request", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
