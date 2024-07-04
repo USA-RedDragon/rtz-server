@@ -11,6 +11,7 @@ import (
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
+	"github.com/USA-RedDragon/connect-server/internal/utils"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -214,6 +215,48 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
 		}
+
+		c.Next()
+	}
+}
+
+func requireJWTAuth(config *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		if !strings.HasPrefix(authHeader, "JWT ") {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		jwtString := strings.TrimPrefix(authHeader, "JWT ")
+
+		uid, err := utils.VerifyJWT(config.JWT.Secret, jwtString)
+		if err != nil {
+			slog.Error("Failed to parse token", "error", err)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		db, ok := c.MustGet("db").(*gorm.DB)
+		if !ok {
+			slog.Error("Failed to get db from context")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		user, err := models.FindUserByID(db, uid)
+		if err != nil {
+			slog.Error("Failed to find user", "error", err)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		c.Set("user", &user)
 
 		c.Next()
 	}

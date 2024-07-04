@@ -30,8 +30,41 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 	})
 
 	authMiddleware := requireAuth(config)
+	jwtAuthMiddleware := requireJWTAuth(config)
 
 	apiV1 := r.Group("/v1")
+	apiV1.GET("/me", jwtAuthMiddleware, func(c *gin.Context) {
+		user, ok := c.MustGet("user").(*models.User)
+		if !ok {
+			slog.Error("Failed to get user from context")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		type userResponse struct {
+			Email          string `json:"email"`
+			ID             string `json:"id"`
+			Prime          bool   `json:"prime"`
+			RegisteredDate uint   `json:"regdate"`
+			Superuser      bool   `json:"superuser"`
+			UserID         string `json:"user_id"`
+			Username       string `json:"username"`
+		}
+		userResp := userResponse{
+			Email:          "no emails here",
+			ID:             fmt.Sprintf("%d", user.ID),
+			Prime:          true,
+			RegisteredDate: uint(user.CreatedAt.Unix()),
+			Superuser:      user.Superuser,
+		}
+		if user.GitHubUserID != 0 {
+			userResp.UserID = fmt.Sprintf("%d", user.GitHubUserID)
+		} else {
+			userResp.UserID = user.GoogleUserID
+		}
+
+		c.JSON(http.StatusOK, userResp)
+	})
+
 	apiV1.GET("/navigation/:dongle_id/next", setDevice(), authMiddleware, func(c *gin.Context) {
 		slog.Info("Get Next Navigation", "url", c.Request.URL.String())
 	})
@@ -253,7 +286,7 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 			return
 		}
 
-		token, err := utils.GenerateJWT(config.JWT.Secret, user.ID, user.Superuser)
+		token, err := utils.GenerateJWT(config.JWT.Secret, user.ID)
 		if err != nil {
 			slog.Error("Failed to generate JWT", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
