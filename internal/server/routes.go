@@ -11,8 +11,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
+	"github.com/USA-RedDragon/connect-server/internal/apis"
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
 	"github.com/USA-RedDragon/connect-server/internal/events"
@@ -80,6 +80,203 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 
 	apiV2 := r.Group("/v2")
 
+	apiV2.POST("/auth", func(c *gin.Context) {
+		type postData struct {
+			Code     string `json:"code"`
+			Provider string `json:"provider"`
+		}
+
+		var data postData
+		err := c.BindJSON(&data)
+		if err != nil {
+			slog.Error("Failed to bind JSON", "error", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		if data.Code == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
+			return
+		}
+
+		if data.Provider == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "provider is required"})
+			return
+		}
+
+		db, ok := c.MustGet("db").(*gorm.DB)
+		if !ok {
+			slog.Error("Failed to get db from context")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		var user models.User
+		switch data.Provider {
+		case "g":
+			tokenURL := "https://oauth2.googleapis.com/token"
+
+			urldata := url.Values{}
+			urldata.Set("code", data.Code)
+			urldata.Set("client_id", config.Auth.Google.ClientID)
+			urldata.Set("client_secret", config.Auth.Google.ClientSecret)
+			urldata.Set("redirect_uri", config.Auth.Google.RedirectURI)
+			urldata.Set("grant_type", "authorization_code")
+
+			resp, err := utils.HTTPRequest(http.MethodPost, tokenURL, strings.NewReader(urldata.Encode()), map[string]string{
+				"Content-Type": "application/x-www-form-urlencoded",
+			})
+			if err != nil {
+				slog.Error("Failed to make request", "error", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				slog.Error("Failed to get token", "status", resp.StatusCode)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+
+			var tokenResponse struct {
+				AccessToken  string `json:"access_token"`
+				TokenType    string `json:"token_type"`
+				ExpiresIn    int    `json:"expires_in"`
+				Scope        string `json:"scope"`
+				RefreshToken string `json:"refresh_token"`
+			}
+
+			err = json.NewDecoder(resp.Body).Decode(&tokenResponse)
+			if err != nil {
+				slog.Error("Failed to decode response", "error", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+
+			id, err := apis.GetGoogleUserID(tokenResponse.AccessToken)
+			if err != nil {
+				slog.Error("Failed to get Google user ID", "error", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+
+			user, err = models.FindUserByGoogleID(db, id)
+			if err != nil {
+				slog.Error("Failed to register or login user", "error", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+			if user == (models.User{}) && config.Registration.Enabled {
+				err = db.Create(&models.User{
+					GoogleUserID: id,
+				}).Error
+				if err != nil {
+					slog.Error("Failed to create user", "error", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+					return
+				}
+				user, err = models.FindUserByGoogleID(db, id)
+				if err != nil {
+					slog.Error("Failed to find user", "error", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+					return
+				}
+			} else if user == (models.User{}) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+				return
+			}
+		case "h":
+			urldata := url.Values{}
+			urldata.Set("code", data.Code)
+			urldata.Set("client_id", config.Auth.GitHub.ClientID)
+			urldata.Set("client_secret", config.Auth.GitHub.ClientSecret)
+
+			tokenURL := fmt.Sprintf(
+				"https://github.com/login/oauth/access_token?code=%s&client_id=%s&client_secret=%s",
+				data.Code,
+				config.Auth.GitHub.ClientID,
+				config.Auth.GitHub.ClientSecret)
+
+			resp, err := utils.HTTPRequest(http.MethodPost, tokenURL, strings.NewReader(urldata.Encode()), map[string]string{
+				"Accept": "application/json",
+			})
+			if err != nil {
+				slog.Error("Failed to make request", "error", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				slog.Error("Failed to get token", "status", resp.StatusCode)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+
+			var tokenResponse struct {
+				AccessToken string `json:"access_token"`
+			}
+
+			err = json.NewDecoder(resp.Body).Decode(&tokenResponse)
+			if err != nil {
+				slog.Error("Failed to decode response", "error", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+
+			id, err := apis.GetGitHubUserID(tokenResponse.AccessToken)
+			if err != nil {
+				slog.Error("Failed to get GitHub user ID", "error", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+
+			user, err = models.FindUserByGitHubID(db, id)
+			if err != nil {
+				slog.Error("Failed to register or login user", "error", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+			if user == (models.User{}) && config.Registration.Enabled {
+				err = db.Create(&models.User{
+					GitHubUserID: id,
+				}).Error
+				if err != nil {
+					slog.Error("Failed to create user", "error", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+					return
+				}
+				user, err = models.FindUserByGitHubID(db, id)
+				if err != nil {
+					slog.Error("Failed to find user", "error", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+					return
+				}
+			} else if user == (models.User{}) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+				return
+			}
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "provider is invalid"})
+			return
+		}
+
+		if user == (models.User{}) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+
+		token, err := utils.GenerateJWT(config.JWT.Secret, user.ID, user.Superuser)
+		if err != nil {
+			slog.Error("Failed to generate JWT", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"access_token": token})
+	})
+
 	// Google Auth Redirect
 	apiV2.GET("/auth/g/redirect", func(c *gin.Context) {
 		error := c.Query("error")
@@ -102,59 +299,8 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 			return
 		}
 
-		tokenURL := "https://oauth2.googleapis.com/token"
-		client := http.Client{
-			Timeout: 5 * time.Second,
-		}
-
-		data := url.Values{}
-		data.Set("code", code)
-		data.Set("client_id", config.Auth.Google.ClientID)
-		data.Set("client_secret", config.Auth.Google.ClientSecret)
-		data.Set("redirect_uri", config.Auth.Google.RedirectURI)
-		data.Set("grant_type", "authorization_code")
-
-		slog.Info("Google Token URL", "url", tokenURL)
-		slog.Info("Google Token Data", "data", data.Encode())
-
-		req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
-		if err != nil {
-			slog.Error("Failed to create request", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-
-		resp, err := client.Do(req)
-		if err != nil {
-			slog.Error("Failed to make request", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			slog.Error("Failed to get token", "status", resp.StatusCode)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-
-		var tokenResponse struct {
-			AccessToken  string `json:"access_token"`
-			TokenType    string `json:"token_type"`
-			ExpiresIn    int    `json:"expires_in"`
-			Scope        string `json:"scope"`
-			RefreshToken string `json:"refresh_token"`
-		}
-
-		err = json.NewDecoder(resp.Body).Decode(&tokenResponse)
-		if err != nil {
-			slog.Error("Failed to decode response", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-
-		c.JSON(http.StatusOK, tokenResponse)
+		// Redirect to the app with the code
+		c.Redirect(http.StatusFound, fmt.Sprintf("%s/auth?provider=g&code=%s", config.HTTP.FrontendURL, code))
 	})
 
 	// GitHub Auth Redirect
@@ -165,53 +311,8 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 			return
 		}
 
-		client := http.Client{
-			Timeout: 5 * time.Second,
-		}
-
-		data := url.Values{}
-		data.Set("code", code)
-		data.Set("client_id", config.Auth.GitHub.ClientID)
-		data.Set("client_secret", config.Auth.GitHub.ClientSecret)
-
-		tokenURL := fmt.Sprintf("https://github.com/login/oauth/access_token?code=%s&client_id=%s&client_secret=%s", code, config.Auth.GitHub.ClientID, config.Auth.GitHub.ClientSecret)
-		slog.Info("GitHub Token URL", "url", tokenURL)
-
-		req, err := http.NewRequest(http.MethodPost, tokenURL, nil)
-		if err != nil {
-			slog.Error("Failed to create request", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-		req.Header.Add("Accept", "application/json")
-
-		resp, err := client.Do(req)
-		if err != nil {
-			slog.Error("Failed to make request", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			slog.Error("Failed to get token", "status", resp.StatusCode)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-
-		var tokenResponse struct {
-			AccessToken string `json:"access_token"`
-			Scope       string `json:"scope"`
-		}
-
-		err = json.NewDecoder(resp.Body).Decode(&tokenResponse)
-		if err != nil {
-			slog.Error("Failed to decode response", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-
-		c.JSON(http.StatusOK, tokenResponse)
+		// Redirect to the app with the code
+		c.Redirect(http.StatusFound, fmt.Sprintf("%s/auth?provider=h&code=%s", config.HTTP.FrontendURL, code))
 	})
 
 	apiV2.POST("/pilotpair", func(c *gin.Context) {

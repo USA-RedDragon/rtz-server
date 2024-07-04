@@ -4,6 +4,9 @@
 # HTTP server configuration
 http:
 
+  # The URL of the frontend
+  frontend_url: 'http://localhost:3000'
+
   # The IPv4 address to bind the HTTP server to
   ipv4_host: '0.0.0.0' # 0.0.0.0 = all interfaces
 
@@ -70,3 +73,6 @@ auth:
   github:
     client_id: ''
     client_secret: ''
+
+jwt:
+  secret: 'secret'

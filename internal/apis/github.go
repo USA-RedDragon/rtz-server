@@ -1,0 +1,30 @@
+package apis
+
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/USA-RedDragon/connect-server/internal/utils"
+)
+
+type UserResponse struct {
+	ID int `json:"id"`
+}
+
+func GetGitHubUserID(token string) (int, error) {
+	resp, err := utils.HTTPRequest(http.MethodGet, "https://api.github.com/user", nil, map[string]string{
+		"Authorization":        "Bearer " + token,
+		"Accept":               "application/vnd.github+json",
+		"X-GitHub-Api-Version": "2022-11-28",
+	})
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+	response := UserResponse{}
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	if err != nil {
+		return 0, err
+	}
+	return response.ID, nil
+}

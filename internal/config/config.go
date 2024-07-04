@@ -17,6 +17,11 @@ type Config struct {
 	Persistence  Persistence  `json:"persistence"`
 	Registration Registration `json:"registration"`
 	Auth         Auth         `json:"auth"`
+	JWT          JWT          `json:"jwt"`
+}
+
+type JWT struct {
+	Secret string `json:"secret"`
 }
 
 type Auth struct {
@@ -72,6 +77,7 @@ type Metrics struct {
 type HTTP struct {
 	HTTPListener
 	Tracing
+	FrontendURL    string   `json:"frontend_url" yaml:"frontend_url"`
 	PProf          PProf    `json:"pprof"`
 	TrustedProxies []string `json:"trusted_proxies" yaml:"trusted_proxies"`
 	Metrics        Metrics  `json:"metrics"`
@@ -80,27 +86,29 @@ type HTTP struct {
 
 //nolint:golint,gochecknoglobals
 var (
-	ConfigFileKey          = "config"
-	HTTPIPV4HostKey        = "http.ipv4_host"
-	HTTPIPV6HostKey        = "http.ipv6_host"
-	HTTPPortKey            = "http.port"
-	HTTPTracingEnabledKey  = "http.tracing.enabled"
-	HTTPTracingOTLPEndKey  = "http.tracing.otlp_endpoint"
-	HTTPPProfEnabledKey    = "http.pprof.enabled"
-	HTTPTrustedProxiesKey  = "http.trusted_proxies"
-	HTTPMetricsEnabledKey  = "http.metrics.enabled"
-	HTTPMetricsIPV4HostKey = "http.metrics.ipv4_host"
-	HTTPMetricsIPV6HostKey = "http.metrics.ipv6_host"
-	HTTPMetricsPortKey     = "http.metrics.port"
-	HTTPCORSHostsKey       = "http.cors_hosts"
-	PersistenceDatabaseKey = "persistence.database"
-	PersistenceUploadsKey  = "persistence.uploads"
-	RegistrationEnabledKey = "registration.enabled"
-	AuthGoogleRedirectURI  = "auth.google.redirect_uri"
-	AuthGoogleClientID     = "auth.google.client_id"
-	AuthGoogleClientSecret = "auth.google.client_secret"
-	AuthGitHubClientID     = "auth.github.client_id"
-	AuthGitHubClientSecret = "auth.github.client_secret"
+	ConfigFileKey             = "config"
+	HTTPIPV4HostKey           = "http.ipv4_host"
+	HTTPIPV6HostKey           = "http.ipv6_host"
+	HTTPPortKey               = "http.port"
+	HTTPTracingEnabledKey     = "http.tracing.enabled"
+	HTTPTracingOTLPEndKey     = "http.tracing.otlp_endpoint"
+	HTTPPProfEnabledKey       = "http.pprof.enabled"
+	HTTPTrustedProxiesKey     = "http.trusted_proxies"
+	HTTPMetricsEnabledKey     = "http.metrics.enabled"
+	HTTPMetricsIPV4HostKey    = "http.metrics.ipv4_host"
+	HTTPMetricsIPV6HostKey    = "http.metrics.ipv6_host"
+	HTTPMetricsPortKey        = "http.metrics.port"
+	HTTPCORSHostsKey          = "http.cors_hosts"
+	HTTPFrontendURLKey        = "http.frontend_url"
+	PersistenceDatabaseKey    = "persistence.database"
+	PersistenceUploadsKey     = "persistence.uploads"
+	RegistrationEnabledKey    = "registration.enabled"
+	AuthGoogleRedirectURIKey  = "auth.google.redirect_uri"
+	AuthGoogleClientIDKey     = "auth.google.client_id"
+	AuthGoogleClientSecretKey = "auth.google.client_secret"
+	AuthGitHubClientIDKey     = "auth.github.client_id"
+	AuthGitHubClientSecretKey = "auth.github.client_secret"
+	JWTSecretKey              = "jwt.secret"
 )
 
 const (
@@ -130,17 +138,25 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(HTTPMetricsIPV6HostKey, DefaultHTTPMetricsIPV6Host, "Metrics server IPv6 host")
 	cmd.Flags().Uint16(HTTPMetricsPortKey, DefaultHTTPMetricsPort, "Metrics server port")
 	cmd.Flags().StringSlice(HTTPCORSHostsKey, []string{}, "Comma-separated list of CORS hosts")
+	cmd.Flags().String(HTTPFrontendURLKey, "", "Frontend URL")
 	cmd.Flags().String(PersistenceDatabaseKey, DefaultPersistenceDatabase, "Database file path")
 	cmd.Flags().String(PersistenceUploadsKey, DefaultPersistenceUploads, "Uploads directory")
 	cmd.Flags().Bool(RegistrationEnabledKey, DefaultRegistrationEnabled, "Enable registration")
-	cmd.Flags().String(AuthGoogleRedirectURI, "", "Google OAuth redirect URI")
-	cmd.Flags().String(AuthGoogleClientID, "", "Google OAuth client ID")
-	cmd.Flags().String(AuthGoogleClientSecret, "", "Google OAuth client secret")
-	cmd.Flags().String(AuthGitHubClientID, "", "GitHub OAuth client ID")
-	cmd.Flags().String(AuthGitHubClientSecret, "", "GitHub OAuth client secret")
+	cmd.Flags().String(AuthGoogleRedirectURIKey, "", "Google OAuth redirect URI")
+	cmd.Flags().String(AuthGoogleClientIDKey, "", "Google OAuth client ID")
+	cmd.Flags().String(AuthGoogleClientSecretKey, "", "Google OAuth client secret")
+	cmd.Flags().String(AuthGitHubClientIDKey, "", "GitHub OAuth client ID")
+	cmd.Flags().String(AuthGitHubClientSecretKey, "", "GitHub OAuth client secret")
+	cmd.Flags().String(JWTSecretKey, "", "JWT signing secret")
 }
 
 func (c *Config) Validate() error {
+	if c.JWT.Secret == "" {
+		return errors.New("JWT secret is required")
+	}
+	if c.HTTP.FrontendURL == "" {
+		return errors.New("Frontend URL is required")
+	}
 	return nil
 }
 
@@ -307,6 +323,13 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		}
 	}
 
+	if cmd.Flags().Changed(HTTPFrontendURLKey) {
+		config.HTTP.FrontendURL, err = cmd.Flags().GetString(HTTPFrontendURLKey)
+		if err != nil {
+			return fmt.Errorf("failed to get frontend URL: %w", err)
+		}
+	}
+
 	if cmd.Flags().Changed(PersistenceDatabaseKey) {
 		config.Persistence.Database, err = cmd.Flags().GetString(PersistenceDatabaseKey)
 		if err != nil {
@@ -328,38 +351,45 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		}
 	}
 
-	if cmd.Flags().Changed(AuthGoogleRedirectURI) {
-		config.Auth.Google.RedirectURI, err = cmd.Flags().GetString(AuthGoogleRedirectURI)
+	if cmd.Flags().Changed(AuthGoogleRedirectURIKey) {
+		config.Auth.Google.RedirectURI, err = cmd.Flags().GetString(AuthGoogleRedirectURIKey)
 		if err != nil {
 			return fmt.Errorf("failed to get Google OAuth redirect URI: %w", err)
 		}
 	}
 
-	if cmd.Flags().Changed(AuthGoogleClientID) {
-		config.Auth.Google.ClientID, err = cmd.Flags().GetString(AuthGoogleClientID)
+	if cmd.Flags().Changed(AuthGoogleClientIDKey) {
+		config.Auth.Google.ClientID, err = cmd.Flags().GetString(AuthGoogleClientIDKey)
 		if err != nil {
 			return fmt.Errorf("failed to get Google OAuth client ID: %w", err)
 		}
 	}
 
-	if cmd.Flags().Changed(AuthGoogleClientSecret) {
-		config.Auth.Google.ClientSecret, err = cmd.Flags().GetString(AuthGoogleClientSecret)
+	if cmd.Flags().Changed(AuthGoogleClientSecretKey) {
+		config.Auth.Google.ClientSecret, err = cmd.Flags().GetString(AuthGoogleClientSecretKey)
 		if err != nil {
 			return fmt.Errorf("failed to get Google OAuth client secret: %w", err)
 		}
 	}
 
-	if cmd.Flags().Changed(AuthGitHubClientID) {
-		config.Auth.GitHub.ClientID, err = cmd.Flags().GetString(AuthGitHubClientID)
+	if cmd.Flags().Changed(AuthGitHubClientIDKey) {
+		config.Auth.GitHub.ClientID, err = cmd.Flags().GetString(AuthGitHubClientIDKey)
 		if err != nil {
 			return fmt.Errorf("failed to get GitHub OAuth client ID: %w", err)
 		}
 	}
 
-	if cmd.Flags().Changed(AuthGitHubClientSecret) {
-		config.Auth.GitHub.ClientSecret, err = cmd.Flags().GetString(AuthGitHubClientSecret)
+	if cmd.Flags().Changed(AuthGitHubClientSecretKey) {
+		config.Auth.GitHub.ClientSecret, err = cmd.Flags().GetString(AuthGitHubClientSecretKey)
 		if err != nil {
 			return fmt.Errorf("failed to get GitHub OAuth client secret: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(JWTSecretKey) {
+		config.JWT.Secret, err = cmd.Flags().GetString(JWTSecretKey)
+		if err != nil {
+			return fmt.Errorf("failed to get JWT secret: %w", err)
 		}
 	}
 

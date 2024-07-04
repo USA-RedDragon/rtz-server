@@ -8,14 +8,13 @@ import (
 )
 
 type User struct {
-	ID        uint           `json:"id" gorm:"primaryKey" binding:"required"`
-	Username  string         `json:"username" gorm:"uniqueIndex" binding:"required"`
-	Email     string         `json:"email" gorm:"uniqueIndex" binding:"required"`
-	Points    uint           `json:"points"`
-	Superuser bool           `json:"superuser" gorm:"default:false"`
-	CreatedAt time.Time      `json:"created_at"`
-	UpdatedAt time.Time      `json:"-"`
-	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
+	ID           uint           `json:"id" gorm:"primaryKey" binding:"required"`
+	GitHubUserID int            `json:"github_user_id" gorm:"uniqueIndex"`
+	GoogleUserID string         `json:"google_user_id" gorm:"uniqueIndex"`
+	Superuser    bool           `json:"superuser" gorm:"default:false"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"-"`
+	DeletedAt    gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
 func (u User) TableName() string {
@@ -31,6 +30,18 @@ func UserIDExists(db *gorm.DB, id uint) (bool, error) {
 func FindUserByID(db *gorm.DB, id uint) (User, error) {
 	var user User
 	err := db.First(&user, id).Error
+	return user, err
+}
+
+func FindUserByGitHubID(db *gorm.DB, id int) (User, error) {
+	var user User
+	err := db.Where("github_user_id = ?", id).First(&user).Error
+	return user, err
+}
+
+func FindUserByGoogleID(db *gorm.DB, id string) (User, error) {
+	var user User
+	err := db.Where("google_user_id = ?", id).First(&user).Error
 	return user, err
 }
 
