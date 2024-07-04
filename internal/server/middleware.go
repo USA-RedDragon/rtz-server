@@ -28,6 +28,7 @@ func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string,
 
 	// CORS
 	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowHeaders = append(corsConfig.AllowHeaders, "authorization")
 	corsConfig.AllowCredentials = true
 	if len(config.HTTP.CORSHosts) == 0 {
 		corsConfig.AllowAllOrigins = true
