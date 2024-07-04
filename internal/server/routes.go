@@ -81,26 +81,19 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 	apiV2 := r.Group("/v2")
 
 	apiV2.POST("/auth", func(c *gin.Context) {
-		type postData struct {
-			Code     string `json:"code"`
-			Provider string `json:"provider"`
+		var data struct {
+			Provider string
+			Code     string
 		}
 
-		var data postData
-		err := c.BindJSON(&data)
-		if err != nil {
-			slog.Error("Failed to bind JSON", "error", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
-			return
-		}
-
-		if data.Code == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
-			return
-		}
-
+		data.Provider = c.PostForm("provider")
 		if data.Provider == "" {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "provider is required"})
+			return
+		}
+		data.Code = c.PostForm("code")
+		if data.Code == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
 			return
 		}
 
@@ -300,7 +293,7 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 		}
 
 		// Redirect to the app with the code
-		c.Redirect(http.StatusFound, fmt.Sprintf("%s/auth?provider=g&code=%s", config.HTTP.FrontendURL, code))
+		c.Redirect(http.StatusFound, fmt.Sprintf("%s/auth/?provider=g&code=%s", config.HTTP.FrontendURL, code))
 	})
 
 	// GitHub Auth Redirect
@@ -312,7 +305,7 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 		}
 
 		// Redirect to the app with the code
-		c.Redirect(http.StatusFound, fmt.Sprintf("%s/auth?provider=h&code=%s", config.HTTP.FrontendURL, code))
+		c.Redirect(http.StatusFound, fmt.Sprintf("%s/auth/?provider=h&code=%s", config.HTTP.FrontendURL, code))
 	})
 
 	apiV2.POST("/pilotpair", func(c *gin.Context) {
