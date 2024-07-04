@@ -16,6 +16,23 @@ type Config struct {
 	HTTP         HTTP         `json:"http"`
 	Persistence  Persistence  `json:"persistence"`
 	Registration Registration `json:"registration"`
+	Auth         Auth         `json:"auth"`
+}
+
+type Auth struct {
+	Google Google `json:"google"`
+	GitHub GitHub `json:"github"`
+}
+
+type Google struct {
+	ClientID     string `json:"client_id" yaml:"client_id"`
+	ClientSecret string `json:"client_secret" yaml:"client_secret"`
+	RedirectURI  string `json:"redirect_uri" yaml:"redirect_uri"`
+}
+
+type GitHub struct {
+	ClientID     string `json:"client_id" yaml:"client_id"`
+	ClientSecret string `json:"client_secret" yaml:"client_secret"`
 }
 
 type Registration struct {
@@ -84,6 +101,11 @@ var (
 	RegistrationPasswordSaltKey         = "registration.password_salt"
 	RegistrationInitialAdminUsernameKey = "registration.initial_admin.username"
 	RegistrationInitialAdminPasswordKey = "registration.initial_admin.password"
+	AuthGoogleRedirectURI               = "auth.google.redirect_uri"
+	AuthGoogleClientID                  = "auth.google.client_id"
+	AuthGoogleClientSecret              = "auth.google.client_secret"
+	AuthGitHubClientID                  = "auth.github.client_id"
+	AuthGitHubClientSecret              = "auth.github.client_secret"
 )
 
 const (
@@ -119,6 +141,11 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(RegistrationPasswordSaltKey, "", "Password salt")
 	cmd.Flags().String(RegistrationInitialAdminUsernameKey, "", "Initial admin username")
 	cmd.Flags().String(RegistrationInitialAdminPasswordKey, "", "Initial admin password")
+	cmd.Flags().String(AuthGoogleRedirectURI, "", "Google OAuth redirect URI")
+	cmd.Flags().String(AuthGoogleClientID, "", "Google OAuth client ID")
+	cmd.Flags().String(AuthGoogleClientSecret, "", "Google OAuth client secret")
+	cmd.Flags().String(AuthGitHubClientID, "", "GitHub OAuth client ID")
+	cmd.Flags().String(AuthGitHubClientSecret, "", "GitHub OAuth client secret")
 }
 
 func (c *Config) Validate() error {
@@ -330,6 +357,41 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		config.Registration.InitialAdmin.Password, err = cmd.Flags().GetString(RegistrationInitialAdminPasswordKey)
 		if err != nil {
 			return fmt.Errorf("failed to get registration initial admin password: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(AuthGoogleRedirectURI) {
+		config.Auth.Google.RedirectURI, err = cmd.Flags().GetString(AuthGoogleRedirectURI)
+		if err != nil {
+			return fmt.Errorf("failed to get Google OAuth redirect URI: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(AuthGoogleClientID) {
+		config.Auth.Google.ClientID, err = cmd.Flags().GetString(AuthGoogleClientID)
+		if err != nil {
+			return fmt.Errorf("failed to get Google OAuth client ID: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(AuthGoogleClientSecret) {
+		config.Auth.Google.ClientSecret, err = cmd.Flags().GetString(AuthGoogleClientSecret)
+		if err != nil {
+			return fmt.Errorf("failed to get Google OAuth client secret: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(AuthGitHubClientID) {
+		config.Auth.Google.ClientID, err = cmd.Flags().GetString(AuthGitHubClientID)
+		if err != nil {
+			return fmt.Errorf("failed to get GitHub OAuth client ID: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(AuthGitHubClientSecret) {
+		config.Auth.Google.ClientSecret, err = cmd.Flags().GetString(AuthGitHubClientSecret)
+		if err != nil {
+			return fmt.Errorf("failed to get GitHub OAuth client secret: %w", err)
 		}
 	}
 

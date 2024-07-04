@@ -2,11 +2,15 @@ package server
 
 import (
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
@@ -76,11 +80,133 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 	apiV2 := r.Group("/v2")
 
 	// Google Auth Redirect
-	apiV2.POST("/auth/g/redirect", func(c *gin.Context) {
+	apiV2.GET("/auth/g/redirect", func(c *gin.Context) {
+		error := c.Query("error")
+		if error != "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": error})
+			return
+		}
+		code := c.Query("code")
+		if code == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
+			return
+		}
+		scope := c.Query("scope")
+		if scope == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "scope is required"})
+			return
+		}
+		if scope != "openid" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "scope is invalid"})
+			return
+		}
+
+		tokenURL := "https://oauth2.googleapis.com/token"
+		client := http.Client{
+			Timeout: 5 * time.Second,
+		}
+
+		data := url.Values{}
+		data.Set("code", code)
+		data.Set("client_id", config.Auth.Google.ClientID)
+		data.Set("client_secret", config.Auth.Google.ClientSecret)
+		data.Set("redirect_uri", config.Auth.Google.RedirectURI)
+		data.Set("grant_type", "authorization_code")
+
+		req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
+		if err != nil {
+			slog.Error("Failed to create request", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			slog.Error("Failed to make request", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			slog.Error("Failed to get token", "status", resp.StatusCode)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		var tokenResponse struct {
+			AccessToken  string `json:"access_token"`
+			TokenType    string `json:"token_type"`
+			ExpiresIn    int    `json:"expires_in"`
+			Scope        string `json:"scope"`
+			RefreshToken string `json:"refresh_token"`
+		}
+
+		err = json.NewDecoder(resp.Body).Decode(&tokenResponse)
+		if err != nil {
+			slog.Error("Failed to decode response", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		c.JSON(http.StatusOK, tokenResponse)
 	})
 
 	// GitHub Auth Redirect
-	apiV2.POST("/auth/h/redirect", func(c *gin.Context) {
+	apiV2.GET("/auth/h/redirect", func(c *gin.Context) {
+		code := c.Query("code")
+		if code == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
+			return
+		}
+
+		tokenURL := "https://github.com/login/oauth/access_token"
+		client := http.Client{
+			Timeout: 5 * time.Second,
+		}
+
+		data := url.Values{}
+		data.Set("code", code)
+		data.Set("client_id", config.Auth.GitHub.ClientID)
+		data.Set("client_secret", config.Auth.GitHub.ClientSecret)
+
+		req, err := http.NewRequest(http.MethodPost, tokenURL, strings.NewReader(data.Encode()))
+		if err != nil {
+			slog.Error("Failed to create request", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Add("Accept", "application/json")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			slog.Error("Failed to make request", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			slog.Error("Failed to get token", "status", resp.StatusCode)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		var tokenResponse struct {
+			AccessToken string `json:"access_token"`
+			Scope       string `json:"scope"`
+		}
+
+		err = json.NewDecoder(resp.Body).Decode(&tokenResponse)
+		if err != nil {
+			slog.Error("Failed to decode response", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		c.JSON(http.StatusOK, tokenResponse)
 	})
 
 	apiV2.POST("/pilotpair", func(c *gin.Context) {

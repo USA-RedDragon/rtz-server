@@ -67,3 +67,12 @@ registration:
   initial_admin:
     username: 'admin'
     password: 'change-me-please-for-the-love-of-all-things-holy-and-unholy'
+
+auth:
+  google:
+    client_id: ''
+    client_secret: ''
+    redirect_url: ''
+  github:
+    client_id: ''
+    client_secret: ''
