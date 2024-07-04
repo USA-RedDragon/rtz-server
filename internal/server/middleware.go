@@ -42,10 +42,18 @@ func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string,
 	}
 
 	r.Use(dbMiddleware(db))
+	r.Use(configMiddleware(config))
 
 	if config.HTTP.Tracing.Enabled {
 		r.Use(otelgin.Middleware(otelComponent))
 		r.Use(tracingProvider(config))
+	}
+}
+
+func configMiddleware(config *config.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("config", config)
+		c.Next()
 	}
 }
 
