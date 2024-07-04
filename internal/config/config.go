@@ -350,14 +350,14 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 	}
 
 	if cmd.Flags().Changed(AuthGitHubClientID) {
-		config.Auth.Google.ClientID, err = cmd.Flags().GetString(AuthGitHubClientID)
+		config.Auth.GitHub.ClientID, err = cmd.Flags().GetString(AuthGitHubClientID)
 		if err != nil {
 			return fmt.Errorf("failed to get GitHub OAuth client ID: %w", err)
 		}
 	}
 
 	if cmd.Flags().Changed(AuthGitHubClientSecret) {
-		config.Auth.Google.ClientSecret, err = cmd.Flags().GetString(AuthGitHubClientSecret)
+		config.Auth.GitHub.ClientSecret, err = cmd.Flags().GetString(AuthGitHubClientSecret)
 		if err != nil {
 			return fmt.Errorf("failed to get GitHub OAuth client secret: %w", err)
 		}
