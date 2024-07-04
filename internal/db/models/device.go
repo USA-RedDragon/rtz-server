@@ -12,9 +12,10 @@ import (
 type DeviceType string
 
 const (
-	DeviceTypeNeo   DeviceType = "neo"
-	DeviceTypePanda DeviceType = "panda"
-	DeviceTypeApp   DeviceType = "app"
+	DeviceTypeNeo    DeviceType = "neo"
+	DeviceTypePanda  DeviceType = "panda"
+	DeviceTypeApp    DeviceType = "app"
+	DeviceTypeThreeX DeviceType = "threex"
 )
 
 type Device struct {
@@ -119,4 +120,10 @@ func GenerateDongleID(db *gorm.DB) (string, error) {
 
 func UpdateAthenaPingTimestamp(db *gorm.DB, id uint) error {
 	return db.Model(&Device{}).Where(&Device{ID: id}).Update("LastAthenaPing", time.Now().Unix()).Error
+}
+
+func GetDevicesOwnedByUser(db *gorm.DB, userID uint) ([]Device, error) {
+	var devices []Device
+	err := db.Where(&Device{OwnerID: userID}).Find(&devices).Error
+	return devices, err
 }
