@@ -63,7 +63,7 @@ func GETMyDevices(c *gin.Context) {
 		return
 	}
 
-	var devicesResp []v1.GETMyDevicesResponse
+	devicesResp := []v1.GETMyDevicesResponse{}
 	for _, device := range devices {
 		devicesResp = append(devicesResp, v1.GETMyDevicesResponse{
 			Device: device,
