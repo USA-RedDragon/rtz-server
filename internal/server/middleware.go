@@ -11,6 +11,7 @@ import (
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
@@ -23,6 +24,15 @@ func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string,
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
 	r.TrustedPlatform = "X-Real-IP"
+
+	// CORS
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowCredentials = true
+	if len(config.HTTP.CORSHosts) == 0 {
+		corsConfig.AllowAllOrigins = true
+	}
+	corsConfig.AllowOrigins = config.HTTP.CORSHosts
+	r.Use(cors.New(corsConfig))
 
 	err := r.SetTrustedProxies(config.HTTP.TrustedProxies)
 	if err != nil {
