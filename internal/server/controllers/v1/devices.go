@@ -34,5 +34,5 @@ func POSTDeviceUnpair(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Device unpaired"})
+	c.JSON(http.StatusOK, gin.H{"success": 1})
 }
