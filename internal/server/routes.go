@@ -6,6 +6,7 @@ import (
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/USA-RedDragon/connect-server/internal/events"
+	"github.com/USA-RedDragon/connect-server/internal/server/controllers"
 	controllersV1 "github.com/USA-RedDragon/connect-server/internal/server/controllers/v1"
 	controllersV1dot1 "github.com/USA-RedDragon/connect-server/internal/server/controllers/v1.1"
 	controllersV1dot4 "github.com/USA-RedDragon/connect-server/internal/server/controllers/v1.4"
@@ -39,6 +40,8 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 
 	wsV2 := r.Group("/ws/v2")
 	wsV2.GET("/:dongle_id", requireCookieAuth(config), websocket.CreateHandler(websocketControllers.CreateEventsWebsocket(eventsChannel), config))
+
+	r.POST("/:dongle_id", requireAuth(config, AuthTypeUser), requireDeviceOwner(), controllers.HandleRPC)
 }
 
 func v1(group *gin.RouterGroup, config *config.Config) {
