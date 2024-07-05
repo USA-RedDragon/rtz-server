@@ -135,7 +135,7 @@ func requireAuth(_ *config.Config) gin.HandlerFunc {
 			return key, nil
 		})
 		if err != nil {
-			slog.Error("Failed to parse token", "error", err)
+			slog.Error("Failed to parse device auth token", "error", err)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
 		}
@@ -214,7 +214,7 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 			return key, nil
 		})
 		if err != nil {
-			slog.Error("Failed to parse token", "error", err)
+			slog.Error("Failed to parse device JWT token cookie", "error", err)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
 		}
@@ -246,7 +246,7 @@ func requireJWTAuth(config *config.Config) gin.HandlerFunc {
 
 		uid, err := utils.VerifyJWT(config.JWT.Secret, jwtString)
 		if err != nil {
-			slog.Error("Failed to parse token", "error", err)
+			slog.Error("Failed to parse user JWT token", "error", err)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
 		}

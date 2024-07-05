@@ -72,7 +72,7 @@ func POSTPilotPair(c *gin.Context) {
 			return key, nil
 		})
 	if err != nil {
-		slog.Error("Failed to parse token", "error", err)
+		slog.Error("Failed to parse pair token", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "pair_token is invalid"})
 		return
 	}
@@ -213,7 +213,7 @@ func POSTPilotAuth(c *gin.Context) {
 			return key, nil
 		})
 	if err != nil {
-		slog.Error("Failed to parse token", "error", err)
+		slog.Error("Failed to parse register token", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "register_token is invalid"})
 		return
 	}
