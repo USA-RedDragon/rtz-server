@@ -44,19 +44,19 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 func v1(group *gin.RouterGroup, config *config.Config) {
 	group.GET("/me", requireAuth(config, AuthTypeUser), controllersV1.GETMe)
 	group.GET("/me/devices", requireAuth(config, AuthTypeUser), controllersV1.GETMyDevices)
-	group.GET("/navigation/:dongle_id/next", requireAuth(config, AuthTypeUser|AuthTypeDevice), controllersV1.GETNavigationNext)
-	group.DELETE("/navigation/:dongle_id/next", requireAuth(config, AuthTypeUser|AuthTypeDevice), controllersV1.DELETENavigationNext)
-	group.GET("/navigation/:dongle_id/locations", requireAuth(config, AuthTypeUser|AuthTypeDevice), controllersV1.GETNavigationLocations)
+	group.GET("/navigation/:dongle_id/next", requireAuth(config, AuthTypeUser|AuthTypeDevice), requireDeviceOwner(), controllersV1.GETNavigationNext)
+	group.DELETE("/navigation/:dongle_id/next", requireAuth(config, AuthTypeUser|AuthTypeDevice), requireDeviceOwner(), controllersV1.DELETENavigationNext)
+	group.GET("/navigation/:dongle_id/locations", requireAuth(config, AuthTypeUser|AuthTypeDevice), requireDeviceOwner(), controllersV1.GETNavigationLocations)
 	group.GET("/prime/subscription", requireAuth(config, AuthTypeUser), controllersV1.GETPrimeSubscription)
 }
 
 func v1dot1(group *gin.RouterGroup, config *config.Config) {
-	group.GET("/devices/:dongle_id", requireAuth(config, AuthTypeUser|AuthTypeDevice), controllersV1dot1.GETDevice)
-	group.GET("/devices/:dongle_id/stats", requireAuth(config, AuthTypeUser|AuthTypeDevice), controllersV1dot1.GETDeviceStats)
+	group.GET("/devices/:dongle_id", requireAuth(config, AuthTypeUser|AuthTypeDevice), requireDeviceOwner(), controllersV1dot1.GETDevice)
+	group.GET("/devices/:dongle_id/stats", requireAuth(config, AuthTypeUser|AuthTypeDevice), requireDeviceOwner(), controllersV1dot1.GETDeviceStats)
 }
 
 func v1dot4(group *gin.RouterGroup, config *config.Config) {
-	group.GET("/:dongle_id/upload_url", requireAuth(config, AuthTypeUser|AuthTypeDevice), controllersV1dot4.GETUploadURL)
+	group.GET("/:dongle_id/upload_url", requireAuth(config, AuthTypeUser|AuthTypeDevice), requireDeviceOwner(), controllersV1dot4.GETUploadURL)
 }
 
 func v2(group *gin.RouterGroup, config *config.Config) {

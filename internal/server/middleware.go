@@ -239,3 +239,42 @@ func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {
 		}
 	}
 }
+
+func requireDeviceOwner() gin.HandlerFunc {
+	// User should be present from requireAuth
+	// All these routes have a dongle_id param
+	return func(c *gin.Context) {
+		user, ok := c.MustGet("user").(*models.User)
+		if !ok {
+			slog.Error("Failed to get user from context")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		dongleID, ok := c.Params.Get("dongle_id")
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+			return
+		}
+
+		db, ok := c.MustGet("db").(*gorm.DB)
+		if !ok {
+			slog.Error("Failed to get db from context")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		device, err := models.FindDeviceByDongleID(db, dongleID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		if device.OwnerID != user.ID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+			return
+		}
+
+		c.Next()
+	}
+}
