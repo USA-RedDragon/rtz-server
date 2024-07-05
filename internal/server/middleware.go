@@ -219,21 +219,23 @@ func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {
 		if authType&AuthTypeUser == AuthTypeUser && userAuthPass {
 			c.Next()
 			return
-		} else {
-			if userAuthErr != nil {
-				slog.Error("Failed to verify user JWT", "error", userAuthErr)
-			}
 		}
 
 		if authType&AuthTypeDevice == AuthTypeDevice && deviceAuthPass {
 			c.Next()
 			return
-		} else {
-			if deviceAuthErr != nil {
-				slog.Error("Failed to verify device JWT", "error", deviceAuthErr)
-			}
 		}
 
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		// Neither work, say why
+		if deviceAuthErr != nil {
+			slog.Error("Failed to verify device JWT", "error", deviceAuthErr)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+		if userAuthErr != nil {
+			slog.Error("Failed to verify user JWT", "error", userAuthErr)
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
 	}
 }
