@@ -47,6 +47,7 @@ func v1(group *gin.RouterGroup, config *config.Config) {
 	group.GET("/navigation/:dongle_id/next", requireAuth(config, AuthTypeUser|AuthTypeDevice), controllersV1.GETNavigationNext)
 	group.DELETE("/navigation/:dongle_id/next", requireAuth(config, AuthTypeUser|AuthTypeDevice), controllersV1.DELETENavigationNext)
 	group.GET("/navigation/:dongle_id/locations", requireAuth(config, AuthTypeUser|AuthTypeDevice), controllersV1.GETNavigationLocations)
+	group.GET("/prime/subscription", requireAuth(config, AuthTypeUser), controllersV1.GETPrimeSubscription)
 }
 
 func v1dot1(group *gin.RouterGroup, config *config.Config) {
