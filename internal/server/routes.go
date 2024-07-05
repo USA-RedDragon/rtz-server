@@ -46,6 +46,7 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 
 func v1(group *gin.RouterGroup, config *config.Config) {
 	group.GET("/me", requireAuth(config, AuthTypeUser), controllersV1.GETMe)
+	group.POST("/devices/:dongle_id/unpair", requireAuth(config, AuthTypeUser), requireDeviceOwner(), controllersV1.POSTDeviceUnpair)
 	group.GET("/me/devices", requireAuth(config, AuthTypeUser), controllersV1.GETMyDevices)
 	group.GET("/navigation/:dongle_id/next", requireAuth(config, AuthTypeUser|AuthTypeDevice), requireDeviceOwner(), controllersV1.GETNavigationNext)
 	group.DELETE("/navigation/:dongle_id/next", requireAuth(config, AuthTypeUser|AuthTypeDevice), requireDeviceOwner(), controllersV1.DELETENavigationNext)
