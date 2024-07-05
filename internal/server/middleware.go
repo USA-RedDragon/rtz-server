@@ -187,7 +187,6 @@ func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {
 			} else {
 				user, err := models.FindUserByID(db, uid)
 				if err != nil {
-					slog.Error("Failed to find user", "error", err)
 					userAuthErr = err
 				} else {
 					c.Set("user", &user)
@@ -208,8 +207,7 @@ func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {
 				} else {
 					err = utils.VerifyDeviceJWT(device.DongleID, device.PublicKey, jwtString)
 					if err != nil {
-						c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-						return
+						deviceAuthErr = err
 					} else {
 						c.Set("device", &device)
 						deviceAuthPass = true
@@ -220,17 +218,22 @@ func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {
 
 		if authType&AuthTypeUser == AuthTypeUser && userAuthPass {
 			c.Next()
-		} else if authType&AuthTypeDevice == AuthTypeDevice && deviceAuthPass {
-			c.Next()
+			return
 		} else {
 			if userAuthErr != nil {
 				slog.Error("Failed to verify user JWT", "error", userAuthErr)
 			}
+		}
+
+		if authType&AuthTypeDevice == AuthTypeDevice && deviceAuthPass {
+			c.Next()
+			return
+		} else {
 			if deviceAuthErr != nil {
 				slog.Error("Failed to verify device JWT", "error", deviceAuthErr)
 			}
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			return
 		}
+
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 	}
 }
