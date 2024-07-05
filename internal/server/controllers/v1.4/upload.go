@@ -28,4 +28,5 @@ func GETUploadURL(c *gin.Context) {
 	}
 
 	slog.Info("Get Upload URL", "url", c.Request.URL.String(), "device", device.DongleID)
+	c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 }

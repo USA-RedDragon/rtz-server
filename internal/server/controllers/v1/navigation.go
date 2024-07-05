@@ -27,6 +27,7 @@ func GETNavigationNext(c *gin.Context) {
 		return
 	}
 	slog.Info("Get Next Navigation", "url", c.Request.URL.String(), "device", device.DongleID)
+	c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 }
 
 func DELETENavigationNext(c *gin.Context) {
@@ -47,6 +48,7 @@ func DELETENavigationNext(c *gin.Context) {
 		return
 	}
 	slog.Info("Delete Next Navigation", "url", c.Request.URL.String(), "device", device.DongleID)
+	c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 }
 
 func GETNavigationLocations(c *gin.Context) {
@@ -67,4 +69,5 @@ func GETNavigationLocations(c *gin.Context) {
 		return
 	}
 	slog.Info("Get Locations", "url", c.Request.URL.String(), "device", device.DongleID)
+	c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 }

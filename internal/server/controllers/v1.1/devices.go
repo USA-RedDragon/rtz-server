@@ -49,4 +49,5 @@ func GETDeviceStats(c *gin.Context) {
 	}
 
 	slog.Info("Get Stats", "url", c.Request.URL.String(), "device", device.DongleID)
+	c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 }
