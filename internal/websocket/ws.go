@@ -65,7 +65,7 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 	return func(c *gin.Context) {
 		dongleID, ok := c.Params.Get("dongle_id")
 		if !ok {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+			c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
 			return
 		}
 		db, ok := c.MustGet("db").(*gorm.DB)
@@ -76,7 +76,7 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 		}
 		device, err := models.FindDeviceByDongleID(db, dongleID)
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
 		conn, err := handler.wsUpgrader.Upgrade(c.Writer, c.Request, nil)

@@ -12,7 +12,7 @@ import (
 func GETDevice(c *gin.Context) {
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
 		return
 	}
 	db, ok := c.MustGet("db").(*gorm.DB)
@@ -23,7 +23,7 @@ func GETDevice(c *gin.Context) {
 	}
 	device, err := models.FindDeviceByDongleID(db, dongleID)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
 
@@ -33,7 +33,7 @@ func GETDevice(c *gin.Context) {
 func GETDeviceStats(c *gin.Context) {
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
 		return
 	}
 	db, ok := c.MustGet("db").(*gorm.DB)
@@ -44,7 +44,7 @@ func GETDeviceStats(c *gin.Context) {
 	}
 	device, err := models.FindDeviceByDongleID(db, dongleID)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
 

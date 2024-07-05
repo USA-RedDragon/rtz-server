@@ -12,7 +12,7 @@ import (
 func GETNavigationNext(c *gin.Context) {
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
 		return
 	}
 	db, ok := c.MustGet("db").(*gorm.DB)
@@ -23,7 +23,7 @@ func GETNavigationNext(c *gin.Context) {
 	}
 	device, err := models.FindDeviceByDongleID(db, dongleID)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
 	slog.Info("Get Next Navigation", "url", c.Request.URL.String(), "device", device.DongleID)
@@ -32,7 +32,7 @@ func GETNavigationNext(c *gin.Context) {
 func DELETENavigationNext(c *gin.Context) {
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
 		return
 	}
 	db, ok := c.MustGet("db").(*gorm.DB)
@@ -43,7 +43,7 @@ func DELETENavigationNext(c *gin.Context) {
 	}
 	device, err := models.FindDeviceByDongleID(db, dongleID)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
 	slog.Info("Delete Next Navigation", "url", c.Request.URL.String(), "device", device.DongleID)
@@ -52,7 +52,7 @@ func DELETENavigationNext(c *gin.Context) {
 func GETNavigationLocations(c *gin.Context) {
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
 		return
 	}
 	db, ok := c.MustGet("db").(*gorm.DB)
@@ -63,7 +63,7 @@ func GETNavigationLocations(c *gin.Context) {
 	}
 	device, err := models.FindDeviceByDongleID(db, dongleID)
 	if err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
 	slog.Info("Get Locations", "url", c.Request.URL.String(), "device", device.DongleID)
