@@ -58,10 +58,10 @@ func v1dot4(group *gin.RouterGroup, config *config.Config) {
 	group.GET("/:dongle_id/upload_url", setDevice(), requireAuth(config), controllersV1dot4.GETUploadURL)
 }
 
-func v2(group *gin.RouterGroup, _ *config.Config) {
+func v2(group *gin.RouterGroup, config *config.Config) {
 	group.POST("/auth", controllersV2.POSTAuth)
 	group.GET("/auth/g/redirect", controllersV2.GETGoogleRedirect)
 	group.GET("/auth/h/redirect", controllersV2.GETGitHubRedirect)
-	group.POST("/pilotpair", controllersV2.POSTPilotPair)
+	group.POST("/pilotpair", requireJWTAuth(config), controllersV2.POSTPilotPair)
 	group.POST("/pilotauth", controllersV2.POSTPilotAuth)
 }

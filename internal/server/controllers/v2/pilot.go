@@ -18,7 +18,95 @@ import (
 )
 
 func POSTPilotPair(c *gin.Context) {
-	slog.Info("Pair Pilot", "url", c.Request.URL.String())
+	var data v2.POSTPilotPairRequest
+
+	data.PairToken = c.PostForm("pair_token")
+	if data.PairToken == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "pair_token is required"})
+		return
+	}
+
+	db, ok := c.MustGet("db").(*gorm.DB)
+	if !ok {
+		slog.Error("Failed to get db from context")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	var claims = new(v2.PilotPairJWTClaims)
+
+	token, err := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name})).
+		ParseWithClaims(data.PairToken, claims, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+				slog.Error("Invalid signing method", "method", token.Header["alg"])
+			}
+			claims = token.Claims.(*v2.PilotPairJWTClaims)
+
+			// ParseWithClaims will skip expiration check
+			// if expiration has default value;
+			// forcing a check and exiting if not set
+			if claims.ExpiresAt == nil {
+				return nil, errors.New("token has no expiration")
+			}
+
+			if !claims.Pair {
+				return nil, errors.New("pair_token is not a pair token")
+			}
+
+			if claims.Identity == "" {
+				return nil, errors.New("pair_token has no identity")
+			}
+
+			device, err := models.FindDeviceByDongleID(db, claims.Identity)
+			if err != nil {
+				return nil, errors.New("pair_token has invalid identity")
+			}
+
+			blk, _ := pem.Decode([]byte(device.PublicKey))
+			key, err := x509.ParsePKIXPublicKey(blk.Bytes)
+			if err != nil {
+				slog.Error("Failed to parse public key", "error", err)
+				return nil, errors.New("pair_token has invalid identity")
+			}
+
+			return key, nil
+		})
+	if err != nil {
+		slog.Error("Failed to parse token", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "pair_token is invalid"})
+		return
+	}
+
+	if !token.Valid {
+		slog.Error("Invalid token")
+		c.JSON(http.StatusBadRequest, gin.H{"error": "pair_token is invalid"})
+		return
+	}
+
+	device, err := models.FindDeviceByDongleID(db, claims.Identity)
+	if err != nil {
+		slog.Error("Failed to find device", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	user, ok := c.MustGet("user").(*models.User)
+	if !ok {
+		slog.Error("Failed to get user from context")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	firstPair := !device.IsPaired
+
+	err = db.Model(&device).Update("owner_id", user.ID).Update("is_paired", true).Error
+	if err != nil {
+		slog.Error("Failed to pair device", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"first_pair": firstPair})
 }
 
 func POSTPilotAuth(c *gin.Context) {
