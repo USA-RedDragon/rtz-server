@@ -50,7 +50,7 @@ func v1(group *gin.RouterGroup, config *config.Config) {
 }
 
 func v1dot1(group *gin.RouterGroup, config *config.Config) {
-	group.GET("/devices/:dongle_id/", setDevice(), requireAuth(config), controllersV1dot1.GETDevice)
+	group.GET("/devices/:dongle_id", setDevice(), requireAuth(config), controllersV1dot1.GETDevice)
 	group.GET("/devices/:dongle_id/stats", setDevice(), requireAuth(config), controllersV1dot1.GETDeviceStats)
 }
 
