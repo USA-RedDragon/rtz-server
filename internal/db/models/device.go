@@ -2,7 +2,7 @@ package models
 
 import (
 	"crypto/rand"
-	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -108,7 +108,7 @@ func GenerateDongleID(db *gorm.DB) (string, error) {
 	if len != 32 {
 		return "", fmt.Errorf("not enough random bytes")
 	}
-	candidate := base64.RawURLEncoding.EncodeToString(buff)[:16]
+	candidate := hex.EncodeToString(buff)[:16]
 
 	_, err = FindDeviceByDongleID(db, candidate)
 	if err == nil {
