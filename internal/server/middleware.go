@@ -244,13 +244,6 @@ func requireDeviceOwner() gin.HandlerFunc {
 	// User should be present from requireAuth
 	// All these routes have a dongle_id param
 	return func(c *gin.Context) {
-		user, ok := c.MustGet("user").(*models.User)
-		if !ok {
-			slog.Error("Failed to get user from context")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-
 		dongleID, ok := c.Params.Get("dongle_id")
 		if !ok {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
@@ -270,8 +263,40 @@ func requireDeviceOwner() gin.HandlerFunc {
 			return
 		}
 
-		if device.OwnerID != user.ID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+		var subject any
+		subject, ok = c.Get("user")
+		if !ok {
+			// Some of these routes also work with device auth
+			subject, ok = c.Get("device")
+			if !ok {
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+		}
+		switch subject.(type) {
+		case *models.User:
+			sub, ok := subject.(*models.User)
+			if !ok {
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+			if sub.ID != device.OwnerID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+				return
+			}
+		case *models.Device:
+			sub, ok := subject.(*models.Device)
+			if !ok {
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+			if sub.OwnerID != device.OwnerID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+				return
+			}
+
+		default:
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
 
