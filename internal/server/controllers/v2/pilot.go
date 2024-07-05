@@ -106,7 +106,7 @@ func POSTPilotPair(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"first_pair": firstPair})
+	c.JSON(http.StatusOK, gin.H{"first_pair": firstPair, "dongle_id": device.DongleID})
 }
 
 func POSTPilotAuth(c *gin.Context) {
