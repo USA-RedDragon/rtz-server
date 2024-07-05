@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"time"
@@ -11,6 +13,11 @@ import (
 type UserJWT struct {
 	jwt.RegisteredClaims
 	Identity uint `json:"identity"`
+}
+
+type DeviceJWT struct {
+	jwt.RegisteredClaims
+	Identity string `json:"identity"`
 }
 
 func (u UserJWT) GetAudience() (jwt.ClaimStrings, error) {
@@ -80,4 +87,39 @@ func VerifyJWT(signingKey string, tokenString string) (uint, error) {
 		return 0, errors.New("invalid token")
 	}
 	return claims.Identity, nil
+}
+
+func VerifyDeviceJWT(did string, signingKey string, tokenString string) error {
+	claims := new(DeviceJWT)
+	token, err := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name})).ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+			return nil, fmt.Errorf("invalid signing method: %s", token.Header["alg"])
+		}
+		claims = token.Claims.(*DeviceJWT)
+
+		// ParseWithClaims will skip expiration check
+		// if expiration has default value;
+		// forcing a check and exiting if not set
+		if claims.ExpiresAt == nil {
+			return nil, errors.New("token has no expiration")
+		}
+
+		if claims.Identity != did {
+			return nil, errors.New("identity does not match device")
+		}
+
+		blk, _ := pem.Decode([]byte(signingKey))
+		key, err := x509.ParsePKIXPublicKey(blk.Bytes)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse public key: %w", err)
+		}
+		return key, nil
+	})
+	if err != nil {
+		return err
+	}
+	if !token.Valid {
+		return errors.New("invalid token")
+	}
+	return nil
 }

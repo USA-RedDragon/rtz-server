@@ -63,16 +63,20 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 	}
 
 	return func(c *gin.Context) {
-		device, ok := c.MustGet("device").(*models.Device)
+		dongleID, ok := c.Params.Get("dongle_id")
 		if !ok {
-			slog.Error("Failed to get device from context")
-			c.AbortWithStatus(http.StatusInternalServerError)
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
 			return
 		}
 		db, ok := c.MustGet("db").(*gorm.DB)
 		if !ok {
 			slog.Error("Failed to get db from context")
-			c.AbortWithStatus(http.StatusInternalServerError)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		device, err := models.FindDeviceByDongleID(db, dongleID)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
 		}
 		conn, err := handler.wsUpgrader.Upgrade(c.Writer, c.Request, nil)
@@ -84,11 +88,11 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 		handler.conn = conn
 
 		defer func() {
-			handler.handler.OnDisconnect(c, c.Request, device, db)
+			handler.handler.OnDisconnect(c, c.Request, &device, db)
 			_ = handler.conn.Close()
 		}()
 
-		handler.handle(c.Request.Context(), c.Request, device, db)
+		handler.handle(c.Request.Context(), c.Request, &device, db)
 	}
 }
 

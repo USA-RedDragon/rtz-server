@@ -21,6 +21,13 @@ import (
 	"gorm.io/gorm"
 )
 
+type AuthType uint8
+
+const (
+	AuthTypeUser AuthType = 1 << iota
+	AuthTypeDevice
+)
+
 func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string, db *gorm.DB) {
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
@@ -80,100 +87,6 @@ func dbMiddleware(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-// Requires an Authorization: JWT <token> header
-func requireAuth(_ *config.Config) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			return
-		}
-
-		if !strings.HasPrefix(authHeader, "JWT ") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			return
-		}
-
-		jwtString := strings.TrimPrefix(authHeader, "JWT ")
-
-		device, ok := c.MustGet("device").(*models.Device)
-		if !ok {
-			slog.Error("Failed to get device from context")
-			c.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
-
-		type Claims struct {
-			jwt.RegisteredClaims
-			Identity string `json:"identity"`
-		}
-		claims := new(Claims)
-
-		// Verify the token
-		token, err := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name})).ParseWithClaims(jwtString, claims, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-				return nil, fmt.Errorf("invalid signing method: %s", token.Header["alg"])
-			}
-			claims = token.Claims.(*Claims)
-
-			// ParseWithClaims will skip expiration check
-			// if expiration has default value;
-			// forcing a check and exiting if not set
-			if claims.ExpiresAt == nil {
-				return nil, errors.New("token has no expiration")
-			}
-
-			if claims.Identity != device.DongleID {
-				return nil, errors.New("identity does not match device")
-			}
-
-			blk, _ := pem.Decode([]byte(device.PublicKey))
-			key, err := x509.ParsePKIXPublicKey(blk.Bytes)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse public key: %w", err)
-			}
-			return key, nil
-		})
-		if err != nil {
-			slog.Error("Failed to parse device auth token", "error", err)
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			return
-		}
-
-		if !token.Valid {
-			slog.Error("Invalid token")
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			return
-		}
-
-		c.Next()
-	}
-}
-
-func setDevice() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		dongleID, ok := c.Params.Get("dongle_id")
-		if !ok {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
-			return
-		}
-		db, ok := c.MustGet("db").(*gorm.DB)
-		if !ok {
-			slog.Error("Failed to get db from context")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-		device, err := models.FindDeviceByDongleID(db, dongleID)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			return
-		}
-		c.Set("device", &device)
-
-		c.Next()
-	}
-}
-
 // Requires a jwt cookie
 func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -229,7 +142,7 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 	}
 }
 
-func requireJWTAuth(config *config.Config) gin.HandlerFunc {
+func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -244,13 +157,6 @@ func requireJWTAuth(config *config.Config) gin.HandlerFunc {
 
 		jwtString := strings.TrimPrefix(authHeader, "JWT ")
 
-		uid, err := utils.VerifyJWT(config.JWT.Secret, jwtString)
-		if err != nil {
-			slog.Error("Failed to parse user JWT token", "error", err)
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			return
-		}
-
 		db, ok := c.MustGet("db").(*gorm.DB)
 		if !ok {
 			slog.Error("Failed to get db from context")
@@ -258,15 +164,63 @@ func requireJWTAuth(config *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		user, err := models.FindUserByID(db, uid)
-		if err != nil {
-			slog.Error("Failed to find user", "error", err)
+		userAuthPass := false
+		var userAuthErr error
+		deviceAuthPass := false
+		var deviceAuthErr error
+
+		if authType&AuthTypeUser == AuthTypeUser {
+			// Try verifying as user JWT
+			uid, err := utils.VerifyJWT(config.JWT.Secret, jwtString)
+			if err != nil {
+				userAuthErr = err
+			} else {
+				user, err := models.FindUserByID(db, uid)
+				if err != nil {
+					slog.Error("Failed to find user", "error", err)
+					userAuthErr = err
+				} else {
+					c.Set("user", &user)
+					userAuthPass = true
+				}
+			}
+		}
+
+		if authType&AuthTypeDevice == AuthTypeDevice {
+			// Try verifying as device JWT
+			dongleID, ok := c.Params.Get("dongle_id")
+			if !ok || dongleID == "" {
+				deviceAuthErr = errors.New("missing dongle_id")
+			} else {
+				device, err := models.FindDeviceByDongleID(db, dongleID)
+				if err != nil {
+					deviceAuthErr = err
+				} else {
+					err = utils.VerifyDeviceJWT(device.DongleID, device.PublicKey, jwtString)
+					if err != nil {
+						c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+						return
+					} else {
+						c.Set("device", &device)
+						deviceAuthPass = true
+					}
+				}
+			}
+		}
+
+		if authType&AuthTypeUser == AuthTypeUser && userAuthPass {
+			c.Next()
+		} else if authType&AuthTypeDevice == AuthTypeDevice && deviceAuthPass {
+			c.Next()
+		} else {
+			if userAuthErr != nil {
+				slog.Error("Failed to verify user JWT", "error", userAuthErr)
+			}
+			if deviceAuthErr != nil {
+				slog.Error("Failed to verify device JWT", "error", deviceAuthErr)
+			}
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 			return
 		}
-
-		c.Set("user", &user)
-
-		c.Next()
 	}
 }

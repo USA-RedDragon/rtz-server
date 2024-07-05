@@ -38,30 +38,30 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 	})
 
 	wsV2 := r.Group("/ws/v2")
-	wsV2.GET("/:dongle_id", setDevice(), requireCookieAuth(config), websocket.CreateHandler(websocketControllers.CreateEventsWebsocket(eventsChannel), config))
+	wsV2.GET("/:dongle_id", requireCookieAuth(config), websocket.CreateHandler(websocketControllers.CreateEventsWebsocket(eventsChannel), config))
 }
 
 func v1(group *gin.RouterGroup, config *config.Config) {
-	group.GET("/me", requireJWTAuth(config), controllersV1.GETMe)
-	group.GET("/me/devices", requireJWTAuth(config), controllersV1.GETMyDevices)
-	group.GET("/navigation/:dongle_id/next", setDevice(), requireAuth(config), controllersV1.GETNavigationNext)
-	group.DELETE("/navigation/:dongle_id/next", setDevice(), requireAuth(config), controllersV1.DELETENavigationNext)
-	group.GET("/navigation/:dongle_id/locations", setDevice(), requireAuth(config), controllersV1.GETNavigationLocations)
+	group.GET("/me", requireAuth(config, AuthTypeUser), controllersV1.GETMe)
+	group.GET("/me/devices", requireAuth(config, AuthTypeUser), controllersV1.GETMyDevices)
+	group.GET("/navigation/:dongle_id/next", requireAuth(config, AuthTypeUser|AuthTypeDevice), controllersV1.GETNavigationNext)
+	group.DELETE("/navigation/:dongle_id/next", requireAuth(config, AuthTypeUser|AuthTypeDevice), controllersV1.DELETENavigationNext)
+	group.GET("/navigation/:dongle_id/locations", requireAuth(config, AuthTypeUser|AuthTypeDevice), controllersV1.GETNavigationLocations)
 }
 
 func v1dot1(group *gin.RouterGroup, config *config.Config) {
-	group.GET("/devices/:dongle_id", setDevice(), requireAuth(config), controllersV1dot1.GETDevice)
-	group.GET("/devices/:dongle_id/stats", setDevice(), requireAuth(config), controllersV1dot1.GETDeviceStats)
+	group.GET("/devices/:dongle_id", requireAuth(config, AuthTypeUser|AuthTypeDevice), controllersV1dot1.GETDevice)
+	group.GET("/devices/:dongle_id/stats", requireAuth(config, AuthTypeUser|AuthTypeDevice), controllersV1dot1.GETDeviceStats)
 }
 
 func v1dot4(group *gin.RouterGroup, config *config.Config) {
-	group.GET("/:dongle_id/upload_url", setDevice(), requireAuth(config), controllersV1dot4.GETUploadURL)
+	group.GET("/:dongle_id/upload_url", requireAuth(config, AuthTypeUser|AuthTypeDevice), controllersV1dot4.GETUploadURL)
 }
 
 func v2(group *gin.RouterGroup, config *config.Config) {
 	group.POST("/auth", controllersV2.POSTAuth)
 	group.GET("/auth/g/redirect", controllersV2.GETGoogleRedirect)
 	group.GET("/auth/h/redirect", controllersV2.GETGitHubRedirect)
-	group.POST("/pilotpair", requireJWTAuth(config), controllersV2.POSTPilotPair)
+	group.POST("/pilotpair", requireAuth(config, AuthTypeUser), controllersV2.POSTPilotPair)
 	group.POST("/pilotauth", controllersV2.POSTPilotAuth)
 }
