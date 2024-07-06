@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -30,8 +31,14 @@ func GETUploadURL(c *gin.Context) {
 		return
 	}
 
+	path := c.Query("path")
+	if path == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
+		return
+	}
+
 	c.JSON(http.StatusOK, v1dot4.UploadURLResponse{
-		URL: config.HTTP.BackendURL + "/v1.4/" + dongleID + "/upload",
+		URL: config.HTTP.BackendURL + "/v1.4/" + dongleID + "/upload?path=" + url.QueryEscape(path),
 		Headers: map[string]string{
 			"Authorization": c.GetHeader("Authorization"),
 		},
