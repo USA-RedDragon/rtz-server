@@ -121,7 +121,7 @@ func GenerateDongleID(db *gorm.DB) (string, error) {
 }
 
 func UpdateAthenaPingTimestamp(db *gorm.DB, id uint) error {
-	return db.Where(&Device{ID: id}).Update("last_athena_ping", time.Now().Unix()).Error
+	return db.Model(&Device{}).Where(&Device{ID: id}).Update("last_athena_ping", time.Now().Unix()).Error
 }
 
 func GetDevicesOwnedByUser(db *gorm.DB, userID uint) ([]Device, error) {

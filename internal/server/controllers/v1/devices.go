@@ -37,7 +37,7 @@ func PATCHDevice(c *gin.Context) {
 		return
 	}
 
-	err = db.Model(&device).Update("alias", req.Alias).Error
+	err = db.Model(&device).Where(&models.Device{ID: device.ID}).Update("alias", req.Alias).Error
 	if err != nil {
 		slog.Error("Failed to update device", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
