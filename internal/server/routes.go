@@ -40,7 +40,7 @@ func applyRoutes(r *gin.Engine, config *config.Config, rpcWebsocket *websocketCo
 	wsV2 := r.Group("/ws/v2")
 	wsV2.GET("/:dongle_id", requireCookieAuth(config), websocket.CreateHandler(rpcWebsocket, config))
 
-	r.POST("/:dongle_id", requireAuth(config, AuthTypeUser), requireDeviceOwner(), controllers.HandleRPC)
+	r.POST("/:dongle_id", requireAuth(config, AuthTypeUser), requireDeviceOwnerOrShared(), controllers.HandleRPC)
 }
 
 func v1(group *gin.RouterGroup, config *config.Config) {
