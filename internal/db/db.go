@@ -23,7 +23,7 @@ func MakeDB(config *config.Config) (db *gorm.DB, err error) {
 		}
 	}
 
-	err = db.AutoMigrate(&models.Device{}, &models.User{}, &models.Location{})
+	err = db.AutoMigrate(&models.Device{}, &models.User{}, &models.Location{}, &models.DeviceShare{})
 	if err != nil {
 		return db, fmt.Errorf("failed to migrate database: %w", err)
 	}
