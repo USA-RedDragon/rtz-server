@@ -9,7 +9,7 @@ import (
 )
 
 type User struct {
-	ID           uint                `json:"id" gorm:"primaryKey" binding:"required"`
+	ID           uint                `json:"-" gorm:"primaryKey" binding:"required"`
 	GitHubUserID nulltype.NullInt64  `json:"github_user_id,omitempty" gorm:"uniqueIndex"`
 	GoogleUserID nulltype.NullString `json:"google_user_id,omitempty" gorm:"uniqueIndex"`
 	Superuser    bool                `json:"superuser" gorm:"default:false"`
