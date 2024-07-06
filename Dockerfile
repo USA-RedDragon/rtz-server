@@ -1,4 +1,4 @@
-FROM alpine:3.15
+FROM alpine:3.20
 COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY hack/passwd /etc/passwd
 COPY hack/group /etc/group
