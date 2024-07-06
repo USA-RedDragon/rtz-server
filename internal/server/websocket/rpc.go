@@ -91,7 +91,7 @@ func (c *RPCWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket
 	}
 
 	dongle, loaded := c.dongles.Load(device.DongleID)
-	if !loaded {
+	if loaded {
 		dongle.outbound <- jsonRPC
 		return
 	}
