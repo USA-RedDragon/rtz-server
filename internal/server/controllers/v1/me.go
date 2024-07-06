@@ -76,5 +76,29 @@ func GETMyDevices(c *gin.Context) {
 		})
 	}
 
+	sharedDevices, err := models.ListSharedToByUserID(db, user.ID)
+	if err != nil {
+		slog.Error("Failed to get shared devices", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+	for _, sharedDevice := range sharedDevices {
+		device, err := models.FindDeviceByID(db, sharedDevice.DeviceID)
+		if err != nil {
+			slog.Error("Failed to get shared device", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		devicesResp = append(devicesResp, v1.GETMyDevicesResponse{
+			Device: device,
+			EligibleFeatures: v1.EligibleFeatures{
+				Navigation: true,
+				Prime:      true,
+				PrimeData:  true,
+			},
+			IsOwner: false,
+		})
+	}
+
 	c.JSON(http.StatusOK, devicesResp)
 }

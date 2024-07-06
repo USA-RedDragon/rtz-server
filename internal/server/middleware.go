@@ -303,3 +303,69 @@ func requireDeviceOwner() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func requireDeviceOwnerOrShared() gin.HandlerFunc {
+	// User should be present from requireAuth
+	// All these routes have a dongle_id param
+	return func(c *gin.Context) {
+		dongleID, ok := c.Params.Get("dongle_id")
+		if !ok {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+			return
+		}
+
+		db, ok := c.MustGet("db").(*gorm.DB)
+		if !ok {
+			slog.Error("Failed to get db from context")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		device, err := models.FindDeviceByDongleID(db, dongleID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		var subject any
+		subject, ok = c.Get("user")
+		if !ok {
+			// Some of these routes also work with device auth
+			subject, ok = c.Get("device")
+			if !ok {
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+		}
+		switch subject := subject.(type) {
+		case *models.User:
+			sharedDevices, err := models.ListSharedToByUserID(db, subject.ID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+			shared := false
+			for _, sharedDevice := range sharedDevices {
+				if sharedDevice.DeviceID == device.ID {
+					shared = true
+					break
+				}
+			}
+			if subject.ID != device.OwnerID && !shared {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+				return
+			}
+		case *models.Device:
+			if subject.OwnerID != device.OwnerID {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+				return
+			}
+
+		default:
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		c.Next()
+	}
+}

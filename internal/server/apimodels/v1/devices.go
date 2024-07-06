@@ -12,3 +12,7 @@ type LocationResponse struct {
 type DevicePatchable struct {
 	Alias nulltype.NullString `json:"alias" binding:"required"`
 }
+
+type AddUserRequest struct {
+	Email string `json:"email" binding:"required"`
+}
