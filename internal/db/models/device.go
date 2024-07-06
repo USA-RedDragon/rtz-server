@@ -20,11 +20,12 @@ const (
 )
 
 type Device struct {
-	ID        uint   `json:"-" gorm:"primaryKey" binding:"required"`
-	DongleID  string `json:"dongle_id" gorm:"uniqueIndex" binding:"required"`
-	Serial    string `json:"serial" gorm:"uniqueIndex" binding:"required"`
-	PublicKey string `json:"public_key" gorm:"uniqueIndex" binding:"required"`
-	IsPaired  bool   `json:"is_paired" gorm:"default:false"`
+	ID        uint                `json:"-" gorm:"primaryKey" binding:"required"`
+	Alias     nulltype.NullString `json:"alias,omitempty"`
+	DongleID  string              `json:"dongle_id" gorm:"uniqueIndex" binding:"required"`
+	Serial    string              `json:"serial" gorm:"uniqueIndex" binding:"required"`
+	PublicKey string              `json:"public_key" gorm:"uniqueIndex" binding:"required"`
+	IsPaired  bool                `json:"is_paired" gorm:"default:false"`
 	// Prime defaults to true
 	Prime bool `json:"prime" gorm:"default:true"`
 	// PrimeType defaults to 1 for "standard prime"
