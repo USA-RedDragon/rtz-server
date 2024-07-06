@@ -114,7 +114,7 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 		db, ok := c.MustGet("db").(*gorm.DB)
 		if !ok {
 			slog.Error("Failed to get db from context")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
 		device, err := models.FindDeviceByDongleID(db, dongleID)
@@ -180,7 +180,7 @@ func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {
 		db, ok := c.MustGet("db").(*gorm.DB)
 		if !ok {
 			slog.Error("Failed to get db from context")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
 
@@ -256,20 +256,20 @@ func requireDeviceOwner() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		dongleID, ok := c.Params.Get("dongle_id")
 		if !ok {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
 			return
 		}
 
 		db, ok := c.MustGet("db").(*gorm.DB)
 		if !ok {
 			slog.Error("Failed to get db from context")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
 
 		device, err := models.FindDeviceByDongleID(db, dongleID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
 
@@ -286,12 +286,12 @@ func requireDeviceOwner() gin.HandlerFunc {
 		switch subject := subject.(type) {
 		case *models.User:
 			if subject.ID != device.OwnerID {
-				c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
 				return
 			}
 		case *models.Device:
 			if subject.OwnerID != device.OwnerID {
-				c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
 				return
 			}
 
@@ -310,20 +310,20 @@ func requireDeviceOwnerOrShared() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		dongleID, ok := c.Params.Get("dongle_id")
 		if !ok {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
 			return
 		}
 
 		db, ok := c.MustGet("db").(*gorm.DB)
 		if !ok {
 			slog.Error("Failed to get db from context")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
 
 		device, err := models.FindDeviceByDongleID(db, dongleID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
 
@@ -341,7 +341,7 @@ func requireDeviceOwnerOrShared() gin.HandlerFunc {
 		case *models.User:
 			sharedDevices, err := models.ListSharedToByUserID(db, subject.ID)
 			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 				return
 			}
 			shared := false
@@ -352,12 +352,12 @@ func requireDeviceOwnerOrShared() gin.HandlerFunc {
 				}
 			}
 			if subject.ID != device.OwnerID && !shared {
-				c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
 				return
 			}
 		case *models.Device:
 			if subject.OwnerID != device.OwnerID {
-				c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
 				return
 			}
 
