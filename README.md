@@ -33,6 +33,7 @@ The service is configured via environment variables, a configuration YAML file, 
 - [ ] Allow custom IDPs for sign in
 - [ ] Document deployment
 - [ ] Useradmin
+- [ ] Rename the project
 
 ## Frotend TODOs
 
