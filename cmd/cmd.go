@@ -9,7 +9,6 @@ import (
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/USA-RedDragon/connect-server/internal/db"
-	"github.com/USA-RedDragon/connect-server/internal/events"
 	"github.com/USA-RedDragon/connect-server/internal/server"
 	"github.com/spf13/cobra"
 	"github.com/ztrue/shutdown"
@@ -52,14 +51,8 @@ func run(cmd *cobra.Command, _ []string) error {
 	}
 	slog.Info("Database connection established")
 
-	// Initialize the websocket event bus
-	eventBus := events.NewEventBus()
-	slog.Info("Event bus started")
-
-	eventChannel := eventBus.GetChannel()
-
 	slog.Info("Starting HTTP server")
-	server := server.NewServer(config, eventChannel, db)
+	server := server.NewServer(config, db)
 	err = server.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start HTTP server: %w", err)
@@ -75,8 +68,6 @@ func run(cmd *cobra.Command, _ []string) error {
 		})
 
 		err := errGrp.Wait()
-		// We always want to close the event channel before exiting
-		close(eventChannel)
 		if err != nil {
 			slog.Error("Shutdown error", "error", err.Error())
 		}

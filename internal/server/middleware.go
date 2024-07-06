@@ -11,6 +11,7 @@ import (
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
+	websocketControllers "github.com/USA-RedDragon/connect-server/internal/server/websocket"
 	"github.com/USA-RedDragon/connect-server/internal/utils"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -18,6 +19,7 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
+
 	"gorm.io/gorm"
 )
 
@@ -28,7 +30,7 @@ const (
 	AuthTypeDevice
 )
 
-func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string, db *gorm.DB) {
+func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string, db *gorm.DB, rpcWebsocket *websocketControllers.RPCWebsocket) {
 	r.Use(gin.Recovery())
 	r.Use(gin.Logger())
 	r.TrustedPlatform = "X-Real-IP"
@@ -48,6 +50,7 @@ func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string,
 		slog.Error("Failed to set trusted proxies", "error", err.Error())
 	}
 
+	r.Use(rpcSocketMiddleware(rpcWebsocket))
 	r.Use(dbMiddleware(db))
 	r.Use(configMiddleware(config))
 
@@ -83,6 +86,13 @@ func tracingProvider(config *config.Config) gin.HandlerFunc {
 func dbMiddleware(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Set("db", db)
+		c.Next()
+	}
+}
+
+func rpcSocketMiddleware(rpcWebsocket *websocketControllers.RPCWebsocket) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("rpcWebsocket", rpcWebsocket)
 		c.Next()
 	}
 }

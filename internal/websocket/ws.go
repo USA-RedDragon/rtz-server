@@ -110,15 +110,10 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 				writer.Error("read failed")
 				break
 			}
-			switch {
-			case t == websocket.PingMessage:
+			switch t {
+			case websocket.PingMessage:
 				writer.WriteMessage(Message{
 					Type: websocket.PongMessage,
-				})
-			case strings.EqualFold(string(msg), "ping"):
-				writer.WriteMessage(Message{
-					Type: websocket.TextMessage,
-					Data: []byte("PONG"),
 				})
 			default:
 				h.handler.OnMessage(c, r, writer, msg, t, device, db)

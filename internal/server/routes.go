@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
-	"github.com/USA-RedDragon/connect-server/internal/events"
 	"github.com/USA-RedDragon/connect-server/internal/server/controllers"
 	controllersV1 "github.com/USA-RedDragon/connect-server/internal/server/controllers/v1"
 	controllersV1dot1 "github.com/USA-RedDragon/connect-server/internal/server/controllers/v1.1"
@@ -16,7 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events.Event) {
+func applyRoutes(r *gin.Engine, config *config.Config, rpcWebsocket *websocketControllers.RPCWebsocket) {
 	r.GET("/health", func(c *gin.Context) {
 		c.String(http.StatusOK, "OK")
 	})
@@ -39,7 +38,7 @@ func applyRoutes(r *gin.Engine, config *config.Config, eventsChannel chan events
 	})
 
 	wsV2 := r.Group("/ws/v2")
-	wsV2.GET("/:dongle_id", requireCookieAuth(config), websocket.CreateHandler(websocketControllers.CreateEventsWebsocket(eventsChannel), config))
+	wsV2.GET("/:dongle_id", requireCookieAuth(config), websocket.CreateHandler(rpcWebsocket, config))
 
 	r.POST("/:dongle_id", requireAuth(config, AuthTypeUser), requireDeviceOwner(), controllers.HandleRPC)
 }

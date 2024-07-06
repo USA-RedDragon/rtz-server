@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
-	"github.com/USA-RedDragon/connect-server/internal/events"
+	websocketControllers "github.com/USA-RedDragon/connect-server/internal/server/websocket"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -43,7 +43,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.Engine.ServeHTTP(w, req)
 }
 
-func NewServer(config *config.Config, eventsChannel chan events.Event, db *gorm.DB) *Server {
+func NewServer(config *config.Config, db *gorm.DB) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	if config.HTTP.PProf.Enabled {
 		gin.SetMode(gin.DebugMode)
@@ -66,15 +66,16 @@ func NewServer(config *config.Config, eventsChannel chan events.Event, db *gorm.
 		writeTimeout = 60 * time.Second
 	}
 
-	applyMiddleware(r, config, "api", db)
-	applyRoutes(r, config, eventsChannel)
+	rpcWebsocket := websocketControllers.CreateRPCWebsocket()
+	applyMiddleware(r, config, "api", db, rpcWebsocket)
+	applyRoutes(r, config, rpcWebsocket)
 
 	var metricsIPV4Server *http.Server
 	var metricsIPV6Server *http.Server
 
 	if config.HTTP.Metrics.Enabled {
 		metricsRouter := gin.New()
-		applyMiddleware(metricsRouter, config, "metrics", db)
+		applyMiddleware(metricsRouter, config, "metrics", db, rpcWebsocket)
 
 		metricsRouter.GET("/metrics", gin.WrapH(promhttp.Handler()))
 		metricsIPV4Server = &http.Server{
