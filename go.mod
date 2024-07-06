@@ -3,7 +3,6 @@ module github.com/USA-RedDragon/connect-server
 go 1.22.4
 
 require (
-	github.com/datumbrain/nulltypes v0.0.0-20220127183023-3a9d8a48e6ed
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-contrib/pprof v1.5.0
 	github.com/gin-gonic/gin v1.10.0
@@ -11,6 +10,7 @@ require (
 	github.com/go-errors/errors v1.5.1
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/gorilla/websocket v1.5.3
+	github.com/mattn/go-nulltype v0.0.0-20230117041332-6715e831ac05
 	github.com/prometheus/client_golang v1.19.1
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5

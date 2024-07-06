@@ -36,10 +36,10 @@ func GETPrimeSubscription(c *gin.Context) {
 	}
 
 	var id string
-	if owner.GoogleUserID.Valid {
-		id = owner.GoogleUserID.String
+	if owner.GoogleUserID.Valid() {
+		id = owner.GoogleUserID.String()
 	} else {
-		id = fmt.Sprintf("%d", owner.GitHubUserID.Int32)
+		id = fmt.Sprintf("%d", owner.GitHubUserID.Int64Value())
 	}
 	c.JSON(http.StatusOK, v1.PrimeSubscriptionResponse{
 		Amount:            0,

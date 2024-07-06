@@ -1,10 +1,10 @@
 package v1
 
-import "github.com/datumbrain/nulltypes"
+import "github.com/mattn/go-nulltype"
 
 type LocationResponse struct {
-	DongleID string                `json:"dongle_id"`
-	Lat      nulltypes.NullFloat64 `json:"lat"`
-	Lon      nulltypes.NullFloat64 `json:"lng"`
-	Time     nulltypes.NullInt64   `json:"time"`
+	DongleID string               `json:"dongle_id"`
+	Lat      nulltype.NullFloat64 `json:"lat,omitempty"`
+	Lon      nulltype.NullFloat64 `json:"lng,omitempty"`
+	Time     nulltype.NullInt64   `json:"time,omitempty"`
 }

@@ -6,8 +6,8 @@ import (
 
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
 	v1 "github.com/USA-RedDragon/connect-server/internal/server/apimodels/v1"
-	"github.com/datumbrain/nulltypes"
 	"github.com/gin-gonic/gin"
+	"github.com/mattn/go-nulltype"
 	"gorm.io/gorm"
 )
 
@@ -62,12 +62,10 @@ func GETDeviceLocation(c *gin.Context) {
 		Lat:      device.LastGPSLat,
 		Lon:      device.LastGPSLng,
 	}
-	if device.LastGPSTime.Valid {
-		resp.Time = nulltypes.Int64(device.LastGPSTime.Time.UnixMilli())
+	if device.LastGPSTime.Valid() {
+		resp.Time = nulltype.NullInt64Of(device.LastGPSTime.TimeValue().UnixMilli())
 	} else {
-		resp.Time = nulltypes.NullInt64{
-			Valid: false,
-		}
+		resp.Time = nulltype.NullInt64{}
 	}
 
 	c.JSON(http.StatusOK, resp)

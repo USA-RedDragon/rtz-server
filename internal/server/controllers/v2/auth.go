@@ -14,8 +14,8 @@ import (
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
 	v2 "github.com/USA-RedDragon/connect-server/internal/server/apimodels/v2"
 	"github.com/USA-RedDragon/connect-server/internal/utils"
-	"github.com/datumbrain/nulltypes"
 	"github.com/gin-gonic/gin"
+	"github.com/mattn/go-nulltype"
 	"gorm.io/gorm"
 )
 
@@ -96,7 +96,7 @@ func POSTAuth(c *gin.Context) {
 			if errors.Is(err, gorm.ErrRecordNotFound) && config.Registration.Enabled {
 				// Create user
 				err = db.Create(&models.User{
-					GoogleUserID: nulltypes.String(id),
+					GoogleUserID: nulltype.NullStringOf(id),
 				}).Error
 				if err != nil {
 					slog.Error("Failed to create user", "error", err)
@@ -164,7 +164,7 @@ func POSTAuth(c *gin.Context) {
 			if errors.Is(err, gorm.ErrRecordNotFound) && config.Registration.Enabled {
 				// Create user
 				err = db.Create(&models.User{
-					GitHubUserID: nulltypes.Int32(int32(id)),
+					GitHubUserID: nulltype.NullInt64Of(int64(id)),
 				}).Error
 				if err != nil {
 					slog.Error("Failed to create user", "error", err)
