@@ -3,18 +3,19 @@ package models
 import (
 	"time"
 
+	"github.com/datumbrain/nulltypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
 
 type User struct {
-	ID           uint           `json:"id" gorm:"primaryKey" binding:"required"`
-	GitHubUserID int            `json:"github_user_id" gorm:"uniqueIndex"`
-	GoogleUserID string         `json:"google_user_id" gorm:"uniqueIndex"`
-	Superuser    bool           `json:"superuser" gorm:"default:false"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"-"`
-	DeletedAt    gorm.DeletedAt `json:"-" gorm:"index"`
+	ID           uint                 `json:"id" gorm:"primaryKey" binding:"required"`
+	GitHubUserID nulltypes.NullInt32  `json:"github_user_id" gorm:"uniqueIndex"`
+	GoogleUserID nulltypes.NullString `json:"google_user_id" gorm:"uniqueIndex"`
+	Superuser    bool                 `json:"superuser" gorm:"default:false"`
+	CreatedAt    time.Time            `json:"created_at"`
+	UpdatedAt    time.Time            `json:"-"`
+	DeletedAt    gorm.DeletedAt       `json:"-" gorm:"index"`
 }
 
 func (u User) TableName() string {
@@ -35,13 +36,13 @@ func FindUserByID(db *gorm.DB, id uint) (User, error) {
 
 func FindUserByGitHubID(db *gorm.DB, id int) (User, error) {
 	var user User
-	err := db.Where(&User{GitHubUserID: id}).First(&user).Error
+	err := db.Where(&User{GitHubUserID: nulltypes.Int32(int32(id))}).First(&user).Error
 	return user, err
 }
 
 func FindUserByGoogleID(db *gorm.DB, id string) (User, error) {
 	var user User
-	err := db.Where(&User{GoogleUserID: id}).First(&user).Error
+	err := db.Where(&User{GoogleUserID: nulltypes.String(id)}).First(&user).Error
 	return user, err
 }
 

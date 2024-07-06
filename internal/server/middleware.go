@@ -273,24 +273,14 @@ func requireDeviceOwner() gin.HandlerFunc {
 				return
 			}
 		}
-		switch subject.(type) {
+		switch subject := subject.(type) {
 		case *models.User:
-			sub, ok := subject.(*models.User)
-			if !ok {
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-				return
-			}
-			if sub.ID != device.OwnerID {
+			if subject.ID != device.OwnerID {
 				c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
 				return
 			}
 		case *models.Device:
-			sub, ok := subject.(*models.Device)
-			if !ok {
-				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-				return
-			}
-			if sub.OwnerID != device.OwnerID {
+			if subject.OwnerID != device.OwnerID {
 				c.JSON(http.StatusForbidden, gin.H{"error": "Forbidden"})
 				return
 			}

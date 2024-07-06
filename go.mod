@@ -3,6 +3,7 @@ module github.com/USA-RedDragon/connect-server
 go 1.22.4
 
 require (
+	github.com/datumbrain/nulltypes v0.0.0-20220127183023-3a9d8a48e6ed
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-contrib/pprof v1.5.0
 	github.com/gin-gonic/gin v1.10.0

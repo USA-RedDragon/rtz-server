@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/datumbrain/nulltypes"
 	"gorm.io/gorm"
 )
 
@@ -29,16 +30,16 @@ type Device struct {
 	// PrimeType defaults to 1 for "standard prime"
 	PrimeType uint `json:"prime_type" gorm:"default:1"`
 	// TrialClaimed defaults to true
-	TrialClaimed     bool       `json:"trial_claimed" gorm:"default:true"`
-	DeviceType       DeviceType `json:"device_type"`
-	LastGPSTime      time.Time  `json:"last_gps_time"`
-	LastGPSLat       float64    `json:"last_gps_lat"`
-	LastGPSLng       float64    `json:"last_gps_lng"`
-	LastGPSAccuracy  float64    `json:"last_gps_accuracy"`
-	LastGPSSpeed     float64    `json:"last_gps_speed"`
-	LastGPSBearing   float64    `json:"last_gps_bearing"`
-	OpenPilotVersion string     `json:"openpilot_version"`
-	LastAthenaPing   int64      `json:"last_athena_ping"`
+	TrialClaimed     bool                  `json:"trial_claimed" gorm:"default:true"`
+	DeviceType       DeviceType            `json:"device_type"`
+	LastGPSTime      nulltypes.NullTime    `json:"last_gps_time"`
+	LastGPSLat       nulltypes.NullFloat64 `json:"last_gps_lat"`
+	LastGPSLng       nulltypes.NullFloat64 `json:"last_gps_lng"`
+	LastGPSAccuracy  nulltypes.NullFloat64 `json:"last_gps_accuracy"`
+	LastGPSSpeed     nulltypes.NullFloat64 `json:"last_gps_speed"`
+	LastGPSBearing   nulltypes.NullFloat64 `json:"last_gps_bearing"`
+	OpenPilotVersion string                `json:"openpilot_version"`
+	LastAthenaPing   int64                 `json:"last_athena_ping"`
 
 	OwnerID uint `json:"-"`
 
