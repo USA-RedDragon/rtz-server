@@ -25,8 +25,6 @@ func HandleRPC(c *gin.Context) {
 		return
 	}
 
-	slog.Info("RPC", "dongle_id", dongleID, "method", inboundCall.Method, "params", inboundCall.Params)
-
 	rpcCaller, ok := c.MustGet("rpcWebsocket").(*websocket.RPCWebsocket)
 	if !ok {
 		slog.Error("Failed to get rpc from context")
