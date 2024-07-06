@@ -97,6 +97,22 @@ func PUTUpload(c *gin.Context) {
 		return
 	}
 
+	switch {
+	case strings.Contains(path, "boot/"):
+		// Boot log
+		err = db.Create(&models.BootLog{
+			DeviceID: device.ID,
+			FileName: filepath.Base(cleanedAbsolutePath),
+		}).Error
+		if err != nil {
+			slog.Error("Failed to create boot log", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+	default:
+		slog.Warn("Got unknown upload path", "path", path)
+	}
+
 	err = os.MkdirAll(filepath.Dir(cleanedAbsolutePath), 0755)
 	if err != nil {
 		slog.Error("Failed to create directories", "error", err)
