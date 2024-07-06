@@ -96,17 +96,22 @@ func (c *RPCWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket
 }
 
 func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer, device *models.Device, db *gorm.DB) {
-	err := models.UpdateAthenaPingTimestamp(db, device.ID)
-	if err != nil {
-		slog.Warn("Error updating athena ping timestamp", "error", err)
-	}
-
 	dongle := bidiChannel{
 		inbound:  make(chan apimodels.RPCCall),
 		outbound: make(chan apimodels.RPCResponse),
 	}
 	c.dongles.Store(device.DongleID, &dongle)
 	c.connectedClients.Inc()
+
+	err := models.UpdateAthenaPingTimestamp(db, device.ID)
+	if err != nil {
+		slog.Warn("Error updating athena ping timestamp", "error", err)
+	}
+
+	w.WriteMessage(websocket.Message{
+		Type: gorillaWebsocket.PingMessage,
+		Data: []byte{},
+	})
 
 	go func() {
 		for {
