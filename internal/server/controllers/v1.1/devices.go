@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
+	v1dot1 "github.com/USA-RedDragon/connect-server/internal/server/apimodels/v1.1"
+
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -49,5 +51,8 @@ func GETDeviceStats(c *gin.Context) {
 	}
 
 	slog.Info("Get Stats", "url", c.Request.URL.String(), "device", device.DongleID)
-	c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+
+	// TODO: Implement stats
+
+	c.JSON(http.StatusNotFound, v1dot1.StatsResponse{})
 }
