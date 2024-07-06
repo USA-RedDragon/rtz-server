@@ -18,4 +18,5 @@ type RPCResponse struct {
 	ID             string `json:"id"`
 	JSONRPCVersion string `json:"jsonrpc"`
 	Result         any    `json:"result"`
+	Error          string `json:"error"`
 }

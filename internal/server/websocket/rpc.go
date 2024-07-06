@@ -124,7 +124,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 					continue
 				}
 				w.WriteMessage(websocket.Message{
-					Type: gorillaWebsocket.BinaryMessage,
+					Type: gorillaWebsocket.TextMessage,
 					Data: jsonData,
 				})
 			}

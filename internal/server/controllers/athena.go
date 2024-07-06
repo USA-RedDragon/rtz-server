@@ -60,5 +60,5 @@ func HandleRPC(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusNotFound, resp)
+	c.JSON(http.StatusOK, resp)
 }
