@@ -23,4 +23,5 @@ func HandleRPC(c *gin.Context) {
 	}
 
 	slog.Info("RPC", "dongle_id", dongleID, "method", call.Method, "params", call.Params)
+	c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
 }
