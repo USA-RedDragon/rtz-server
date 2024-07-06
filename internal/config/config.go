@@ -32,7 +32,6 @@ type Auth struct {
 type Google struct {
 	ClientID     string `json:"client_id" yaml:"client_id"`
 	ClientSecret string `json:"client_secret" yaml:"client_secret"`
-	RedirectURI  string `json:"redirect_uri" yaml:"redirect_uri"`
 }
 
 type GitHub struct {
@@ -78,6 +77,7 @@ type HTTP struct {
 	HTTPListener
 	Tracing
 	FrontendURL    string   `json:"frontend_url" yaml:"frontend_url"`
+	BackendURL     string   `json:"backend_url" yaml:"backend_url"`
 	PProf          PProf    `json:"pprof"`
 	TrustedProxies []string `json:"trusted_proxies" yaml:"trusted_proxies"`
 	Metrics        Metrics  `json:"metrics"`
@@ -100,10 +100,10 @@ var (
 	HTTPMetricsPortKey        = "http.metrics.port"
 	HTTPCORSHostsKey          = "http.cors_hosts"
 	HTTPFrontendURLKey        = "http.frontend_url"
+	HTTPBackendURLKey         = "http.backend_url"
 	PersistenceDatabaseKey    = "persistence.database"
 	PersistenceUploadsKey     = "persistence.uploads"
 	RegistrationEnabledKey    = "registration.enabled"
-	AuthGoogleRedirectURIKey  = "auth.google.redirect_uri"
 	AuthGoogleClientIDKey     = "auth.google.client_id"
 	AuthGoogleClientSecretKey = "auth.google.client_secret"
 	AuthGitHubClientIDKey     = "auth.github.client_id"
@@ -139,10 +139,10 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().Uint16(HTTPMetricsPortKey, DefaultHTTPMetricsPort, "Metrics server port")
 	cmd.Flags().StringSlice(HTTPCORSHostsKey, []string{}, "Comma-separated list of CORS hosts")
 	cmd.Flags().String(HTTPFrontendURLKey, "", "Frontend URL")
+	cmd.Flags().String(HTTPBackendURLKey, "", "Backend URL")
 	cmd.Flags().String(PersistenceDatabaseKey, DefaultPersistenceDatabase, "Database file path")
 	cmd.Flags().String(PersistenceUploadsKey, DefaultPersistenceUploads, "Uploads directory")
 	cmd.Flags().Bool(RegistrationEnabledKey, DefaultRegistrationEnabled, "Enable registration")
-	cmd.Flags().String(AuthGoogleRedirectURIKey, "", "Google OAuth redirect URI")
 	cmd.Flags().String(AuthGoogleClientIDKey, "", "Google OAuth client ID")
 	cmd.Flags().String(AuthGoogleClientSecretKey, "", "Google OAuth client secret")
 	cmd.Flags().String(AuthGitHubClientIDKey, "", "GitHub OAuth client ID")
@@ -156,6 +156,9 @@ func (c *Config) Validate() error {
 	}
 	if c.HTTP.FrontendURL == "" {
 		return errors.New("Frontend URL is required")
+	}
+	if c.HTTP.BackendURL == "" {
+		return errors.New("Backend URL is required")
 	}
 	return nil
 }
@@ -330,6 +333,13 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		}
 	}
 
+	if cmd.Flags().Changed(HTTPBackendURLKey) {
+		config.HTTP.BackendURL, err = cmd.Flags().GetString(HTTPBackendURLKey)
+		if err != nil {
+			return fmt.Errorf("failed to get backend URL: %w", err)
+		}
+	}
+
 	if cmd.Flags().Changed(PersistenceDatabaseKey) {
 		config.Persistence.Database, err = cmd.Flags().GetString(PersistenceDatabaseKey)
 		if err != nil {
@@ -348,13 +358,6 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		config.Registration.Enabled, err = cmd.Flags().GetBool(RegistrationEnabledKey)
 		if err != nil {
 			return fmt.Errorf("failed to get registration enabled: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(AuthGoogleRedirectURIKey) {
-		config.Auth.Google.RedirectURI, err = cmd.Flags().GetString(AuthGoogleRedirectURIKey)
-		if err != nil {
-			return fmt.Errorf("failed to get Google OAuth redirect URI: %w", err)
 		}
 	}
 

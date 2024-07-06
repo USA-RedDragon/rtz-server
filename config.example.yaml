@@ -6,6 +6,7 @@ http:
 
   # The URL of the frontend
   frontend_url: 'http://localhost:3000'
+  backend_url: 'http://localhost:8080'
 
   # The IPv4 address to bind the HTTP server to
   ipv4_host: '0.0.0.0' # 0.0.0.0 = all interfaces
@@ -69,7 +70,6 @@ auth:
   google:
     client_id: ''
     client_secret: ''
-    redirect_url: ''
   github:
     client_id: ''
     client_secret: ''

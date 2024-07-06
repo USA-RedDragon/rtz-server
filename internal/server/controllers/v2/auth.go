@@ -56,7 +56,7 @@ func POSTAuth(c *gin.Context) {
 		urldata.Set("code", data.Code)
 		urldata.Set("client_id", config.Auth.Google.ClientID)
 		urldata.Set("client_secret", config.Auth.Google.ClientSecret)
-		urldata.Set("redirect_uri", config.Auth.Google.RedirectURI)
+		urldata.Set("redirect_uri", config.HTTP.BackendURL+"/v2/auth/g/redirect/")
 		urldata.Set("grant_type", "authorization_code")
 
 		resp, err := utils.HTTPRequest(http.MethodPost, tokenURL, strings.NewReader(urldata.Encode()), map[string]string{

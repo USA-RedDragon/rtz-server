@@ -64,6 +64,7 @@ func v1dot1(group *gin.RouterGroup, config *config.Config) {
 
 func v1dot4(group *gin.RouterGroup, config *config.Config) {
 	group.GET("/:dongle_id/upload_url", requireAuth(config, AuthTypeDevice), controllersV1dot4.GETUploadURL)
+	group.PUT("/:dongle_id/upload", requireAuth(config, AuthTypeDevice), controllersV1dot4.PUTUpload)
 }
 
 func v2(group *gin.RouterGroup, config *config.Config) {
