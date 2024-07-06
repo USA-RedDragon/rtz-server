@@ -25,6 +25,4 @@ type GETMyDevicesResponse struct {
 	EligibleFeatures EligibleFeatures `json:"eligible_features"`
 	IgnoreUploads    bool             `json:"ignore_uploads"`
 	IsOwner          bool             `json:"is_owner"`
-	SIMID            string           `json:"sim_id"`
-	SIMType          uint             `json:"sim_type"`
 }
