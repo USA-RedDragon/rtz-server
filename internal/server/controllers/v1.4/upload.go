@@ -85,6 +85,8 @@ func PUTUpload(c *gin.Context) {
 		return
 	}
 
+	slog.Info("Upload file", "device", device.DongleID, "path", path, "basePath", basePath, "absolute_path", cleanedAbsolutePath)
+
 	if !strings.HasPrefix(cleanedAbsolutePath, basePath) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid path"})
 		return
