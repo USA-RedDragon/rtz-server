@@ -70,3 +70,7 @@ func GETDeviceLocation(c *gin.Context) {
 
 	c.JSON(http.StatusOK, resp)
 }
+
+func GETDeviceRoutesSegments(c *gin.Context) {
+	c.JSON(http.StatusOK, []int{})
+}
