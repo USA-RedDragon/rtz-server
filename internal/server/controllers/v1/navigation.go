@@ -68,6 +68,10 @@ func GETNavigationLocations(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
-	slog.Info("Get Locations", "url", c.Request.URL.String(), "device", device.DongleID)
-	c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
+	locations, err := models.FindLocationsByDeviceID(db, device.ID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+	c.JSON(http.StatusOK, locations)
 }
