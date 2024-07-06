@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 
@@ -50,6 +51,10 @@ func HandleRPC(c *gin.Context) {
 
 	resp, err := rpcCaller.Call(dongleID, call)
 	if err != nil {
+		if errors.Is(err, websocket.ErrorNotConnected) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Dongle not connected"})
+			return
+		}
 		slog.Error("Failed to call RPC", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return

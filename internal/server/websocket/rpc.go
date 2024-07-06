@@ -3,6 +3,7 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -14,6 +15,10 @@ import (
 	gorillaWebsocket "github.com/gorilla/websocket"
 	"github.com/puzpuzpuz/xsync/v3"
 	"gorm.io/gorm"
+)
+
+var (
+	ErrorNotConnected = errors.New("dongle not connected")
 )
 
 type bidiChannel struct {
@@ -37,7 +42,7 @@ func CreateRPCWebsocket() *RPCWebsocket {
 func (c *RPCWebsocket) Call(dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
 	dongle, loaded := c.dongles.Load(dongleID)
 	if !loaded {
-		return apimodels.RPCResponse{}, fmt.Errorf("dongle not connected")
+		return apimodels.RPCResponse{}, ErrorNotConnected
 	}
 
 	responseChan := make(chan apimodels.RPCResponse)
