@@ -30,7 +30,7 @@ type Server struct {
 	config            *config.Config
 }
 
-const defTimeout = 5 * time.Second
+const defTimeout = 120 * time.Second
 
 type Router struct {
 	*gin.Engine
@@ -180,7 +180,7 @@ func (s *Server) Start() error {
 }
 
 func (s *Server) Stop() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
 	defer cancel()
 
 	s.stopped.Store(true)

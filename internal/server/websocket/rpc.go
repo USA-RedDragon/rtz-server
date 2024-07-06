@@ -49,7 +49,7 @@ func (c *RPCWebsocket) Call(dongleID string, call apimodels.RPCCall) (apimodels.
 	defer close(responseChan)
 	dongle.inbound <- call
 	go func() {
-		resp, err := waitForResponse(call.ID, dongle.outbound, 10*time.Second)
+		resp, err := waitForResponse(call.ID, dongle.outbound, 120*time.Second)
 		if err != nil {
 			slog.Warn("Error waiting for response", "error", err)
 			return
