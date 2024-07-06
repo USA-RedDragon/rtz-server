@@ -31,7 +31,7 @@ func GETUploadURL(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, v1dot4.UploadURLResponse{
-		URL: config.HTTP.BackendURL + "/v1.4/upload/" + dongleID,
+		URL: config.HTTP.BackendURL + "/v1.4/" + dongleID + "/upload",
 		Headers: map[string]string{
 			"Authorization": c.GetHeader("Authorization"),
 		},
