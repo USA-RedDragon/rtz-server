@@ -23,17 +23,17 @@ An implementation of the Comma.ai API service for self-hosted folks.
 
 The service is configured via environment variables, a configuration YAML file, or command line flags. The [`config.example.yaml`](config.example.yaml) file shows the available configuration options. The command line flags match the schema of the YAML file, i.e. `--http.cors_hosts='0.0.0.0'` would equate to `http.cors_hosts: ["0.0.0.0"]`. Environment variables are in the same format, however they are uppercase and replace hyphens with underscores and dots with double underscores, i.e. `HTTP__CORS_HOSTS="0.0.0.0"`.
 
-## TODOs
+## TODOs (in order of priority)
 
-- [ ] Stat tracking
 - [ ] Parsing uploaded segments and routes
+- [ ] Stat tracking
 - [ ] Get/set next navigation
-- [ ] Add more documentation
-- [ ] Add more tests
-- [ ] Allow custom IDPs for sign in
-- [ ] Document deployment
 - [ ] Useradmin
 - [ ] Rename the project
+- [ ] Add more documentation
+- [ ] Add more tests
+- [ ] Document deployment
+- [ ] Allow custom IDPs for sign in
 
 ## Frotend TODOs
 
