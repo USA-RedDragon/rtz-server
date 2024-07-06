@@ -54,5 +54,5 @@ func GETDeviceStats(c *gin.Context) {
 
 	// TODO: Implement stats
 
-	c.JSON(http.StatusNotFound, v1dot1.StatsResponse{})
+	c.JSON(http.StatusOK, v1dot1.StatsResponse{})
 }
