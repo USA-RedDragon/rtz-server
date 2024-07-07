@@ -42,9 +42,7 @@ func GETPrimeSubscription(c *gin.Context) {
 		id = fmt.Sprintf("%d", owner.GitHubUserID.Int64Value())
 	}
 	c.JSON(http.StatusOK, v1.PrimeSubscriptionResponse{
-		Amount:            0,
 		IsPrimeSim:        false,
-		NextChargeAt:      0,
 		Plan:              "free",
 		RequiresMigration: false,
 		SubscribedAt:      uint(device.CreatedAt.Unix()),
