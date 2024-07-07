@@ -3,3 +3,4 @@
 *.sqlite3-wal
 config.yaml
 uploads/
+*.capnp.go
