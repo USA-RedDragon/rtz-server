@@ -29,6 +29,9 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Install capnproto
+        run: sudo apt-get install -y capnproto
+
       - run: go generate ./...
 
       - name: Unit tests
