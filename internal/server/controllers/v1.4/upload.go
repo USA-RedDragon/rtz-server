@@ -2,19 +2,27 @@ package v1dot4
 
 import (
 	"bufio"
+	"compress/bzip2"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
+	"github.com/USA-RedDragon/connect-server/internal/logparser"
 	v1dot4 "github.com/USA-RedDragon/connect-server/internal/server/apimodels/v1.4"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+)
+
+var (
+	newRouteRegex = regexp.MustCompile(`^(?P<motonic>[0-9a-fA-F]+)--(?P<route>[0-9a-fA-F]+)--(?P<segment>\d+)`)
+	oldRouteRegex = regexp.MustCompile(`^(?P<date>\d{4}-\d{2}-\d{2})--(?P<time>\d{2}-\d{2}-\d{2})`)
 )
 
 func GETUploadURL(c *gin.Context) {
@@ -164,6 +172,38 @@ func PUTUpload(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
+	case newRouteRegex.Match([]byte(path)):
+		slog.Warn("New route upload", "path", path)
+		if strings.Contains(path, "qlog.bz2") {
+			file, err := os.Open(cleanedAbsolutePath)
+			if err != nil {
+				slog.Error("Failed to open file", "error", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+			defer file.Close()
+			header := make([]byte, 3)
+			read, err := file.ReadAt(header, 0)
+			if err != nil {
+				slog.Error("Failed to read header", "error", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+			if read != 3 || string(header) != "BZh" {
+				slog.Error("Invalid header", "header", string(header))
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file"})
+				return
+			}
+			segmentData, err := logparser.DecodeSegmentData(bzip2.NewReader(bufio.NewReader(file)))
+			if err != nil {
+				slog.Error("Failed to decode segment data", "error", err)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file"})
+				return
+			}
+			slog.Info("Got segment data", "data", segmentData)
+		}
+	case oldRouteRegex.Match([]byte(path)):
+		slog.Warn("Old route upload", "path", path)
 	default:
 		slog.Warn("Got unknown upload path", "path", path)
 	}
