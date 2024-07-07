@@ -22,6 +22,7 @@ var (
 )
 
 type bidiChannel struct {
+	open     bool
 	inbound  chan apimodels.RPCCall
 	outbound chan apimodels.RPCResponse
 }
@@ -47,6 +48,9 @@ func (c *RPCWebsocket) Call(dongleID string, call apimodels.RPCCall) (apimodels.
 
 	responseChan := make(chan apimodels.RPCResponse)
 	defer close(responseChan)
+	if !dongle.open {
+		return apimodels.RPCResponse{}, ErrorNotConnected
+	}
 	dongle.inbound <- call
 	go func() {
 		resp, err := waitForResponse(call.ID, dongle.outbound, 120*time.Second)
@@ -89,7 +93,7 @@ func (c *RPCWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket
 	}
 
 	dongle, loaded := c.dongles.Load(device.DongleID)
-	if loaded {
+	if loaded && dongle.open {
 		dongle.outbound <- jsonRPC
 		return
 	}
@@ -102,6 +106,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 	}
 
 	dongle := bidiChannel{
+		open:     true,
 		inbound:  make(chan apimodels.RPCCall),
 		outbound: make(chan apimodels.RPCResponse),
 	}
@@ -138,6 +143,7 @@ func (c *RPCWebsocket) OnDisconnect(ctx context.Context, _ *http.Request, device
 	if !loaded {
 		return
 	}
+	dongle.open = false
 	close(dongle.inbound)
 	close(dongle.outbound)
 }
