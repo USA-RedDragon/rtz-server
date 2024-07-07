@@ -97,6 +97,50 @@ func PUTUpload(c *gin.Context) {
 		return
 	}
 
+	err = os.MkdirAll(filepath.Dir(cleanedAbsolutePath), 0755)
+	if err != nil {
+		slog.Error("Failed to create directories", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	fileReader := bufio.NewReader(c.Request.Body)
+	tmpFile := cleanedAbsolutePath + ".tmp"
+	f, err := os.Create(tmpFile)
+	if err != nil {
+		slog.Error("Failed to create file", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+	w := bufio.NewWriter(f)
+	_, err = io.Copy(w, fileReader)
+	if err != nil {
+		slog.Error("Failed to write file", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	err = w.Flush()
+	if err != nil {
+		slog.Error("Failed to flush file", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	err = f.Close()
+	if err != nil {
+		slog.Error("Failed to close file", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	err = os.Rename(tmpFile, cleanedAbsolutePath)
+	if err != nil {
+		slog.Error("Failed to rename file", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
 	switch {
 	case strings.Contains(path, "boot/"):
 		// Boot log
@@ -113,29 +157,5 @@ func PUTUpload(c *gin.Context) {
 		slog.Warn("Got unknown upload path", "path", path)
 	}
 
-	err = os.MkdirAll(filepath.Dir(cleanedAbsolutePath), 0755)
-	if err != nil {
-		slog.Error("Failed to create directories", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-		return
-	}
-
-	fileReader := bufio.NewReader(c.Request.Body)
-	f, err := os.Create(cleanedAbsolutePath)
-	if err != nil {
-		slog.Error("Failed to create file", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-		return
-	}
-	defer f.Close()
-
-	w := bufio.NewWriter(f)
-	written, err := io.Copy(w, fileReader)
-	if err != nil {
-		slog.Error("Failed to write file", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-		return
-	}
-	slog.Debug("Uploaded file", "path", cleanedAbsolutePath, "size", written, "device", device.DongleID, "path", path)
 	c.JSON(http.StatusOK, gin.H{})
 }
