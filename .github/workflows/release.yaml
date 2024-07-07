@@ -16,5 +16,8 @@ jobs:
       contents: write
       packages: write
     uses: USA-RedDragon/reusable-actions/.github/workflows/goreleaser.yaml@v1.1.0
+    with:
+      run-before: |
+        sudo apt-get install -y capnproto
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}

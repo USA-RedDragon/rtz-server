@@ -24,6 +24,9 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Install capnproto
+        run: sudo apt-get install -y capnproto
+
       - run: go generate ./...
 
       - run: CGO_ENABLED=0 go test -run ^$ -benchmem -bench=. ./...
@@ -35,6 +38,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Install capnproto
+        run: sudo apt-get install -y capnproto
 
       - name: Set up Go
         uses: actions/setup-go@v5
