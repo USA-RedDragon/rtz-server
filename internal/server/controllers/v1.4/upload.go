@@ -153,6 +153,17 @@ func PUTUpload(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
+	case strings.Contains(path, "crash/"):
+		// Crash log
+		err = db.Create(&models.CrashLog{
+			DeviceID: device.ID,
+			FileName: filepath.Base(cleanedAbsolutePath),
+		}).Error
+		if err != nil {
+			slog.Error("Failed to create crash log", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
 	default:
 		slog.Warn("Got unknown upload path", "path", path)
 	}
