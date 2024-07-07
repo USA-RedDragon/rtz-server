@@ -19,5 +19,6 @@ jobs:
     with:
       run-before: |
         sudo apt-get install -y capnproto
+        go install capnproto.org/go/capnp/v3/capnpc-go@latest
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
