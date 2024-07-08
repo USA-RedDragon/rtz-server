@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
@@ -105,6 +106,11 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 
 	go func() {
 		for {
+			err := h.conn.SetReadDeadline(time.Now().Add(2 * time.Minute))
+			if err != nil {
+				writer.Error("failed to set read deadline")
+				break
+			}
 			t, msg, err := h.conn.ReadMessage()
 			if err != nil {
 				writer.Error("read failed")
