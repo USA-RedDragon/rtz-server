@@ -76,7 +76,6 @@ type Metrics struct {
 type HTTP struct {
 	HTTPListener
 	Tracing
-	FrontendURL    string   `json:"frontend_url" yaml:"frontend_url"`
 	BackendURL     string   `json:"backend_url" yaml:"backend_url"`
 	PProf          PProf    `json:"pprof"`
 	TrustedProxies []string `json:"trusted_proxies" yaml:"trusted_proxies"`
@@ -99,7 +98,6 @@ var (
 	HTTPMetricsIPV6HostKey    = "http.metrics.ipv6_host"
 	HTTPMetricsPortKey        = "http.metrics.port"
 	HTTPCORSHostsKey          = "http.cors_hosts"
-	HTTPFrontendURLKey        = "http.frontend_url"
 	HTTPBackendURLKey         = "http.backend_url"
 	PersistenceDatabaseKey    = "persistence.database"
 	PersistenceUploadsKey     = "persistence.uploads"
@@ -138,7 +136,6 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(HTTPMetricsIPV6HostKey, DefaultHTTPMetricsIPV6Host, "Metrics server IPv6 host")
 	cmd.Flags().Uint16(HTTPMetricsPortKey, DefaultHTTPMetricsPort, "Metrics server port")
 	cmd.Flags().StringSlice(HTTPCORSHostsKey, []string{}, "Comma-separated list of CORS hosts")
-	cmd.Flags().String(HTTPFrontendURLKey, "", "Frontend URL")
 	cmd.Flags().String(HTTPBackendURLKey, "", "Backend URL")
 	cmd.Flags().String(PersistenceDatabaseKey, DefaultPersistenceDatabase, "Database file path")
 	cmd.Flags().String(PersistenceUploadsKey, DefaultPersistenceUploads, "Uploads directory")
@@ -153,9 +150,6 @@ func RegisterFlags(cmd *cobra.Command) {
 func (c *Config) Validate() error {
 	if c.JWT.Secret == "" {
 		return errors.New("JWT secret is required")
-	}
-	if c.HTTP.FrontendURL == "" {
-		return errors.New("Frontend URL is required")
 	}
 	if c.HTTP.BackendURL == "" {
 		return errors.New("Backend URL is required")
@@ -323,13 +317,6 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		config.HTTP.CORSHosts, err = cmd.Flags().GetStringSlice(HTTPCORSHostsKey)
 		if err != nil {
 			return fmt.Errorf("failed to get CORS hosts: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPFrontendURLKey) {
-		config.HTTP.FrontendURL, err = cmd.Flags().GetString(HTTPFrontendURLKey)
-		if err != nil {
-			return fmt.Errorf("failed to get frontend URL: %w", err)
 		}
 	}
 

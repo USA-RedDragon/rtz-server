@@ -4,8 +4,7 @@
 # HTTP server configuration
 http:
 
-  # The URL of the frontend
-  frontend_url: 'http://localhost:3000'
+  # The URL of the backend
   backend_url: 'http://localhost:8080'
 
   # The IPv4 address to bind the HTTP server to

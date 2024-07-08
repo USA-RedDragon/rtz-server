@@ -199,12 +199,6 @@ func POSTAuth(c *gin.Context) {
 }
 
 func GETGoogleRedirect(c *gin.Context) {
-	config, ok := c.MustGet("config").(*config.Config)
-	if !ok {
-		slog.Error("Failed to get config from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-		return
-	}
 	error := c.Query("error")
 	if error != "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": error})
@@ -225,27 +219,73 @@ func GETGoogleRedirect(c *gin.Context) {
 		return
 	}
 
-	slog.Info("Google redirect", "Referer", c.Request.Header.Get("Referer"))
+	refererStr := c.Request.Header.Get("Referer")
+	if refererStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is required"})
+		return
+	}
+
+	referer, err := url.Parse(refererStr)
+	if err != nil {
+		slog.Error("Failed to parse referer", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is invalid"})
+		return
+	}
+
+	authRedirect := referer.JoinPath("/auth")
+	if authRedirect == nil {
+		slog.Error("Failed to join path", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is invalid"})
+		return
+	}
+
+	queries := url.Values{}
+	queries.Add("code", code)
+	queries.Add("provider", "g")
+
+	authRedirect.RawQuery = queries.Encode()
+
+	slog.Info("Google redirect", "Referer", c.Request.Header.Get("Referer"), "authRedirect", authRedirect.String())
 
 	// Redirect to the app with the code
-	c.Redirect(http.StatusFound, fmt.Sprintf("%s/auth/?provider=g&code=%s", config.HTTP.FrontendURL, code))
+	c.Redirect(http.StatusFound, authRedirect.String())
 }
 
 func GETGitHubRedirect(c *gin.Context) {
-	config, ok := c.MustGet("config").(*config.Config)
-	if !ok {
-		slog.Error("Failed to get config from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-		return
-	}
 	code := c.Query("code")
 	if code == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
 		return
 	}
 
-	slog.Info("GitHub redirect", "Referer", c.Request.Header.Get("Referer"))
+	refererStr := c.Request.Header.Get("Referer")
+	if refererStr == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is required"})
+		return
+	}
+
+	referer, err := url.Parse(refererStr)
+	if err != nil {
+		slog.Error("Failed to parse referer", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is invalid"})
+		return
+	}
+
+	authRedirect := referer.JoinPath("/auth")
+	if authRedirect == nil {
+		slog.Error("Failed to join path", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is invalid"})
+		return
+	}
+
+	queries := url.Values{}
+	queries.Add("code", code)
+	queries.Add("provider", "h")
+
+	authRedirect.RawQuery = queries.Encode()
+
+	slog.Info("GitHub redirect", "Referer", c.Request.Header.Get("Referer"), "authRedirect", authRedirect.String())
 
 	// Redirect to the app with the code
-	c.Redirect(http.StatusFound, fmt.Sprintf("%s/auth/?provider=h&code=%s", config.HTTP.FrontendURL, code))
+	c.Redirect(http.StatusFound, authRedirect.String())
 }

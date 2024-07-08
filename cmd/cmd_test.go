@@ -8,7 +8,6 @@ import (
 
 var requiredFlags = []string{
 	"--jwt.secret", "changeme",
-	"--http.frontend_url", "http://localhost:8080",
 	"--http.backend_url", "http://localhost:8081",
 }
 
