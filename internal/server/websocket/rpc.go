@@ -108,6 +108,8 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 	c.dongles.Store(device.DongleID, &dongle)
 	c.connectedClients.Inc()
 
+	slog.Info("RPC websocket connected", "device", device.DongleID)
+
 	err := models.UpdateAthenaPingTimestamp(db, device.ID)
 	if err != nil {
 		slog.Warn("Error updating athena ping timestamp", "error", err)
@@ -141,6 +143,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 
 func (c *RPCWebsocket) OnDisconnect(ctx context.Context, _ *http.Request, device *models.Device, db *gorm.DB) {
 	c.connectedClients.Dec()
+	slog.Info("RPC websocket disconnected", "device", device.DongleID)
 	dongle, loaded := c.dongles.LoadAndDelete(device.DongleID)
 	if !loaded {
 		return
