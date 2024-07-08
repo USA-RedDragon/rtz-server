@@ -34,11 +34,10 @@ The service is configured via environment variables, a configuration YAML file, 
 - [ ] Add more tests
 - [ ] Document deployment
 - [ ] Allow custom IDPs for sign in
+- [ ] Demo mode
 
 ## Frotend TODOs
 
-- [ ] User-configurable MAPBOX_TOKEN
-- [ ] Replace HERE API with Google Maps API
 - [ ] Remove Comma trademarked assets
 - [ ] Demo mode
 
