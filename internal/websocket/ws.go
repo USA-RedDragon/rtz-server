@@ -92,7 +92,7 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 			_ = handler.conn.Close()
 		}()
 
-		handler.handle(c.Request.Context(), c.Request, &device, db)
+		handler.handle(c, c.Request, &device, db)
 	}
 }
 
