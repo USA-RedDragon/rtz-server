@@ -225,6 +225,8 @@ func GETGoogleRedirect(c *gin.Context) {
 		return
 	}
 
+	slog.Info("Google redirect", "Referer", c.Request.Header.Get("Referer"))
+
 	// Redirect to the app with the code
 	c.Redirect(http.StatusFound, fmt.Sprintf("%s/auth/?provider=g&code=%s", config.HTTP.FrontendURL, code))
 }
@@ -241,6 +243,8 @@ func GETGitHubRedirect(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
 		return
 	}
+
+	slog.Info("GitHub redirect", "Referer", c.Request.Header.Get("Referer"))
 
 	// Redirect to the app with the code
 	c.Redirect(http.StatusFound, fmt.Sprintf("%s/auth/?provider=h&code=%s", config.HTTP.FrontendURL, code))
