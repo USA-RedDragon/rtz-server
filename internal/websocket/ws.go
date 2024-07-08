@@ -101,7 +101,6 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 		writer: make(chan Message, bufferSize),
 		error:  make(chan string),
 	}
-	h.handler.OnConnect(c, r, writer, device, db)
 
 	go func() {
 		for {
@@ -120,6 +119,8 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 			}
 		}
 	}()
+
+	go h.handler.OnConnect(c, r, writer, device, db)
 
 	for {
 		select {
