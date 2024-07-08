@@ -232,7 +232,7 @@ func GETGoogleRedirect(c *gin.Context) {
 		return
 	}
 
-	authRedirect := referer.JoinPath("/auth")
+	authRedirect := referer.JoinPath("/auth/")
 	if authRedirect == nil {
 		slog.Error("Failed to join path", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is invalid"})
@@ -271,7 +271,7 @@ func GETGitHubRedirect(c *gin.Context) {
 		return
 	}
 
-	authRedirect := referer.JoinPath("/auth")
+	authRedirect := referer.JoinPath("/auth/")
 	if authRedirect == nil {
 		slog.Error("Failed to join path", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is invalid"})
