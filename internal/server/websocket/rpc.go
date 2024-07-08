@@ -115,11 +115,6 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 		slog.Warn("Error updating athena ping timestamp", "error", err)
 	}
 
-	w.WriteMessage(websocket.Message{
-		Type: gorillaWebsocket.PingMessage,
-		Data: []byte{},
-	})
-
 	go func() {
 		for {
 			select {

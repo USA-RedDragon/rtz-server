@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
@@ -98,12 +99,19 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 
 func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.Device, db *gorm.DB) {
 	writer := wsWriter{
-		writer: make(chan Message, bufferSize),
+		writer: make(chan Message),
 		error:  make(chan string),
+	}
+
+	h.handler.OnConnect(c, r, writer, device, db)
+	err := h.conn.WriteMessage(websocket.PingMessage, []byte{})
+	if err != nil {
+		return
 	}
 
 	go func() {
 		for {
+			h.conn.SetReadDeadline(time.Now().Add(2 * time.Minute))
 			t, msg, err := h.conn.ReadMessage()
 			if err != nil {
 				writer.Error("read failed")
@@ -119,8 +127,6 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 			}
 		}
 	}()
-
-	go h.handler.OnConnect(c, r, writer, device, db)
 
 	for {
 		select {
