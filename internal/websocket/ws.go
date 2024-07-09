@@ -125,6 +125,12 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 		}
 	}()
 
+	err := h.conn.WriteMessage(websocket.PingMessage, []byte{})
+	if err != nil {
+		slog.Warn("Failed to send ping", "error", err)
+		return
+	}
+
 	slog.Info("Handler started", "device_id", device.ID)
 	defer slog.Info("Handler done", "device_id", device.ID)
 	for {
