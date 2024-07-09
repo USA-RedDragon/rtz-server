@@ -3,6 +3,7 @@ package v1
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
 	v1 "github.com/USA-RedDragon/connect-server/internal/server/apimodels/v1"
@@ -180,4 +181,38 @@ func PUTNavigationLocations(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
+}
+
+func DELETENavigationLocation(c *gin.Context) {
+	type req struct {
+		ID string `json:"id" binding:"required"`
+	}
+	var location req
+	if err := c.BindJSON(&location); err != nil {
+		slog.Error("Failed to bind request", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+	uintID, err := strconv.ParseUint(location.ID, 10, 32)
+	if err != nil {
+		slog.Error("Failed to parse id", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	db, ok := c.MustGet("db").(*gorm.DB)
+	if !ok {
+		slog.Error("Failed to get db from context")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	err = db.Where(&models.Location{ID: uint(uintID)}).Delete(&models.Location{}).Error
+	if err != nil {
+		slog.Error("Failed to delete location", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{})
 }
