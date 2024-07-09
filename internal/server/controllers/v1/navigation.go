@@ -141,7 +141,7 @@ func GETNavigationLocations(c *gin.Context) {
 }
 
 func PUTNavigationLocations(c *gin.Context) {
-	var location models.Location
+	var location v1.SaveLocation
 	if err := c.BindJSON(&location); err != nil {
 		slog.Error("Failed to bind request", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
