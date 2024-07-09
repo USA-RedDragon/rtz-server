@@ -98,13 +98,8 @@ func (c *RPCWebsocket) Call(dongleID string, call apimodels.RPCCall) (apimodels.
 }
 
 func (c *RPCWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket.Writer, msg []byte, msgType int, device *models.Device, db *gorm.DB) {
-	err := models.UpdateAthenaPingTimestamp(db, device.ID)
-	if err != nil {
-		slog.Warn("Error updating athena ping timestamp", "error", err)
-	}
-
 	jsonRPC := apimodels.RPCResponse{}
-	err = json.Unmarshal(msg, &jsonRPC)
+	err := json.Unmarshal(msg, &jsonRPC)
 	if err != nil {
 		slog.Warn("Error unmarshalling RPC response:", "error", err)
 		return
@@ -118,11 +113,6 @@ func (c *RPCWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket
 }
 
 func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer, device *models.Device, db *gorm.DB) {
-	err := models.UpdateAthenaPingTimestamp(db, device.ID)
-	if err != nil {
-		slog.Warn("Error updating athena ping timestamp", "error", err)
-	}
-
 	bidi := bidiChannel{
 		open:     true,
 		inbound:  make(chan apimodels.RPCCall),

@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
@@ -35,8 +36,6 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 			WriteBufferSize:  bufferSize,
 			WriteBufferPool:  nil,
 			Subprotocols:     []string{},
-			Error: func(w http.ResponseWriter, r *http.Request, status int, reason error) {
-			},
 			CheckOrigin: func(r *http.Request) bool {
 				origin := r.Header.Get("Origin")
 				if origin == "" {
@@ -86,52 +85,59 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 			return
 		}
 		handler.conn = conn
+		handler.conn.SetPongHandler(func(string) error {
+			handler.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+			err := models.UpdateAthenaPingTimestamp(db, device.ID)
+			if err != nil {
+				slog.Warn("Error updating athena ping timestamp", "error", err)
+			}
+			return nil
+		})
 
-		defer func() {
-			slog.Info("Websocket disconnected", "device_id", device.ID)
-			handler.handler.OnDisconnect(c, c.Request, &device, db)
-			_ = handler.conn.Close()
-		}()
-
-		handler.handle(c, c.Request, &device, db)
+		handler.handle(c.Request.Context(), c.Request, &device, db)
 	}
 }
 
 func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.Device, db *gorm.DB) {
+	defer func() {
+		slog.Info("Websocket disconnected", "device_id", device.ID)
+		h.handler.OnDisconnect(c, r, device, db)
+		_ = h.conn.Close()
+	}()
 	writer := wsWriter{
 		writer: make(chan Message, bufferSize),
 		error:  make(chan string),
 	}
-	slog.Info("Websocket connected", "device_id", device.ID)
-	go h.handler.OnConnect(c, r, writer, device, db)
-	slog.Info("OnConnect done", "device_id", device.ID)
+
+	h.handler.OnConnect(c, r, writer, device, db)
 
 	go func() {
-		slog.Info("Starting reader", "device_id", device.ID)
 		for {
-			t, msg, err := h.conn.ReadMessage()
-			if err != nil {
-				writer.error <- err.Error()
-				break
+			select {
+			case <-c.Done():
+				return
+			case <-writer.error:
+				return
+			case msg := <-writer.writer:
+				err := h.conn.WriteMessage(msg.Type, msg.Data)
+				if err != nil {
+					return
+				}
 			}
-			go h.handler.OnMessage(c, r, writer, msg, t, device, db)
 		}
-		slog.Info("Ending reader", "device_id", device.ID)
 	}()
 
-	slog.Info("Handler started", "device_id", device.ID)
-	defer slog.Info("Handler done", "device_id", device.ID)
+	err := h.conn.WriteMessage(websocket.PingMessage, []byte{})
+	if err != nil {
+		slog.Error("Failed to send ping", "error", err, "device_id", device.ID)
+		return
+	}
+
 	for {
-		select {
-		case <-c.Done():
-			return
-		case <-writer.error:
-			return
-		case msg := <-writer.writer:
-			err := h.conn.WriteMessage(msg.Type, msg.Data)
-			if err != nil {
-				return
-			}
+		t, msg, err := h.conn.ReadMessage()
+		if err != nil {
+			break
 		}
+		go h.handler.OnMessage(c, r, writer, msg, t, device, db)
 	}
 }
