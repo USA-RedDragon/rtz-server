@@ -88,11 +88,12 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 		handler.conn = conn
 
 		defer func() {
+			slog.Info("Websocket disconnected", "device_id", device.ID)
 			handler.handler.OnDisconnect(c, c.Request, &device, db)
 			_ = handler.conn.Close()
 		}()
 
-		handler.handle(c.Request.Context(), c.Request, &device, db)
+		handler.handle(c, c.Request, &device, db)
 	}
 }
 
@@ -101,9 +102,12 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 		writer: make(chan Message, bufferSize),
 		error:  make(chan string),
 	}
-	h.handler.OnConnect(c, r, writer, device, db)
+	slog.Info("Websocket connected", "device_id", device.ID)
+	go h.handler.OnConnect(c, r, writer, device, db)
+	slog.Info("OnConnect done", "device_id", device.ID)
 
 	go func() {
+		slog.Info("Starting reader", "device_id", device.ID)
 		for {
 			t, msg, err := h.conn.ReadMessage()
 			if err != nil {
@@ -116,11 +120,13 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 					Type: websocket.PongMessage,
 				})
 			default:
-				h.handler.OnMessage(c, r, writer, msg, t, device, db)
+				go h.handler.OnMessage(c, r, writer, msg, t, device, db)
 			}
 		}
 	}()
 
+	slog.Info("Handler started", "device_id", device.ID)
+	defer slog.Info("Handler done", "device_id", device.ID)
 	for {
 		select {
 		case <-c.Done():
