@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
@@ -35,7 +36,9 @@ func POSTPilotPair(c *gin.Context) {
 
 	var claims = new(v2.PilotPairJWTClaims)
 
-	token, err := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name})).
+	token, err := jwt.NewParser(
+		jwt.WithLeeway(5*time.Minute),
+		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name})).
 		ParseWithClaims(data.PairToken, claims, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 				slog.Error("Invalid signing method", "method", token.Header["alg"])
@@ -192,7 +195,9 @@ func POSTPilotAuth(c *gin.Context) {
 
 	var claims = new(v2.RegisterJWTClaims)
 
-	token, err := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name})).
+	token, err := jwt.NewParser(
+		jwt.WithLeeway(5*time.Minute),
+		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name})).
 		ParseWithClaims(param_register_token, claims, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 				slog.Error("Invalid signing method", "method", token.Header["alg"])

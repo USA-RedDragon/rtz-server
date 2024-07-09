@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
@@ -127,26 +128,29 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 		claims := new(jwt.RegisteredClaims)
 
 		// Verify the token
-		token, err := jwt.NewParser(jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name})).ParseWithClaims(cookie, claims, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-				return nil, fmt.Errorf("invalid signing method: %s", token.Header["alg"])
-			}
-			claims = token.Claims.(*jwt.RegisteredClaims)
+		token, err := jwt.NewParser(
+			jwt.WithLeeway(5*time.Minute),
+			jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name})).
+			ParseWithClaims(cookie, claims, func(token *jwt.Token) (interface{}, error) {
+				if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+					return nil, fmt.Errorf("invalid signing method: %s", token.Header["alg"])
+				}
+				claims = token.Claims.(*jwt.RegisteredClaims)
 
-			// ParseWithClaims will skip expiration check
-			// if expiration has default value;
-			// forcing a check and exiting if not set
-			if claims.ExpiresAt == nil {
-				return nil, errors.New("token has no expiration")
-			}
+				// ParseWithClaims will skip expiration check
+				// if expiration has default value;
+				// forcing a check and exiting if not set
+				if claims.ExpiresAt == nil {
+					return nil, errors.New("token has no expiration")
+				}
 
-			blk, _ := pem.Decode([]byte(device.PublicKey))
-			key, err := x509.ParsePKIXPublicKey(blk.Bytes)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse public key: %w", err)
-			}
-			return key, nil
-		})
+				blk, _ := pem.Decode([]byte(device.PublicKey))
+				key, err := x509.ParsePKIXPublicKey(blk.Bytes)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse public key: %w", err)
+				}
+				return key, nil
+			})
 		if err != nil {
 			slog.Error("Failed to parse device JWT token cookie", "error", err)
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
