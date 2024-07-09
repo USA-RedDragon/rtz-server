@@ -205,11 +205,12 @@ func PUTUpload(c *gin.Context) {
 			slog.Info("Got segment data", "data", segmentData)
 			if segmentData.LatestTimestamp > uint64(device.LastGPSTime.TimeValue().UnixNano()) {
 				latestTimeStamp := time.Unix(0, int64(segmentData.LatestTimestamp))
-				err := db.Model(device).
-					Update("last_gps_time", nulltype.NullTimeOf(latestTimeStamp)).
-					Update("last_gps_lat", segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Latitude).
-					Update("last_gps_lng", segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Longitude).
-					Error
+				err := db.Model(&device).
+					Updates(models.Device{
+						LastGPSTime: nulltype.NullTimeOf(latestTimeStamp),
+						LastGPSLat:  nulltype.NullFloat64Of(segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Latitude),
+						LastGPSLng:  nulltype.NullFloat64Of(segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Longitude),
+					}).Error
 				if err != nil {
 					slog.Error("Failed to update device", "error", err)
 					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})

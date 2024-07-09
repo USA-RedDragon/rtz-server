@@ -102,7 +102,10 @@ func POSTPilotPair(c *gin.Context) {
 
 	firstPair := !device.IsPaired
 
-	err = db.Model(&device).Update("owner_id", user.ID).Update("is_paired", true).Error
+	err = db.Model(&device).Updates(models.Device{
+		OwnerID:  user.ID,
+		IsPaired: true,
+	}).Error
 	if err != nil {
 		slog.Error("Failed to pair device", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})

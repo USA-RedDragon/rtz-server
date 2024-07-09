@@ -37,7 +37,9 @@ func PATCHDevice(c *gin.Context) {
 		return
 	}
 
-	err = db.Model(&device).Where(&models.Device{ID: device.ID}).Update("alias", req.Alias).Error
+	err = db.Model(&device).Updates(models.Device{
+		Alias: req.Alias,
+	}).Error
 	if err != nil {
 		slog.Error("Failed to update device", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
@@ -142,7 +144,15 @@ func POSTDeviceUnpair(c *gin.Context) {
 		return
 	}
 
-	err = db.Model(&device).Update("owner_id", nil).Update("is_paired", false).Error
+	err = db.Model(&device).Updates(models.Device{
+		IsPaired: false,
+	}).Error
+	if err != nil {
+		slog.Error("Failed to unpair device", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+	err = db.Model(&device).Update("owner_id", nil).Error
 	if err != nil {
 		slog.Error("Failed to unpair device", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
