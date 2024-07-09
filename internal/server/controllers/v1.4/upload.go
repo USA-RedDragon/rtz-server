@@ -206,9 +206,9 @@ func PUTUpload(c *gin.Context) {
 			if segmentData.LatestTimestamp > uint64(device.LastGPSTime.TimeValue().UnixNano()) {
 				latestTimeStamp := time.Unix(0, int64(segmentData.LatestTimestamp))
 				err := db.Model(&device).
-					Update("LastGPSTime", nulltype.NullTimeOf(latestTimeStamp)).
-					Update("LastGPSLat", segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Latitude).
-					Update("LastGPSLng", segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Longitude).
+					Update("last_gps_time", nulltype.NullTimeOf(latestTimeStamp)).
+					Update("last_gps_lat", segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Latitude).
+					Update("last_gps_lng", segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Longitude).
 					Error
 				if err != nil {
 					slog.Error("Failed to update device", "error", err)
