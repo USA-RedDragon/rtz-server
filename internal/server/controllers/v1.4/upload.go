@@ -203,6 +203,7 @@ func PUTUpload(c *gin.Context) {
 				return
 			}
 			slog.Info("Got segment data", "data", segmentData)
+			slog.Info("Timestamps", "last", device.LastGPSTime.TimeValue().UnixNano(), "latest", segmentData.LatestTimestamp)
 			if segmentData.LatestTimestamp > uint64(device.LastGPSTime.TimeValue().UnixNano()) {
 				latestTimeStamp := time.Unix(0, int64(segmentData.LatestTimestamp))
 				err := db.Model(&device).
