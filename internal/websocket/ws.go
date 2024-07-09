@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
@@ -118,19 +117,6 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 			go h.handler.OnMessage(c, r, writer, msg, t, device, db)
 		}
 		slog.Info("Ending reader", "device_id", device.ID)
-	}()
-
-	go func() {
-		err := h.conn.WriteMessage(websocket.PingMessage, []byte{})
-		if err != nil {
-			slog.Warn("Failed to send ping", "error", err)
-			return
-		}
-		time.Sleep(30 * time.Second)
-		err = h.conn.WriteMessage(websocket.PingMessage, []byte{})
-		if err != nil {
-			return
-		}
 	}()
 
 	slog.Info("Handler started", "device_id", device.ID)
