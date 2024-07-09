@@ -139,3 +139,45 @@ func GETNavigationLocations(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, locations)
 }
+
+func PUTNavigationLocations(c *gin.Context) {
+	var location models.Location
+	if err := c.BindJSON(&location); err != nil {
+		slog.Error("Failed to bind request", "error", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	dongleID, ok := c.Params.Get("dongle_id")
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+		return
+	}
+	db, ok := c.MustGet("db").(*gorm.DB)
+	if !ok {
+		slog.Error("Failed to get db from context")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+	device, err := models.FindDeviceByDongleID(db, dongleID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	dbLocation := models.Location{
+		DeviceID:     device.ID,
+		Latitude:     location.Latitude,
+		Longitude:    location.Longitude,
+		PlaceDetails: location.PlaceDetails,
+		PlaceName:    location.PlaceName,
+		SaveType:     location.SaveType,
+	}
+
+	err = db.Create(&dbLocation).Error
+	if err != nil {
+		slog.Error("Failed to save location", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+}
