@@ -112,18 +112,11 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 		for {
 			t, msg, err := h.conn.ReadMessage()
 			if err != nil {
-				writer.Error("read failed")
 				break
 			}
-			switch t {
-			case websocket.PingMessage:
-				writer.WriteMessage(Message{
-					Type: websocket.PongMessage,
-				})
-			default:
-				go h.handler.OnMessage(c, r, writer, msg, t, device, db)
-			}
+			go h.handler.OnMessage(c, r, writer, msg, t, device, db)
 		}
+		slog.Info("Ending reader", "device_id", device.ID)
 	}()
 
 	go func() {
@@ -135,7 +128,6 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 		time.Sleep(30 * time.Second)
 		err = h.conn.WriteMessage(websocket.PingMessage, []byte{})
 		if err != nil {
-			slog.Warn("Failed to send ping", "error", err)
 			return
 		}
 	}()
