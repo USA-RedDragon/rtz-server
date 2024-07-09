@@ -92,27 +92,6 @@ dockers:
       - --label=org.opencontainers.image.url=https://github.com/USA-RedDragon/{{ .ProjectName }}
       - --label=org.opencontainers.image.source=https://github.com/USA-RedDragon/{{ .ProjectName }}
       - "--platform=linux/amd64/v3"
-  - image_templates:
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:{{ .Tag }}-amd64v4"
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}-amd64v4"
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}.{{ .Minor }}-amd64v4"
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:latest-amd64v4"
-    use: buildx
-    goarch: amd64
-    goamd64: v4
-    extra_files:
-      - hack/passwd
-      - hack/group
-    build_flag_templates:
-      - "--pull"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-      - --label=org.opencontainers.image.licenses=MIT
-      - --label=org.opencontainers.image.url=https://github.com/USA-RedDragon/{{ .ProjectName }}
-      - --label=org.opencontainers.image.source=https://github.com/USA-RedDragon/{{ .ProjectName }}
-      - "--platform=linux/amd64/v4"
 
 docker_manifests:
   - name_template: "ghcr.io/usa-reddragon/{{ .ProjectName }}:{{ .Tag }}"
@@ -121,28 +100,24 @@ docker_manifests:
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:{{ .Tag }}-amd64v1"
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:{{ .Tag }}-amd64v2"
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:{{ .Tag }}-amd64v3"
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:{{ .Tag }}-amd64v4"
   - name_template: "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}"
     image_templates:
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}-arm64"
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}-amd64v1"
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}-amd64v2"
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}-amd64v3"
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}-amd64v4"
   - name_template: "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}.{{ .Minor }}"
     image_templates:
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}.{{ .Minor }}-arm64"
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}.{{ .Minor }}-amd64v1"
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}.{{ .Minor }}-amd64v2"
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}.{{ .Minor }}-amd64v3"
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}.{{ .Minor }}-amd64v4"
   - name_template: "ghcr.io/usa-reddragon/{{ .ProjectName }}:latest"
     image_templates:
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:latest-arm64"
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:latest-amd64v1"
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:latest-amd64v2"
       - "ghcr.io/usa-reddragon/{{ .ProjectName }}:latest-amd64v3"
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:latest-amd64v4"
 
 builds:
   - main: .
@@ -157,7 +132,6 @@ builds:
       - v1
       - v2
       - v3
-      - v4
     env:
       - CGO_ENABLED=0
     ldflags:
