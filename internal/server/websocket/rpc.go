@@ -147,7 +147,10 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 			select {
 			case <-ctx.Done():
 				return
-			case call := <-dongle.bidiChannel.inbound:
+			case call, more := <-dongle.bidiChannel.inbound:
+				if !more {
+					return
+				}
 				// Received a call from the site
 				jsonData, err := json.Marshal(call)
 				if err != nil {
