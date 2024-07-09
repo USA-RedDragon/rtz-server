@@ -19,6 +19,14 @@ const (
 	DeviceTypeThreeX DeviceType = "threex"
 )
 
+type Destination struct {
+	Set          bool    `json:"-"`
+	Latitude     float64 `json:"latitude"`
+	Longitude    float64 `json:"longitude"`
+	PlaceDetails string  `json:"place_details"`
+	PlaceName    string  `json:"place_name"`
+}
+
 type Device struct {
 	ID        uint                `json:"-" gorm:"primaryKey" binding:"required"`
 	Alias     nulltype.NullString `json:"alias,omitempty"`
@@ -41,6 +49,7 @@ type Device struct {
 	LastGPSBearing   nulltype.NullFloat64 `json:"last_gps_bearing,omitempty"`
 	OpenPilotVersion string               `json:"openpilot_version"`
 	LastAthenaPing   int64                `json:"last_athena_ping"`
+	Destination      Destination          `json:"-"`
 
 	OwnerID uint `json:"-"`
 
