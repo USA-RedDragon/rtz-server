@@ -62,9 +62,6 @@ func NewServer(config *config.Config, db *gorm.DB) *Server {
 	}
 
 	writeTimeout := defTimeout
-	if config.HTTP.PProf.Enabled {
-		writeTimeout = 60 * time.Second
-	}
 
 	rpcWebsocket := websocketControllers.CreateRPCWebsocket()
 	applyMiddleware(r, config, "api", db, rpcWebsocket)
