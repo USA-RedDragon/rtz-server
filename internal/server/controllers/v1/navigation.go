@@ -5,12 +5,13 @@ import (
 	"net/http"
 
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
+	v1 "github.com/USA-RedDragon/connect-server/internal/server/apimodels/v1"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 func POSTSetDestination(c *gin.Context) {
-	var destination models.Destination
+	var destination v1.Destination
 	if err := c.BindJSON(&destination); err != nil {
 		slog.Error("Failed to bind request", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
@@ -33,9 +34,12 @@ func POSTSetDestination(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
-	destination.Set = true
 	err = db.Model(&device).Updates(models.Device{
-		Destination: destination,
+		DestinationSet:          true,
+		DestinationLatitude:     destination.Latitude,
+		DestinationLongitude:    destination.Longitude,
+		DestinationPlaceName:    destination.PlaceName,
+		DestinationPlaceDetails: destination.PlaceDetails,
 	}).Error
 	if err != nil {
 		slog.Error("Failed to update device", "error", err)
@@ -67,8 +71,13 @@ func GETNavigationNext(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
-	if device.Destination.Set {
-		c.JSON(http.StatusOK, device.Destination)
+	if device.DestinationSet {
+		c.JSON(http.StatusOK, v1.Destination{
+			Latitude:     device.DestinationLatitude,
+			Longitude:    device.DestinationLongitude,
+			PlaceName:    device.DestinationPlaceName,
+			PlaceDetails: device.DestinationPlaceDetails,
+		})
 		return
 	}
 	c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
@@ -92,7 +101,11 @@ func DELETENavigationNext(c *gin.Context) {
 		return
 	}
 	err = db.Model(&device).Updates(models.Device{
-		Destination: models.Destination{},
+		DestinationSet:          false,
+		DestinationLatitude:     0,
+		DestinationLongitude:    0,
+		DestinationPlaceName:    "",
+		DestinationPlaceDetails: "",
 	}).Error
 	if err != nil {
 		slog.Error("Failed to update device", "error", err)

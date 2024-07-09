@@ -19,14 +19,6 @@ const (
 	DeviceTypeThreeX DeviceType = "threex"
 )
 
-type Destination struct {
-	Set          bool    `json:"-"`
-	Latitude     float64 `json:"latitude"`
-	Longitude    float64 `json:"longitude"`
-	PlaceDetails string  `json:"place_details"`
-	PlaceName    string  `json:"place_name"`
-}
-
 type Device struct {
 	ID        uint                `json:"-" gorm:"primaryKey" binding:"required"`
 	Alias     nulltype.NullString `json:"alias,omitempty"`
@@ -39,17 +31,21 @@ type Device struct {
 	// PrimeType defaults to 1 for "standard prime"
 	PrimeType uint `json:"prime_type" gorm:"default:1"`
 	// TrialClaimed defaults to true
-	TrialClaimed     bool                 `json:"trial_claimed" gorm:"default:true"`
-	DeviceType       DeviceType           `json:"device_type"`
-	LastGPSTime      nulltype.NullTime    `json:"last_gps_time,omitempty"`
-	LastGPSLat       nulltype.NullFloat64 `json:"last_gps_lat,omitempty"`
-	LastGPSLng       nulltype.NullFloat64 `json:"last_gps_lng,omitempty"`
-	LastGPSAccuracy  nulltype.NullFloat64 `json:"last_gps_accuracy,omitempty"`
-	LastGPSSpeed     nulltype.NullFloat64 `json:"last_gps_speed,omitempty"`
-	LastGPSBearing   nulltype.NullFloat64 `json:"last_gps_bearing,omitempty"`
-	OpenPilotVersion string               `json:"openpilot_version"`
-	LastAthenaPing   int64                `json:"last_athena_ping"`
-	Destination      Destination          `json:"-"`
+	TrialClaimed            bool                 `json:"trial_claimed" gorm:"default:true"`
+	DeviceType              DeviceType           `json:"device_type"`
+	LastGPSTime             nulltype.NullTime    `json:"last_gps_time,omitempty"`
+	LastGPSLat              nulltype.NullFloat64 `json:"last_gps_lat,omitempty"`
+	LastGPSLng              nulltype.NullFloat64 `json:"last_gps_lng,omitempty"`
+	LastGPSAccuracy         nulltype.NullFloat64 `json:"last_gps_accuracy,omitempty"`
+	LastGPSSpeed            nulltype.NullFloat64 `json:"last_gps_speed,omitempty"`
+	LastGPSBearing          nulltype.NullFloat64 `json:"last_gps_bearing,omitempty"`
+	OpenPilotVersion        string               `json:"openpilot_version"`
+	LastAthenaPing          int64                `json:"last_athena_ping"`
+	DestinationSet          bool                 `json:"-"`
+	DestinationLatitude     float64              `json:"-"`
+	DestinationLongitude    float64              `json:"-"`
+	DestinationPlaceDetails string               `json:"-"`
+	DestinationPlaceName    string               `json:"-"`
 
 	OwnerID uint `json:"-"`
 
