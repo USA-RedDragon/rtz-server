@@ -11,12 +11,14 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/USA-RedDragon/connect-server/internal/config"
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
 	"github.com/USA-RedDragon/connect-server/internal/logparser"
 	v1dot4 "github.com/USA-RedDragon/connect-server/internal/server/apimodels/v1.4"
 	"github.com/gin-gonic/gin"
+	"github.com/mattn/go-nulltype"
 	"gorm.io/gorm"
 )
 
@@ -201,6 +203,19 @@ func PUTUpload(c *gin.Context) {
 				return
 			}
 			slog.Info("Got segment data", "data", segmentData)
+			if segmentData.LatestTimestamp > uint64(device.LastGPSTime.TimeValue().UnixNano()) {
+				latestTimeStamp := time.Unix(0, int64(segmentData.LatestTimestamp))
+				err := db.Model(&device).
+					Update("LastGPSTime", nulltype.NullTimeOf(latestTimeStamp)).
+					Update("LastGPSLat", segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Latitude).
+					Update("LastGPSLng", segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Longitude).
+					Error
+				if err != nil {
+					slog.Error("Failed to update device", "error", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+					return
+				}
+			}
 		}
 	case oldRouteRegex.Match([]byte(path)):
 		slog.Warn("Old route upload", "path", path)

@@ -15,6 +15,7 @@ type GpsCoordinates struct {
 type SegmentData struct {
 	GPSLocations      []GpsCoordinates
 	EarliestTimestamp uint64
+	LatestTimestamp   uint64
 	CarModel          string
 	GitRemote         string
 	GitBranch         string
@@ -60,14 +61,17 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 				Longitude: values.At(1),
 			})
 		case cereal.Event_Which_clocks:
-			if segmentData.EarliestTimestamp != 0 {
-				continue
-			}
 			clocks, err := event.Clocks()
 			if err != nil {
 				return SegmentData{}, err
 			}
-			segmentData.EarliestTimestamp = clocks.WallTimeNanos()
+			time := clocks.WallTimeNanos()
+			if segmentData.EarliestTimestamp == 0 {
+				segmentData.EarliestTimestamp = time
+			}
+			if segmentData.LatestTimestamp < time {
+				segmentData.LatestTimestamp = time
+			}
 		case cereal.Event_Which_initData:
 			if segmentData.CarModel != "" && segmentData.GitRemote != "" && segmentData.GitBranch != "" {
 				continue
