@@ -149,6 +149,11 @@ func PUTNavigationLocations(c *gin.Context) {
 		return
 	}
 
+	if location.SaveType == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "save_type is required"})
+		return
+	}
+
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
@@ -166,6 +171,24 @@ func PUTNavigationLocations(c *gin.Context) {
 		return
 	}
 
+	if location.SaveType == models.Home {
+		// Delete existing home location
+		err = db.Where(&models.Location{DeviceID: device.ID, SaveType: models.Home}).Delete(&models.Location{}).Error
+		if err != nil {
+			slog.Error("Failed to delete home location", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+	} else if location.SaveType == models.Work {
+		// Delete existing home location
+		err = db.Where(&models.Location{DeviceID: device.ID, SaveType: models.Work}).Delete(&models.Location{}).Error
+		if err != nil {
+			slog.Error("Failed to delete work location", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+	}
+
 	dbLocation := models.Location{
 		DeviceID:     device.ID,
 		Latitude:     location.Latitude,
@@ -181,6 +204,8 @@ func PUTNavigationLocations(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
+
+	c.JSON(http.StatusOK, gin.H{})
 }
 
 func DELETENavigationLocation(c *gin.Context) {
