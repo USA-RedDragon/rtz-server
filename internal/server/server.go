@@ -30,7 +30,7 @@ type Server struct {
 	config            *config.Config
 }
 
-const defTimeout = 120 * time.Second
+const defTimeout = 5 * time.Second
 
 type Router struct {
 	*gin.Engine
