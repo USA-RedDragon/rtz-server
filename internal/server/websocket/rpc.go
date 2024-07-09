@@ -27,17 +27,46 @@ type bidiChannel struct {
 	outbound chan apimodels.RPCResponse
 }
 
+type dongle struct {
+	bidiChannel    *bidiChannel
+	channelWatcher *channelWatcher
+}
+
 type RPCWebsocket struct {
 	websocket.Websocket
 	connectedClients *xsync.Counter
-	dongles          *xsync.MapOf[string, *bidiChannel]
+	dongles          *xsync.MapOf[string, *dongle]
 }
 
 func CreateRPCWebsocket() *RPCWebsocket {
 	return &RPCWebsocket{
 		connectedClients: xsync.NewCounter(),
-		dongles:          xsync.NewMapOf[string, *bidiChannel](),
+		dongles:          xsync.NewMapOf[string, *dongle](),
 	}
+}
+
+type channelWatcher struct {
+	ch          chan apimodels.RPCResponse
+	subscribers *xsync.MapOf[string, func(apimodels.RPCResponse)]
+}
+
+func (cw *channelWatcher) WatchChannel() {
+	for {
+		response, more := <-cw.ch
+		if !more {
+			return
+		}
+		if response.ID == "" {
+			continue
+		}
+		if subscriber, loaded := cw.subscribers.LoadAndDelete(response.ID); loaded {
+			subscriber(response)
+		}
+	}
+}
+
+func (cw *channelWatcher) Subscribe(callID string, subscriber func(apimodels.RPCResponse)) {
+	cw.subscribers.Store(callID, subscriber)
 }
 
 func (c *RPCWebsocket) Call(dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
@@ -46,36 +75,25 @@ func (c *RPCWebsocket) Call(dongleID string, call apimodels.RPCCall) (apimodels.
 		return apimodels.RPCResponse{}, ErrorNotConnected
 	}
 
-	responseChan := make(chan apimodels.RPCResponse)
-	defer close(responseChan)
-	if !dongle.open {
+	if !dongle.bidiChannel.open {
 		return apimodels.RPCResponse{}, ErrorNotConnected
 	}
-	dongle.inbound <- call
-	go func() {
-		resp, err := waitForResponse(call.ID, dongle.outbound, 120*time.Second)
-		if err != nil {
-			slog.Warn("Error waiting for response", "error", err)
-			return
-		}
-		responseChan <- resp
-	}()
-	return <-responseChan, nil
-}
 
-func waitForResponse(callID string, ch chan apimodels.RPCResponse, timeout time.Duration) (apimodels.RPCResponse, error) {
-	context, cancel := context.WithTimeout(context.Background(), timeout)
+	responseChan := make(chan apimodels.RPCResponse)
+	defer close(responseChan)
+	dongle.channelWatcher.Subscribe(call.ID, func(response apimodels.RPCResponse) {
+		responseChan <- response
+	})
+
+	dongle.bidiChannel.inbound <- call
+
+	context, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 	defer cancel()
-	for {
-		select {
-		case resp := <-ch:
-			if resp.ID == callID {
-				return resp, nil
-			}
-			ch <- resp
-		case <-context.Done():
-			return apimodels.RPCResponse{}, fmt.Errorf("timeout")
-		}
+	select {
+	case <-context.Done():
+		return apimodels.RPCResponse{}, fmt.Errorf("timeout")
+	case resp := <-responseChan:
+		return resp, nil
 	}
 }
 
@@ -93,8 +111,8 @@ func (c *RPCWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket
 	}
 
 	dongle, loaded := c.dongles.Load(device.DongleID)
-	if loaded && dongle.open {
-		dongle.outbound <- jsonRPC
+	if loaded && dongle.bidiChannel.open {
+		dongle.bidiChannel.outbound <- jsonRPC
 		return
 	}
 }
@@ -105,11 +123,20 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 		slog.Warn("Error updating athena ping timestamp", "error", err)
 	}
 
-	dongle := bidiChannel{
+	bidi := bidiChannel{
 		open:     true,
 		inbound:  make(chan apimodels.RPCCall),
 		outbound: make(chan apimodels.RPCResponse),
 	}
+
+	dongle := dongle{
+		bidiChannel: &bidi,
+		channelWatcher: &channelWatcher{
+			ch:          bidi.outbound,
+			subscribers: xsync.NewMapOf[string, func(apimodels.RPCResponse)](),
+		},
+	}
+	go dongle.channelWatcher.WatchChannel()
 	c.dongles.Store(device.DongleID, &dongle)
 	c.connectedClients.Inc()
 
@@ -120,7 +147,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 			select {
 			case <-ctx.Done():
 				return
-			case call := <-dongle.inbound:
+			case call := <-dongle.bidiChannel.inbound:
 				// Received a call from the site
 				jsonData, err := json.Marshal(call)
 				if err != nil {
@@ -143,7 +170,7 @@ func (c *RPCWebsocket) OnDisconnect(ctx context.Context, _ *http.Request, device
 	if !loaded {
 		return
 	}
-	dongle.open = false
-	close(dongle.inbound)
-	close(dongle.outbound)
+	dongle.bidiChannel.open = false
+	close(dongle.bidiChannel.inbound)
+	close(dongle.bidiChannel.outbound)
 }
