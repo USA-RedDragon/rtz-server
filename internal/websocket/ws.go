@@ -112,6 +112,7 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 		for {
 			t, msg, err := h.conn.ReadMessage()
 			if err != nil {
+				writer.error <- err.Error()
 				break
 			}
 			go h.handler.OnMessage(c, r, writer, msg, t, device, db)
