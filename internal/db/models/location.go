@@ -12,8 +12,6 @@ type SaveType string
 const (
 	Favorite SaveType = "favorite"
 	Recent   SaveType = "recent"
-	Home     SaveType = "home"
-	Work     SaveType = "work"
 )
 
 type Location struct {

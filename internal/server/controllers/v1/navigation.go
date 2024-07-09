@@ -8,6 +8,7 @@ import (
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
 	v1 "github.com/USA-RedDragon/connect-server/internal/server/apimodels/v1"
 	"github.com/gin-gonic/gin"
+	"github.com/mattn/go-nulltype"
 	"gorm.io/gorm"
 )
 
@@ -171,17 +172,17 @@ func PUTNavigationLocations(c *gin.Context) {
 		return
 	}
 
-	if location.SaveType == models.Home {
+	if location.Label == "home" {
 		// Delete existing home location
-		err = db.Where(&models.Location{DeviceID: device.ID, SaveType: models.Home}).Delete(&models.Location{}).Error
+		err = db.Where(&models.Location{DeviceID: device.ID, Label: nulltype.NullStringOf("home")}).Delete(&models.Location{}).Error
 		if err != nil {
 			slog.Error("Failed to delete home location", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-	} else if location.SaveType == models.Work {
+	} else if location.Label == "work" {
 		// Delete existing home location
-		err = db.Where(&models.Location{DeviceID: device.ID, SaveType: models.Work}).Delete(&models.Location{}).Error
+		err = db.Where(&models.Location{DeviceID: device.ID, Label: nulltype.NullStringOf("work")}).Delete(&models.Location{}).Error
 		if err != nil {
 			slog.Error("Failed to delete work location", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
@@ -196,6 +197,9 @@ func PUTNavigationLocations(c *gin.Context) {
 		PlaceDetails: location.PlaceDetails,
 		PlaceName:    location.PlaceName,
 		SaveType:     location.SaveType,
+	}
+	if location.Label != "" {
+		dbLocation.Label = nulltype.NullStringOf(location.Label)
 	}
 
 	err = db.Create(&dbLocation).Error

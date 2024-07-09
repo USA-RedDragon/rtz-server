@@ -11,6 +11,7 @@ type Destination struct {
 }
 
 type SaveLocation struct {
+	Label        string          `json:"label,omitempty"`
 	Latitude     float64         `json:"latitude" binding:"required"`
 	Longitude    float64         `json:"longitude" binding:"required"`
 	PlaceDetails string          `json:"place_details,omitempty"`
