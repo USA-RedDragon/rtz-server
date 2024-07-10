@@ -1,13 +1,18 @@
 package v1
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/USA-RedDragon/connect-server/internal/db/models"
+	"github.com/USA-RedDragon/connect-server/internal/server/apimodels"
 	v1 "github.com/USA-RedDragon/connect-server/internal/server/apimodels/v1"
+	"github.com/USA-RedDragon/connect-server/internal/server/websocket"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/mattn/go-nulltype"
 	"gorm.io/gorm"
 )
@@ -36,23 +41,80 @@ func POSTSetDestination(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
-	err = db.Model(&device).Updates(models.Device{
-		DestinationSet:          true,
-		DestinationLatitude:     destination.Latitude,
-		DestinationLongitude:    destination.Longitude,
-		DestinationPlaceName:    destination.PlaceName,
-		DestinationPlaceDetails: destination.PlaceDetails,
-	}).Error
-	if err != nil {
-		slog.Error("Failed to update device", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-		return
+
+	savedNext := false
+	if time.Unix(device.LastAthenaPing, 0).Add(60 * time.Second).After(time.Now()) {
+		// Last ping + 60 secs was after now, so the device is online
+		rpcCaller, ok := c.MustGet("rpcWebsocket").(*websocket.RPCWebsocket)
+		if !ok {
+			slog.Error("Failed to get rpc from context")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		uuid, err := uuid.NewRandom()
+		if err != nil {
+			slog.Error("Failed to generate UUID", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		resp, err := rpcCaller.Call(device.DongleID, apimodels.RPCCall{
+			ID:     uuid.String(),
+			Method: "setNavDestination",
+			Params: map[string]any{
+				"latitude":      destination.Latitude,
+				"longitude":     destination.Longitude,
+				"place_name":    destination.PlaceName,
+				"place_details": destination.PlaceDetails,
+			},
+		})
+		if err != nil {
+			slog.Error("Failed to call RPC", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		if resp.Error != "" {
+			slog.Error("RPC error", "error", resp.Error)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		resultBytes, ok := resp.Result.(string)
+		if !ok {
+			slog.Error("Failed to convert result to string", "result", resp.Result)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		type response struct {
+			Success uint `json:"success"`
+		}
+		var rpcResp response
+		if err := json.Unmarshal([]byte(resultBytes), &rpcResp); err != nil {
+			slog.Error("Failed to unmarshal response", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		if rpcResp.Success != 1 {
+			slog.Error("Failed to set destination", "response", rpcResp)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+	} else {
+		savedNext = true
+		err = db.Model(&device).Updates(models.Device{
+			DestinationSet:          true,
+			DestinationLatitude:     destination.Latitude,
+			DestinationLongitude:    destination.Longitude,
+			DestinationPlaceName:    destination.PlaceName,
+			DestinationPlaceDetails: destination.PlaceDetails,
+		}).Error
+		if err != nil {
+			slog.Error("Failed to update device", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
 	}
-	// TODO: Send destination to device (saved_next)
-	// Is this over RPC?
 	c.JSON(http.StatusOK, gin.H{
 		"success":    true,
-		"saved_next": false,
+		"saved_next": savedNext,
 	})
 }
 
