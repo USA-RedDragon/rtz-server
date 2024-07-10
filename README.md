@@ -52,14 +52,17 @@ sed -i '3i # connect-server configuration, comment or remove the following lines
 sed -i '4i # comment or remove the following lines to revert back to stock' launch_env.sh
 sed -i "5i export ATHENA_HOST=\"$WEBSOCKET_URL\"" launch_env.sh
 sed -i "6i export API_HOST=\"$URL\"" launch_env.sh
-sed -i "6i export COMMA_MAPS_HOST=\"$URL\"" launch_env.sh
-sed -i '7i # end of connect-server configuration\n' launch_env.sh
+sed -i "7i export COMMA_MAPS_HOST=\"$URL\"" launch_env.sh
+sed -i '8i # end of connect-server configuration\n' launch_env.sh
 
 # Removes hard-coded Comma API URL
 # Some versions of OpenPilot have removed navd, so we need to check for its existence
 if test -f selfdrive/navd/navd.py; then
   sed -i 's#self.mapbox_host = "https://maps.comma.ai"#self.mapbox_host = os.getenv("COMMA_MAPS_HOST", "https://maps.comma.ai")#' selfdrive/navd/navd.py
 fi
+
+# Now reboot
+sudo reboot
 ```
 
 ## TODOs (in order of priority)
