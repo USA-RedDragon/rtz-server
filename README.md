@@ -28,7 +28,13 @@ This project emulates more than just the Comma.ai API. It also emulates portions
 - Athena (This is the websocket service that OpenPilot uses for JSON RPC)
 - (eventually) useradmin.comma.ai
 
-## Configuration
+## Setup
+
+### Frontend
+
+You will need to run the Comma Connect frontend to get full functionality. You can find the frontend at [connect-frontend](https://github.com/USA-RedDragon/connect-frontend). The frontend is the same as Comma's, but with the branding and tracking removed. You can also use the official frontend, but you will need to modify the `config.js` file to point to your server.
+
+### Server Configuration
 
 The service is configured via environment variables, a configuration YAML file, or command line flags. The [`config.example.yaml`](config.example.yaml) file shows the available configuration options. The command line flags match the schema of the YAML file, i.e. `--http.cors_hosts='0.0.0.0'` would equate to `http.cors_hosts: ["0.0.0.0"]`. Environment variables are in the same format, however they are uppercase and replace hyphens with underscores and dots with double underscores, i.e. `HTTP__CORS_HOSTS="0.0.0.0"`.
 
