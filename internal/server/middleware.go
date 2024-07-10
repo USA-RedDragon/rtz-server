@@ -171,8 +171,12 @@ func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			return
+			if c.Query("access_token") != "" {
+				authHeader = "JWT " + c.Query("access_token")
+			} else {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+				return
+			}
 		}
 
 		if !strings.HasPrefix(authHeader, "JWT ") {
