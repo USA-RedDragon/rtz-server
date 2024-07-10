@@ -227,6 +227,7 @@ func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {
 						jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name}),
 					).ParseWithClaims(jwtString, claims, func(token *jwt.Token) (interface{}, error) {
 						if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+							dongleIDChan <- ""
 							return nil, fmt.Errorf("invalid signing method: %s", token.Header["alg"])
 						}
 						claims = token.Claims.(*utils.DeviceJWT)
