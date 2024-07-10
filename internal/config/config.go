@@ -18,6 +18,7 @@ type Config struct {
 	Registration Registration `json:"registration"`
 	Auth         Auth         `json:"auth"`
 	JWT          JWT          `json:"jwt"`
+	Mapbox       Mapbox       `json:"mapbox"`
 }
 
 type JWT struct {
@@ -27,6 +28,11 @@ type JWT struct {
 type Auth struct {
 	Google Google `json:"google"`
 	GitHub GitHub `json:"github"`
+}
+
+type Mapbox struct {
+	SecretToken string `json:"secret_token" yaml:"secret_token"`
+	PublicToken string `json:"public_token" yaml:"public_token"`
 }
 
 type Google struct {
@@ -107,6 +113,8 @@ var (
 	AuthGitHubClientIDKey     = "auth.github.client_id"
 	AuthGitHubClientSecretKey = "auth.github.client_secret"
 	JWTSecretKey              = "jwt.secret"
+	MapboxPublicTokenKey      = "mapbox.public_token"
+	MapboxSecretTokenKey      = "mapbox.secret_token"
 )
 
 const (
@@ -145,6 +153,8 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(AuthGitHubClientIDKey, "", "GitHub OAuth client ID")
 	cmd.Flags().String(AuthGitHubClientSecretKey, "", "GitHub OAuth client secret")
 	cmd.Flags().String(JWTSecretKey, "", "JWT signing secret")
+	cmd.Flags().String(MapboxPublicTokenKey, "", "Mapbox public token")
+	cmd.Flags().String(MapboxSecretTokenKey, "", "Mapbox secret token")
 }
 
 func (c *Config) Validate() error {
@@ -153,6 +163,15 @@ func (c *Config) Validate() error {
 	}
 	if c.HTTP.BackendURL == "" {
 		return errors.New("Backend URL is required")
+	}
+	if c.HTTP.Tracing.Enabled && c.HTTP.Tracing.OTLPEndpoint == "" {
+		return errors.New("OTLP endpoint is required when tracing is enabled")
+	}
+	if c.Mapbox.PublicToken == "" {
+		return errors.New("Mapbox public token is required")
+	}
+	if c.Mapbox.SecretToken == "" {
+		return errors.New("Mapbox secret token is required")
 	}
 	return nil
 }
@@ -380,6 +399,20 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		config.JWT.Secret, err = cmd.Flags().GetString(JWTSecretKey)
 		if err != nil {
 			return fmt.Errorf("failed to get JWT secret: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(MapboxPublicTokenKey) {
+		config.Mapbox.PublicToken, err = cmd.Flags().GetString(MapboxPublicTokenKey)
+		if err != nil {
+			return fmt.Errorf("failed to get Mapbox public token: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(MapboxSecretTokenKey) {
+		config.Mapbox.SecretToken, err = cmd.Flags().GetString(MapboxSecretTokenKey)
+		if err != nil {
+			return fmt.Errorf("failed to get Mapbox secret token: %w", err)
 		}
 	}
 

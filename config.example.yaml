@@ -75,3 +75,7 @@ auth:
 
 jwt:
   secret: 'secret'
+
+mapbox:
+  public_token: ''
+  secret_token: ''
