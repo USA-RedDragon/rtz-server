@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -76,22 +75,19 @@ func POSTSetDestination(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-		resultBytes, ok := resp.Result.(string)
+		result, ok := resp.Result.(map[string]any)
 		if !ok {
 			slog.Error("Failed to convert result to string", "result", resp.Result)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-		type response struct {
-			Success uint `json:"success"`
-		}
-		var rpcResp response
-		if err := json.Unmarshal([]byte(resultBytes), &rpcResp); err != nil {
-			slog.Error("Failed to unmarshal response", "error", err)
+		success, ok := result["success"].(int)
+		if !ok {
+			slog.Error("Failed to convert success to int", "success", result["success"])
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-		if rpcResp.Success == 1 {
+		if success == 1 {
 			c.JSON(http.StatusOK, gin.H{
 				"success":    true,
 				"saved_next": false,
