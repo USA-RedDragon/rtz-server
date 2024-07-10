@@ -95,6 +95,14 @@ func POSTSetDestination(c *gin.Context) {
 			return
 		}
 		if successFloat == 1 {
+			err = db.Model(&device).Updates(models.Device{
+				DestinationSet: false,
+			}).Error
+			if err != nil {
+				slog.Error("Failed to update device", "error", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
 			c.JSON(http.StatusOK, gin.H{
 				"success":    true,
 				"saved_next": false,
