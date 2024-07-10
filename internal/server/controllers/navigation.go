@@ -31,6 +31,6 @@ func GETMapboxDirections(c *gin.Context) {
 	waypoints := c.Query("waypoints")
 	bearings := c.Query("bearings")
 
-	slog.Info("GETMapboxDirections", "lat1", sourceCoords[0], "lng1", sourceCoords[1], "lat2", destCoords[2], "lng2", destCoords[3], "annotations", annotations, "geometries", geometries, "overview", overview, "steps", steps, "banner_instructions", bannerInstructions, "alternatives", alternatives, "language", language, "waypoints", waypoints, "bearings", bearings)
+	slog.Info("GETMapboxDirections", "lat1", sourceCoords[0], "lng1", sourceCoords[1], "lat2", destCoords[0], "lng2", destCoords[1], "annotations", annotations, "geometries", geometries, "overview", overview, "steps", steps, "banner_instructions", bannerInstructions, "alternatives", alternatives, "language", language, "waypoints", waypoints, "bearings", bearings)
 	c.JSON(http.StatusNotFound, gin.H{})
 }
