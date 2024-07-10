@@ -139,12 +139,19 @@ func GETNavigationNext(c *gin.Context) {
 		return
 	}
 	if device.DestinationSet {
-		c.JSON(http.StatusOK, v1.Destination{
+		dest := v1.Destination{
 			Latitude:     device.DestinationLatitude,
 			Longitude:    device.DestinationLongitude,
 			PlaceName:    device.DestinationPlaceName,
 			PlaceDetails: device.DestinationPlaceDetails,
-		})
+		}
+		err = db.Model(&device).Updates(dest).Error
+		if err != nil {
+			slog.Error("Failed to update device", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		c.JSON(http.StatusOK, dest)
 		return
 	}
 	c.JSON(http.StatusNotFound, gin.H{"error": "Not found"})
