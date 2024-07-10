@@ -218,7 +218,29 @@ func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {
 			// Try verifying as device JWT
 			dongleID, ok := c.Params.Get("dongle_id")
 			if !ok || dongleID == "" {
-				deviceAuthErr = errors.New("missing dongle_id")
+				// Get the identity from the JWT
+				dongleIDChan := make(chan string)
+				go func() {
+					claims := new(utils.DeviceJWT)
+					_, err := jwt.NewParser(
+						jwt.WithLeeway(5*time.Minute),
+						jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name}),
+					).ParseWithClaims(jwtString, claims, func(token *jwt.Token) (interface{}, error) {
+						if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
+							return nil, fmt.Errorf("invalid signing method: %s", token.Header["alg"])
+						}
+						claims = token.Claims.(*utils.DeviceJWT)
+						dongleIDChan <- claims.Identity
+						return nil, nil
+					})
+					if err != nil {
+						dongleIDChan <- ""
+					}
+				}()
+				dongleID = <-dongleIDChan
+				if dongleID == "" {
+					deviceAuthErr = errors.New("missing dongle_id")
+				}
 			} else {
 				device, err := models.FindDeviceByDongleID(db, dongleID)
 				if err != nil {
