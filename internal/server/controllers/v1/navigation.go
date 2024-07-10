@@ -42,7 +42,6 @@ func POSTSetDestination(c *gin.Context) {
 		return
 	}
 
-	savedNext := false
 	if time.Unix(device.LastAthenaPing, 0).Add(60 * time.Second).After(time.Now()) {
 		// Last ping + 60 secs was after now, so the device is online
 		rpcCaller, ok := c.MustGet("rpcWebsocket").(*websocket.RPCWebsocket)
@@ -92,29 +91,30 @@ func POSTSetDestination(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-		if rpcResp.Success != 1 {
-			slog.Error("Failed to set destination", "response", rpcResp)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		if rpcResp.Success == 1 {
+			c.JSON(http.StatusOK, gin.H{
+				"success":    true,
+				"saved_next": false,
+			})
 			return
 		}
-	} else {
-		savedNext = true
-		err = db.Model(&device).Updates(models.Device{
-			DestinationSet:          true,
-			DestinationLatitude:     destination.Latitude,
-			DestinationLongitude:    destination.Longitude,
-			DestinationPlaceName:    destination.PlaceName,
-			DestinationPlaceDetails: destination.PlaceDetails,
-		}).Error
-		if err != nil {
-			slog.Error("Failed to update device", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
+		// On failure, fall through to save the destination in the db
+	}
+	err = db.Model(&device).Updates(models.Device{
+		DestinationSet:          true,
+		DestinationLatitude:     destination.Latitude,
+		DestinationLongitude:    destination.Longitude,
+		DestinationPlaceName:    destination.PlaceName,
+		DestinationPlaceDetails: destination.PlaceDetails,
+	}).Error
+	if err != nil {
+		slog.Error("Failed to update device", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"success":    true,
-		"saved_next": savedNext,
+		"saved_next": true,
 	})
 }
 
