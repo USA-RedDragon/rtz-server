@@ -27,7 +27,6 @@ The service is configured via environment variables, a configuration YAML file, 
 
 - [ ] Parsing uploaded segments and routes
 - [ ] Stat tracking
-- [ ] Get/set next navigation
 - [ ] Useradmin
 - [ ] Rename the project
 - [ ] Add more documentation
@@ -38,7 +37,7 @@ The service is configured via environment variables, a configuration YAML file, 
 
 ## Frotend TODOs
 
-- [ ] Remove Comma trademarked assets
+- [ ] Remove Comma trademarked assets (logo, branding)
 - [ ] Demo mode
 
 ## Wants
