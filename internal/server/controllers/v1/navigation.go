@@ -84,17 +84,17 @@ func POSTSetDestination(c *gin.Context) {
 		}
 		success, ok := result["success"]
 		if !ok {
-			slog.Error("Failed to find success", "success", result["success"], "type", reflect.TypeOf(result["success"]))
+			slog.Error("Failed to find success", "success", result["success"])
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-		successInt, ok := success.(int)
+		successFloat, ok := success.(float64)
 		if !ok {
 			slog.Error("Failed to convert success to int", "success", success, "type", reflect.TypeOf(result["success"]))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-		if successInt == 1 {
+		if successFloat == 1 {
 			c.JSON(http.StatusOK, gin.H{
 				"success":    true,
 				"saved_next": false,
