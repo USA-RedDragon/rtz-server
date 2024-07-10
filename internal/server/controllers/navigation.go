@@ -3,17 +3,16 @@ package controllers
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
 
 func GETMapboxDirections(c *gin.Context) {
-	lat1 := c.Param("lat1")
-	lng1 := c.Param("lng1")
-	lat2 := c.Param("lat2")
-	lng2 := c.Param("lng2")
-	if lat1 == "" || lng1 == "" || lat2 == "" || lng2 == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "lat1, lng1, lat2, lng2 are required"})
+	coordsParam := c.Param("coords")
+	coords := strings.Split(coordsParam, ",")
+	if len(coords) != 4 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "coords must be 4 comma separated values"})
 		return
 	}
 	annotations := c.Query("annotations")
@@ -26,6 +25,6 @@ func GETMapboxDirections(c *gin.Context) {
 	waypoints := c.Query("waypoints")
 	bearings := c.Query("bearings")
 
-	slog.Info("GETMapboxDirections", "lat1", lat1, "lng1", lng1, "lat2", lat2, "lng2", lng2, "annotations", annotations, "geometries", geometries, "overview", overview, "steps", steps, "banner_instructions", bannerInstructions, "alternatives", alternatives, "language", language, "waypoints", waypoints, "bearings", bearings)
+	slog.Info("GETMapboxDirections", "lat1", coords[0], "lng1", coords[1], "lat2", coords[2], "lng2", coords[3], "annotations", annotations, "geometries", geometries, "overview", overview, "steps", steps, "banner_instructions", bannerInstructions, "alternatives", alternatives, "language", language, "waypoints", waypoints, "bearings", bearings)
 	c.JSON(http.StatusNotFound, gin.H{})
 }

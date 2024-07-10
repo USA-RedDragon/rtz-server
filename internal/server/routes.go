@@ -34,7 +34,7 @@ func applyRoutes(r *gin.Engine, config *config.Config, rpcWebsocket *websocketCo
 
 	directions := r.Group("/directions")
 	directionsV5 := directions.Group("/v5")
-	directionsV5.GET("/mapbox/driving-traffic/:lng1,:lat1;:lng2,:lat2", requireAuth(config, AuthTypeDevice), controllers.GETMapboxDirections)
+	directionsV5.GET("/mapbox/driving-traffic/:coords", requireAuth(config, AuthTypeDevice), controllers.GETMapboxDirections)
 
 	r.NoRoute(func(c *gin.Context) {
 		slog.Warn("Not Found", "path", c.Request.URL.Path)
