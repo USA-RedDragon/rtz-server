@@ -10,9 +10,15 @@ import (
 
 func GETMapboxDirections(c *gin.Context) {
 	coordsParam := c.Param("coords")
-	coords := strings.Split(coordsParam, ",")
-	if len(coords) != 4 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "coords must be 4 comma separated values"})
+	coordPairs := strings.Split(coordsParam, ";")
+	if len(coordPairs) != 2 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "coords must be 2 semicolon-separated coordinate pairs"})
+		return
+	}
+	sourceCoords := strings.Split(coordPairs[0], ",")
+	destCoords := strings.Split(coordPairs[1], ",")
+	if len(sourceCoords) != 2 || len(destCoords) != 2 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "coords must be 2 comma-separated values"})
 		return
 	}
 	annotations := c.Query("annotations")
@@ -25,6 +31,6 @@ func GETMapboxDirections(c *gin.Context) {
 	waypoints := c.Query("waypoints")
 	bearings := c.Query("bearings")
 
-	slog.Info("GETMapboxDirections", "lat1", coords[0], "lng1", coords[1], "lat2", coords[2], "lng2", coords[3], "annotations", annotations, "geometries", geometries, "overview", overview, "steps", steps, "banner_instructions", bannerInstructions, "alternatives", alternatives, "language", language, "waypoints", waypoints, "bearings", bearings)
+	slog.Info("GETMapboxDirections", "lat1", sourceCoords[0], "lng1", sourceCoords[1], "lat2", destCoords[2], "lng2", destCoords[3], "annotations", annotations, "geometries", geometries, "overview", overview, "steps", steps, "banner_instructions", bannerInstructions, "alternatives", alternatives, "language", language, "waypoints", waypoints, "bearings", bearings)
 	c.JSON(http.StatusNotFound, gin.H{})
 }
