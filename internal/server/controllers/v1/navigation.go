@@ -3,6 +3,7 @@ package v1
 import (
 	"log/slog"
 	"net/http"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -81,13 +82,19 @@ func POSTSetDestination(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-		success, ok := result["success"].(int)
+		success, ok := result["success"]
 		if !ok {
-			slog.Error("Failed to convert success to int", "success", result["success"])
+			slog.Error("Failed to find success", "success", result["success"], "type", reflect.TypeOf(result["success"]))
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-		if success == 1 {
+		successInt, ok := success.(int)
+		if !ok {
+			slog.Error("Failed to convert success to int", "success", success, "type", reflect.TypeOf(result["success"]))
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		if successInt == 1 {
 			c.JSON(http.StatusOK, gin.H{
 				"success":    true,
 				"saved_next": false,
