@@ -98,18 +98,61 @@ func (c *RPCWebsocket) Call(dongleID string, call apimodels.RPCCall) (apimodels.
 }
 
 func (c *RPCWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket.Writer, msg []byte, msgType int, device *models.Device, db *gorm.DB) {
-	jsonRPC := apimodels.RPCResponse{}
-	err := json.Unmarshal(msg, &jsonRPC)
+	var rawJSON map[string]interface{}
+	err := json.Unmarshal(msg, &rawJSON)
 	if err != nil {
-		slog.Warn("Error unmarshalling RPC response:", "error", err)
+		slog.Warn("Error unmarshalling JSON:", "error", err)
 		return
 	}
-
-	slog.Info("Message", "type", msgType, "msg", msg)
-
 	dongle, loaded := c.dongles.Load(device.DongleID)
-	if loaded && dongle.bidiChannel.open {
-		dongle.bidiChannel.outbound <- jsonRPC
+	if !loaded {
+		slog.Warn("Dongle not connected", "dongle", device.DongleID)
+		return
+	}
+	if _, ok := rawJSON["method"]; ok {
+		// This is a call
+		jsonRPC := apimodels.RPCCall{}
+		err := json.Unmarshal(msg, &jsonRPC)
+		if err != nil {
+			slog.Warn("Error unmarshalling RPC call:", "error", err)
+			return
+		}
+
+		go func() {
+			switch jsonRPC.Method {
+			case "forwardLogs":
+			case "storeStats":
+			default:
+				slog.Warn("Unknown RPC method", "method", jsonRPC.Method)
+				slog.Info("Message", "type", msgType, "msg", msg)
+				return
+			}
+			if dongle.bidiChannel.open {
+				dongle.bidiChannel.outbound <- apimodels.RPCResponse{
+					ID:             jsonRPC.ID,
+					JSONRPCVersion: jsonRPC.JSONRPCVersion,
+					Result: map[string]bool{
+						"success": true,
+					},
+				}
+			}
+		}()
+	} else if _, ok := rawJSON["result"]; ok {
+		// This is a response
+		jsonRPC := apimodels.RPCResponse{}
+		err := json.Unmarshal(msg, &jsonRPC)
+		if err != nil {
+			slog.Warn("Error unmarshalling RPC call:", "error", err)
+			return
+		}
+
+		if dongle.bidiChannel.open {
+			dongle.bidiChannel.outbound <- jsonRPC
+			return
+		}
+	} else {
+		slog.Warn("Unknown message type")
+		slog.Info("Message", "type", msgType, "msg", msg)
 		return
 	}
 }
