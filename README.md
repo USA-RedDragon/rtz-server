@@ -17,11 +17,50 @@ An implementation of the Comma.ai API service for self-hosted folks.
 - Store data long-term
 - Not paid, only self-hosting costs
 - Same frontend/PWA you're used to (Connect's frontend is open-source, thanks Comma!)
-- Doesn't store emails or passwords
+- Doesn't store emails
+
+## Emulated Services
+
+This project emulates more than just the Comma.ai API. It also emulates portions of the following services:
+
+- billing.comma.ai (These routes are stubbed out to report an active Comma Prime membership to OpenPilot)
+- maps.comma.ai (OpenPilot calls this to get routing data)
+- Athena (This is the websocket service that OpenPilot uses for JSON RPC)
+- (eventually) useradmin.comma.ai
 
 ## Configuration
 
 The service is configured via environment variables, a configuration YAML file, or command line flags. The [`config.example.yaml`](config.example.yaml) file shows the available configuration options. The command line flags match the schema of the YAML file, i.e. `--http.cors_hosts='0.0.0.0'` would equate to `http.cors_hosts: ["0.0.0.0"]`. Environment variables are in the same format, however they are uppercase and replace hyphens with underscores and dots with double underscores, i.e. `HTTP__CORS_HOSTS="0.0.0.0"`.
+
+### Device Configuration
+
+To configure a device running OpenPilot, you will need SSH access to the device. Documentation for this is available in [Comma's documentation](https://docs.comma.ai/how-to/connect-to-comma/#ssh). Once you have SSH access, you can run the following commands while logged into the device to configure it to use your self-hosted server:
+
+> [!WARNING]
+> This process will have to be followed every time OpenPilot is updated.
+
+Replace `URL` and `WEBSOCKET_URL` with your server's URL. It can work over HTTP as well, however I only recommend this when your device is on a Wifi network, if you have a SIM you'll want to expose this service behind a load balancer with a valid SSL certificate. If you don't have a valid SSL certificate, you can use [Let's Encrypt](https://letsencrypt.org/) to get one for free.
+
+```sh
+URL="https://your-server.com" # Replace this with your server's URL
+WEBSOCKET_URL="wss://your-server.com" # Replace this with your server's URL
+
+cd /data/openpilot
+
+# Adds the connect-server configuration to the launch_env.sh file
+sed -i '3i # connect-server configuration, comment or remove the following lines to revert back to stock' launch_env.sh
+sed -i '4i # comment or remove the following lines to revert back to stock' launch_env.sh
+sed -i "5i export ATHENA_HOST=\"$WEBSOCKET_URL\"" launch_env.sh
+sed -i "6i export API_HOST=\"$URL\"" launch_env.sh
+sed -i "6i export COMMA_MAPS_HOST=\"$URL\"" launch_env.sh
+sed -i '7i # end of connect-server configuration\n' launch_env.sh
+
+# Removes hard-coded Comma API URL
+# Some versions of OpenPilot have removed navd, so we need to check for its existence
+if test -f selfdrive/navd/navd.py; then
+  sed -i 's#self.mapbox_host = "https://maps.comma.ai"#self.mapbox_host = os.getenv("COMMA_MAPS_HOST", "https://maps.comma.ai")#' selfdrive/navd/navd.py
+fi
+```
 
 ## TODOs (in order of priority)
 
