@@ -105,6 +105,8 @@ func (c *RPCWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket
 		return
 	}
 
+	slog.Info("Message", "type", msgType, "msg", msg)
+
 	dongle, loaded := c.dongles.Load(device.DongleID)
 	if loaded && dongle.bidiChannel.open {
 		dongle.bidiChannel.outbound <- jsonRPC
