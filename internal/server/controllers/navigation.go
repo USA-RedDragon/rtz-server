@@ -35,6 +35,7 @@ func GETMapboxDirections(c *gin.Context) {
 	query.Set("access_token", config.Mapbox.PublicToken)
 	url := c.Request.URL
 	url.Host = "api.mapbox.com"
+	url.Scheme = "https"
 	url.RawQuery = query.Encode()
 
 	resp, err := utils.HTTPRequest(http.MethodGet, url.String(), nil, nil)
