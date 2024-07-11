@@ -41,17 +41,11 @@ func (d *dongle) watchRedis(ctx context.Context, redis *redis.Client, device *mo
 	sub := redis.Subscribe(ctx, "rpc:call:"+device.DongleID)
 	defer sub.Close()
 	subChan := sub.Channel()
-	checkOpen := time.NewTicker(1 * time.Second)
 	for {
 		select {
 		case <-ctx.Done():
 			slog.Info("watchRedis Context done")
 			return
-		case <-checkOpen.C:
-			if !d.bidiChannel.open {
-				slog.Info("Dongle not connected, stopping redis watch")
-				return
-			}
 		case msg := <-subChan:
 			slog.Info("Received RPC call from redis", "key", msg.Channel)
 			var call apimodels.RPCCall
@@ -60,7 +54,9 @@ func (d *dongle) watchRedis(ctx context.Context, redis *redis.Client, device *mo
 				slog.Warn("Error unmarshalling RPC call", "error", err)
 				continue
 			}
-			d.bidiChannel.inbound <- call
+			if d.bidiChannel.open {
+				d.bidiChannel.inbound <- call
+			}
 		}
 	}
 }
@@ -111,14 +107,14 @@ func (c *RPCWebsocket) Call(ctx context.Context, redis *redis.Client, dongleID s
 			if err != nil {
 				return apimodels.RPCResponse{}, err
 			}
-			slog.Info("Reading RPC response to redis", "key", "rpc:response:"+dongleID+":"+call.ID)
 			sub := redis.Subscribe(ctx, "rpc:response:"+dongleID+":"+call.ID)
 			defer sub.Close()
 			respChannel := make(chan apimodels.RPCResponse)
+			subChan := sub.Channel()
+			ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
+			defer cancel()
 			go func() {
-				subChan := sub.Channel()
-				ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
-				defer cancel()
+				slog.Info("Waiting for RPC response from redis", "key", "rpc:response:"+dongleID+":"+call.ID)
 				for {
 					select {
 					case <-ctx.Done():
@@ -137,13 +133,13 @@ func (c *RPCWebsocket) Call(ctx context.Context, redis *redis.Client, dongleID s
 				}
 			}()
 
-			slog.Info("Sending RPC to redis", "key", "rpc:call:"+dongleID)
+			slog.Info("Sending RPC call to redis", "key", "rpc:call:"+dongleID)
 			err = redis.Publish(ctx, "rpc:call:"+dongleID, msg).Err()
 			if err != nil {
 				slog.Warn("Error sending RPC to redis", "error", err)
 			}
 
-			ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
+			ctx, cancel = context.WithTimeout(ctx, 120*time.Second)
 			defer cancel()
 			select {
 			case <-ctx.Done():
@@ -188,6 +184,7 @@ func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websock
 	if !loaded {
 		if redis != nil {
 			if _, ok := rawJSON["result"]; ok {
+				slog.Info("Want to send rpc response to redis")
 				// This is a response
 				maybeID, ok := rawJSON["id"]
 				if !ok {
