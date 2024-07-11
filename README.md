@@ -76,7 +76,6 @@ sudo reboot
 - [ ] Parsing uploaded segments and routes
 - [ ] Stat tracking
 - [ ] Useradmin
-- [ ] Rename the project
 - [ ] Add more documentation
 - [ ] Add more tests
 - [ ] Document deployment
