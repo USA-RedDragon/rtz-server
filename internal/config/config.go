@@ -55,8 +55,26 @@ type InitialAdmin struct {
 }
 
 type Persistence struct {
-	Database string `json:"database"`
-	Uploads  string `json:"uploads"`
+	Database Database `json:"database"`
+	Uploads  string   `json:"uploads"`
+}
+
+type DatabaseDriver string
+
+const (
+	DatabaseDriverSQLite   DatabaseDriver = "sqlite"
+	DatabaseDriverMySQL    DatabaseDriver = "mysql"
+	DatabaseDriverPostgres DatabaseDriver = "postgres"
+)
+
+type Database struct {
+	Driver          DatabaseDriver `json:"driver"`
+	Database        string         `json:"database"`
+	Username        string         `json:"username"`
+	Password        string         `json:"password"`
+	Host            string         `json:"host"`
+	Port            uint16         `json:"port"`
+	ExtraParameters string         `json:"extra_perimeters" yaml:"extra_perimeters"`
 }
 
 type HTTPListener struct {
@@ -91,24 +109,30 @@ type HTTP struct {
 
 //nolint:golint,gochecknoglobals
 var (
-	ConfigFileKey          = "config"
-	HTTPIPV4HostKey        = "http.ipv4_host"
-	HTTPIPV6HostKey        = "http.ipv6_host"
-	HTTPPortKey            = "http.port"
-	HTTPTracingEnabledKey  = "http.tracing.enabled"
-	HTTPTracingOTLPEndKey  = "http.tracing.otlp_endpoint"
-	HTTPPProfEnabledKey    = "http.pprof.enabled"
-	HTTPTrustedProxiesKey  = "http.trusted_proxies"
-	HTTPMetricsEnabledKey  = "http.metrics.enabled"
-	HTTPMetricsIPV4HostKey = "http.metrics.ipv4_host"
-	HTTPMetricsIPV6HostKey = "http.metrics.ipv6_host"
-	HTTPMetricsPortKey     = "http.metrics.port"
-	HTTPCORSHostsKey       = "http.cors_hosts"
-	HTTPBackendURLKey      = "http.backend_url"
-	PersistenceDatabaseKey = "persistence.database"
-	PersistenceUploadsKey  = "persistence.uploads"
-	RegistrationEnabledKey = "registration.enabled"
-	AuthGoogleClientIDKey  = "auth.google.client_id"
+	ConfigFileKey                         = "config"
+	HTTPIPV4HostKey                       = "http.ipv4_host"
+	HTTPIPV6HostKey                       = "http.ipv6_host"
+	HTTPPortKey                           = "http.port"
+	HTTPTracingEnabledKey                 = "http.tracing.enabled"
+	HTTPTracingOTLPEndKey                 = "http.tracing.otlp_endpoint"
+	HTTPPProfEnabledKey                   = "http.pprof.enabled"
+	HTTPTrustedProxiesKey                 = "http.trusted_proxies"
+	HTTPMetricsEnabledKey                 = "http.metrics.enabled"
+	HTTPMetricsIPV4HostKey                = "http.metrics.ipv4_host"
+	HTTPMetricsIPV6HostKey                = "http.metrics.ipv6_host"
+	HTTPMetricsPortKey                    = "http.metrics.port"
+	HTTPCORSHostsKey                      = "http.cors_hosts"
+	HTTPBackendURLKey                     = "http.backend_url"
+	PersistenceDatabaseDriverKey          = "persistence.database.driver"
+	PersistenceDatabaseDatabaseKey        = "persistence.database.database"
+	PersistenceDatabaseUsernameKey        = "persistence.database.username"
+	PersistenceDatabasePasswordKey        = "persistence.database.password"
+	PersistenceDatabaseHostKey            = "persistence.database.host"
+	PersistenceDatabasePortKey            = "persistence.database.port"
+	PersistenceDatabaseExtraParametersKey = "persistence.database.extra_parameters"
+	PersistenceUploadsKey                 = "persistence.uploads"
+	RegistrationEnabledKey                = "registration.enabled"
+	AuthGoogleClientIDKey                 = "auth.google.client_id"
 	//nolint:golint,gosec
 	AuthGoogleClientSecretKey = "auth.google.client_secret"
 	AuthGitHubClientIDKey     = "auth.github.client_id"
@@ -120,16 +144,17 @@ var (
 )
 
 const (
-	DefaultConfigPath          = "config.yaml"
-	DefaultHTTPIPV4Host        = "0.0.0.0"
-	DefaultHTTPIPV6Host        = "::"
-	DefaultHTTPPort            = 8080
-	DefaultHTTPMetricsIPV4Host = "127.0.0.1"
-	DefaultHTTPMetricsIPV6Host = "::1"
-	DefaultHTTPMetricsPort     = 8081
-	DefaultPersistenceDatabase = "rtz.db"
-	DefaultPersistenceUploads  = "uploads/"
-	DefaultRegistrationEnabled = false
+	DefaultConfigPath                  = "config.yaml"
+	DefaultHTTPIPV4Host                = "0.0.0.0"
+	DefaultHTTPIPV6Host                = "::"
+	DefaultHTTPPort                    = 8080
+	DefaultHTTPMetricsIPV4Host         = "127.0.0.1"
+	DefaultHTTPMetricsIPV6Host         = "::1"
+	DefaultHTTPMetricsPort             = 8081
+	DefaultPersistenceDatabaseDriver   = DatabaseDriverSQLite
+	DefaultPersistenceDatabaseDatabase = "rtz.db"
+	DefaultPersistenceUploads          = "uploads/"
+	DefaultRegistrationEnabled         = false
 )
 
 func RegisterFlags(cmd *cobra.Command) {
@@ -147,7 +172,13 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().Uint16(HTTPMetricsPortKey, DefaultHTTPMetricsPort, "Metrics server port")
 	cmd.Flags().StringSlice(HTTPCORSHostsKey, []string{}, "Comma-separated list of CORS hosts")
 	cmd.Flags().String(HTTPBackendURLKey, "", "Backend URL")
-	cmd.Flags().String(PersistenceDatabaseKey, DefaultPersistenceDatabase, "Database file path")
+	cmd.Flags().String(PersistenceDatabaseDriverKey, string(DefaultPersistenceDatabaseDriver), "Database driver")
+	cmd.Flags().String(PersistenceDatabaseDatabaseKey, DefaultPersistenceDatabaseDatabase, "Database path")
+	cmd.Flags().String(PersistenceDatabaseUsernameKey, "", "Database username")
+	cmd.Flags().String(PersistenceDatabasePasswordKey, "", "Database password")
+	cmd.Flags().String(PersistenceDatabaseHostKey, "", "Database host")
+	cmd.Flags().Uint16(PersistenceDatabasePortKey, 0, "Database port")
+	cmd.Flags().String(PersistenceDatabaseExtraParametersKey, "", "Database extra parameters")
 	cmd.Flags().String(PersistenceUploadsKey, DefaultPersistenceUploads, "Uploads directory")
 	cmd.Flags().Bool(RegistrationEnabledKey, DefaultRegistrationEnabled, "Enable registration")
 	cmd.Flags().String(AuthGoogleClientIDKey, "", "Google OAuth client ID")
@@ -165,6 +196,9 @@ var (
 	ErrOTLPEndpointRequired      = errors.New("OTLP endpoint is required when tracing is enabled")
 	ErrMapboxPublicTokenRequired = errors.New("Mapbox public token is required")
 	ErrMapboxSecretTokenRequired = errors.New("Mapbox secret token is required")
+	ErrDBHostRequired            = errors.New("Database host is required")
+	ErrDBDatabaseRequired        = errors.New("Database name is required")
+	ErrDatabaseDriverRequired    = errors.New("Database driver is required")
 )
 
 func (c *Config) Validate() error {
@@ -183,6 +217,16 @@ func (c *Config) Validate() error {
 	if c.Mapbox.SecretToken == "" {
 		return ErrMapboxSecretTokenRequired
 	}
+	if c.Persistence.Database.Driver != DatabaseDriverSQLite && c.Persistence.Database.Host == "" {
+		return ErrDBHostRequired
+	}
+	if c.Persistence.Database.Driver == "" {
+		return ErrDatabaseDriverRequired
+	}
+	if c.Persistence.Database.Database == "" {
+		return ErrDBDatabaseRequired
+	}
+
 	return nil
 }
 
@@ -246,8 +290,11 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 	if config.HTTP.Metrics.Port == 0 {
 		config.HTTP.Metrics.Port = DefaultHTTPMetricsPort
 	}
-	if config.Persistence.Database == "" {
-		config.Persistence.Database = DefaultPersistenceDatabase
+	if config.Persistence.Database.Driver == "" {
+		config.Persistence.Database.Driver = DefaultPersistenceDatabaseDriver
+	}
+	if config.Persistence.Database.Database == "" {
+		config.Persistence.Database.Database = DefaultPersistenceDatabaseDatabase
 	}
 	if config.Persistence.Uploads == "" {
 		config.Persistence.Uploads = DefaultPersistenceUploads
@@ -349,10 +396,53 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		}
 	}
 
-	if cmd.Flags().Changed(PersistenceDatabaseKey) {
-		config.Persistence.Database, err = cmd.Flags().GetString(PersistenceDatabaseKey)
+	if cmd.Flags().Changed(PersistenceDatabaseDriverKey) {
+		drvr, err := cmd.Flags().GetString(PersistenceDatabaseDriverKey)
 		if err != nil {
-			return fmt.Errorf("failed to get database path: %w", err)
+			return fmt.Errorf("failed to get database driver: %w", err)
+		}
+		config.Persistence.Database.Driver = DatabaseDriver(strings.ToLower(drvr))
+	}
+
+	if cmd.Flags().Changed(PersistenceDatabaseDatabaseKey) {
+		config.Persistence.Database.Database, err = cmd.Flags().GetString(PersistenceDatabaseDatabaseKey)
+		if err != nil {
+			return fmt.Errorf("failed to get database name: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(PersistenceDatabaseUsernameKey) {
+		config.Persistence.Database.Username, err = cmd.Flags().GetString(PersistenceDatabaseUsernameKey)
+		if err != nil {
+			return fmt.Errorf("failed to get database username: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(PersistenceDatabasePasswordKey) {
+		config.Persistence.Database.Password, err = cmd.Flags().GetString(PersistenceDatabasePasswordKey)
+		if err != nil {
+			return fmt.Errorf("failed to get database password: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(PersistenceDatabaseHostKey) {
+		config.Persistence.Database.Host, err = cmd.Flags().GetString(PersistenceDatabaseHostKey)
+		if err != nil {
+			return fmt.Errorf("failed to get database host: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(PersistenceDatabasePortKey) {
+		config.Persistence.Database.Port, err = cmd.Flags().GetUint16(PersistenceDatabasePortKey)
+		if err != nil {
+			return fmt.Errorf("failed to get database port: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(PersistenceDatabaseExtraParametersKey) {
+		config.Persistence.Database.ExtraParameters, err = cmd.Flags().GetString(PersistenceDatabaseExtraParametersKey)
+		if err != nil {
+			return fmt.Errorf("failed to get database extra parameters: %w", err)
 		}
 	}
 

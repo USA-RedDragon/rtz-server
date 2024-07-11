@@ -135,7 +135,13 @@ func TestEnvConfig(t *testing.T) {
 	t.Setenv("HTTP__TRACING__OTLP_ENDPOINT", "http://localhost:4317")
 	t.Setenv("HTTP__CORS_HOSTS", "http://localhost:8080,http://localhost:8081")
 	t.Setenv("HTTP__BACKEND_URL", "http://localhost:8081")
-	t.Setenv("PERSISTENCE__DATABASE", "test.sqlite3")
+	t.Setenv("PERSISTENCE__DATABASE__DRIVER", "postgres")
+	t.Setenv("PERSISTENCE__DATABASE__DATABASE", "test.sqlite3")
+	t.Setenv("PERSISTENCE__DATABASE__HOST", "host")
+	t.Setenv("PERSISTENCE__DATABASE__PORT", "5432")
+	t.Setenv("PERSISTENCE__DATABASE__USERNAME", "user")
+	t.Setenv("PERSISTENCE__DATABASE__PASSWORD", "password")
+	t.Setenv("PERSISTENCE__DATABASE__EXTRA_PARAMETERS", "sslmode=require")
 	t.Setenv("PERSISTENCE__UPLOADS", "notuploads")
 	t.Setenv("REGISTRATION__ENABLED", "true")
 	t.Setenv("AUTH__GOOGLE__CLIENT_ID", "googleid")
@@ -198,8 +204,26 @@ func TestEnvConfig(t *testing.T) {
 	if config.HTTP.BackendURL != "http://localhost:8081" {
 		t.Errorf("unexpected HTTP backend URL: %s", config.HTTP.BackendURL)
 	}
-	if config.Persistence.Database != "test.sqlite3" {
-		t.Errorf("unexpected persistence database: %s", config.Persistence.Database)
+	if config.Persistence.Database.Database != "test.sqlite3" {
+		t.Errorf("unexpected persistence database: %s", config.Persistence.Database.Database)
+	}
+	if config.Persistence.Database.Driver != "postgres" {
+		t.Errorf("unexpected persistence driver: %s", config.Persistence.Database.Driver)
+	}
+	if config.Persistence.Database.Host != "host" {
+		t.Errorf("unexpected persistence host: %s", config.Persistence.Database.Host)
+	}
+	if config.Persistence.Database.Port != 5432 {
+		t.Errorf("unexpected persistence port: %d", config.Persistence.Database.Port)
+	}
+	if config.Persistence.Database.Username != "user" {
+		t.Errorf("unexpected persistence username: %s", config.Persistence.Database.Username)
+	}
+	if config.Persistence.Database.Password != "password" {
+		t.Errorf("unexpected persistence password: %s", config.Persistence.Database.Password)
+	}
+	if config.Persistence.Database.ExtraParameters != "sslmode=require" {
+		t.Errorf("unexpected persistence extra parameters: %s", config.Persistence.Database.ExtraParameters)
 	}
 	if config.Persistence.Uploads != "notuploads" {
 		t.Errorf("unexpected persistence uploads: %s", config.Persistence.Uploads)
