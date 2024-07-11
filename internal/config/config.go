@@ -157,21 +157,29 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(MapboxSecretTokenKey, "", "Mapbox secret token")
 }
 
+var (
+	ErrorJWTSecretRequired         = errors.New("JWT secret is required")
+	ErrorBackendURLRequired        = errors.New("Backend URL is required")
+	ErrorOTLPEndpointRequired      = errors.New("OTLP endpoint is required when tracing is enabled")
+	ErrorMapboxPublicTokenRequired = errors.New("Mapbox public token is required")
+	ErrorMapboxSecretTokenRequired = errors.New("Mapbox secret token is required")
+)
+
 func (c *Config) Validate() error {
 	if c.JWT.Secret == "" {
-		return errors.New("JWT secret is required")
+		return ErrorJWTSecretRequired
 	}
 	if c.HTTP.BackendURL == "" {
-		return errors.New("Backend URL is required")
+		return ErrorBackendURLRequired
 	}
 	if c.HTTP.Tracing.Enabled && c.HTTP.Tracing.OTLPEndpoint == "" {
-		return errors.New("OTLP endpoint is required when tracing is enabled")
+		return ErrorOTLPEndpointRequired
 	}
 	if c.Mapbox.PublicToken == "" {
-		return errors.New("Mapbox public token is required")
+		return ErrorMapboxPublicTokenRequired
 	}
 	if c.Mapbox.SecretToken == "" {
-		return errors.New("Mapbox secret token is required")
+		return ErrorMapboxSecretTokenRequired
 	}
 	return nil
 }

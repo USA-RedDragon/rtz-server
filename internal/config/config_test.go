@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/USA-RedDragon/rtz-server/cmd"
@@ -17,29 +18,38 @@ var requiredFlags = []string{
 
 func TestExampleConfig(t *testing.T) {
 	t.Parallel()
-	baseCmd := cmd.NewCommand("testing", "deadbeef")
-	// Avoid port conflict
-	baseCmd.SetArgs([]string{"--config", "../../config.example.yaml", "--http.port", "8083", "--http.metrics.port", "8084"})
-	err := baseCmd.Execute()
+	cmd := cmd.NewCommand("testing", "deadbeef")
+	cmd.SetContext(context.Background())
+	cmd.ParseFlags([]string{"--config", "../../config.example.yaml"})
+	testConfig, err := config.LoadConfig(cmd)
 	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if err := testConfig.Validate(); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
 
 func TestTracing(t *testing.T) {
 	t.Parallel()
-	// Avoid port conflict
-	baseArgs := []string{"--http.port", "8085", "--http.metrics.port", "8086", "--http.tracing.enabled", "true"}
-	baseCmd := cmd.NewCommand("testing", "deadbeef")
-	baseCmd.SetArgs(append(baseArgs, requiredFlags...))
-	err := baseCmd.Execute()
-	if err == nil {
-		t.Error("Tracing enabled but OTLP endpoint not set")
+	cmd := cmd.NewCommand("testing", "deadbeef")
+	cmd.SetContext(context.Background())
+	baseArgs := append([]string{"--http.tracing.enabled", "true"}, requiredFlags...)
+	cmd.ParseFlags(baseArgs)
+	testConfig, err := config.LoadConfig(cmd)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if err := testConfig.Validate(); !errors.Is(err, config.ErrorOTLPEndpointRequired) {
+		t.Errorf("unexpected error: %v", err)
 	}
 	baseArgs = append(baseArgs, "--http.tracing.otlp_endpoint", "http://localhost:4317")
-	baseCmd.SetArgs(append(baseArgs, requiredFlags...))
-	err = baseCmd.Execute()
+	cmd.ParseFlags(baseArgs)
+	testConfig, err = config.LoadConfig(cmd)
 	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if err := testConfig.Validate(); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
