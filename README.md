@@ -32,7 +32,7 @@ This project emulates more than just the Comma.ai API. It also emulates portions
 
 ### Frontend
 
-You will need to run the Comma Connect frontend to get full functionality. You can find the frontend at [connect-frontend](https://github.com/USA-RedDragon/connect-frontend). The frontend is the same as Comma's, but with the branding and tracking removed. You can also use the official frontend, but you will need to modify the `config.js` file to point to your server.
+You will need to run the Comma Connect frontend to get full functionality. You can find the frontend at [rtz-frontend](https://github.com/USA-RedDragon/rtz-frontend). The frontend is the same as Comma's, but with the branding and tracking removed. You can also use the official frontend, but you will need to modify the `config.js` file to point to your server.
 
 ### Server Configuration
 
