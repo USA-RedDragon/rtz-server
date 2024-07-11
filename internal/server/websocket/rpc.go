@@ -37,6 +37,7 @@ func (d *dongle) watchRedis(ctx context.Context, redis *redis.Client, device *mo
 	if redis == nil {
 		return
 	}
+	slog.Info("Watching redis for RPC calls", "dongle", device.DongleID)
 	sub := redis.Subscribe(ctx, "rpc:call:"+device.DongleID)
 	defer sub.Close()
 	subChan := sub.Channel()
@@ -44,12 +45,15 @@ func (d *dongle) watchRedis(ctx context.Context, redis *redis.Client, device *mo
 	for {
 		select {
 		case <-ctx.Done():
+			slog.Info("watchRedis Context done")
 			return
 		case <-checkOpen.C:
 			if !d.bidiChannel.open {
+				slog.Info("Dongle not connected, stopping redis watch")
 				return
 			}
 		case msg := <-subChan:
+			slog.Info("Received RPC call from redis", "key", msg.Channel)
 			var call apimodels.RPCCall
 			err := json.Unmarshal([]byte(msg.Payload), &call)
 			if err != nil {
