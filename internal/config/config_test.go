@@ -278,5 +278,4 @@ func TestEnvConfig(t *testing.T) {
 	if config.Redis.SentinelMaster != "master" {
 		t.Errorf("unexpected Redis sentinel master: %s", config.Redis.SentinelMaster)
 	}
-
 }
