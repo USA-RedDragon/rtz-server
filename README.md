@@ -18,6 +18,7 @@ An implementation of the Comma.ai API service for self-hosted folks. Pronounced 
 - Not paid, only self-hosting costs
 - Same frontend/PWA you're used to (Connect's frontend is open-source, thanks Comma!)
 - Doesn't store emails
+- It's extremely resource-efficient. With SQLite, I got ~13Mib of RAM usage, and about 1m (milliCPU) of CPU usage. With PostgreSQL, this usage went down to 9Mib.
 
 ## Emulated Services
 
