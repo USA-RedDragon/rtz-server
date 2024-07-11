@@ -30,12 +30,12 @@ func TestExampleConfig(t *testing.T) {
 	}
 }
 
-func TestTracing(t *testing.T) {
+func TesMissingOLTPEndpoint(t *testing.T) {
 	t.Parallel()
+
 	cmd := cmd.NewCommand("testing", "deadbeef")
 	cmd.SetContext(context.Background())
-	baseArgs := append([]string{"--http.tracing.enabled", "true"}, requiredFlags...)
-	cmd.ParseFlags(baseArgs)
+	cmd.ParseFlags(append([]string{"--http.tracing.enabled", "true"}, requiredFlags...))
 	testConfig, err := config.LoadConfig(cmd)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -43,13 +43,56 @@ func TestTracing(t *testing.T) {
 	if err := testConfig.Validate(); !errors.Is(err, config.ErrorOTLPEndpointRequired) {
 		t.Errorf("unexpected error: %v", err)
 	}
-	baseArgs = append(baseArgs, "--http.tracing.otlp_endpoint", "http://localhost:4317")
-	cmd.ParseFlags(baseArgs)
+
+	cmd.ParseFlags(append([]string{"--http.tracing.enabled", "true", "--http.tracing.otlp_endpoint", "dummy"}, requiredFlags...))
 	testConfig, err = config.LoadConfig(cmd)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
 	if err := testConfig.Validate(); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestMissingJWTSecret(t *testing.T) {
+	t.Parallel()
+	cmd := cmd.NewCommand("testing", "deadbeef")
+	cmd.SetContext(context.Background())
+	cmd.ParseFlags([]string{
+		"--http.backend_url", "http://localhost:8081",
+		"--mapbox.secret_token", "dummy",
+		"--mapbox.public_token", "dummy",
+	})
+	testConfig, err := config.LoadConfig(cmd)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if err := testConfig.Validate(); !errors.Is(err, config.ErrorJWTSecretRequired) {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestMissingMapboxTokens(t *testing.T) {
+	t.Parallel()
+	baseCmd := cmd.NewCommand("testing", "deadbeef")
+	baseCmd.SetContext(context.Background())
+	baseFlags := []string{"--jwt.secret", "changeme", "--http.backend_url", "http://localhost:8081"}
+	baseCmd.ParseFlags(append(baseFlags, []string{"--mapbox.secret_token", "dummy"}...))
+	testConfig, err := config.LoadConfig(baseCmd)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if err := testConfig.Validate(); !errors.Is(err, config.ErrorMapboxPublicTokenRequired) {
+		t.Errorf("unexpected error: %v", err)
+	}
+	baseCmd = cmd.NewCommand("testing", "deadbeef")
+	baseCmd.SetContext(context.Background())
+	baseCmd.ParseFlags(append(baseFlags, []string{"--mapbox.public_token", "dummy"}...))
+	testConfig, err = config.LoadConfig(baseCmd)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if err := testConfig.Validate(); !errors.Is(err, config.ErrorMapboxSecretTokenRequired) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
