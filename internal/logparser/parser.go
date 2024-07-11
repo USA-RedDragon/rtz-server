@@ -29,7 +29,7 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 	for {
 		msg, err := decoder.Decode()
 		if err != nil {
-			if errors.Is(err, io.EOF) {
+			if !errors.Is(err, io.EOF) {
 				return SegmentData{}, err
 			}
 			break
