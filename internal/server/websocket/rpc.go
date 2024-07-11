@@ -37,14 +37,17 @@ func (d *dongle) watchRedis(ctx context.Context, redis *redis.Client, device *mo
 	if redis == nil {
 		return
 	}
+	slog.Info("Watching redis for RPC calls", "dongle", device.DongleID)
 	sub := redis.Subscribe(ctx, "rpc:call:"+device.DongleID)
 	defer sub.Close()
 	subChan := sub.Channel()
 	for {
 		select {
 		case <-ctx.Done():
+			slog.Info("watchRedis Context done")
 			return
 		case msg := <-subChan:
+			slog.Info("Received RPC call from redis", "key", msg.Channel)
 			var call apimodels.RPCCall
 			err := json.Unmarshal([]byte(msg.Payload), &call)
 			if err != nil {
@@ -111,11 +114,13 @@ func (c *RPCWebsocket) Call(ctx context.Context, redis *redis.Client, dongleID s
 			ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
 			defer cancel()
 			go func() {
+				slog.Info("Waiting for RPC response from redis", "key", "rpc:response:"+dongleID+":"+call.ID)
 				for {
 					select {
 					case <-ctx.Done():
 						return
 					case msg := <-subChan:
+						slog.Info("Received RPC response from redis", "key", "rpc:response:"+dongleID+":"+call.ID)
 						var response apimodels.RPCResponse
 						err := json.Unmarshal([]byte(msg.Payload), &response)
 						if err != nil {
@@ -128,6 +133,7 @@ func (c *RPCWebsocket) Call(ctx context.Context, redis *redis.Client, dongleID s
 				}
 			}()
 
+			slog.Info("Sending RPC call to redis", "key", "rpc:call:"+dongleID)
 			err = redis.Publish(ctx, "rpc:call:"+dongleID, msg).Err()
 			if err != nil {
 				slog.Warn("Error sending RPC to redis", "error", err)
@@ -210,6 +216,7 @@ func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websock
 	} else if _, ok := rawJSON["result"]; ok {
 		// This is a response
 		if redis != nil {
+			slog.Info("Want to send rpc response to redis")
 			// This is a response
 			maybeID, ok := rawJSON["id"]
 			if !ok {
@@ -221,6 +228,7 @@ func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websock
 				slog.Warn("Invalid response ID")
 				return
 			}
+			slog.Info("Sending response to redis", "key", "rpc:response:"+device.DongleID+":"+id)
 			err := redis.Publish(ctx, "rpc:response:"+device.DongleID+":"+id, msg).Err()
 			if err != nil {
 				slog.Warn("Error sending RPC to redis", "error", err)
@@ -273,6 +281,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 				if !more {
 					return
 				}
+				slog.Info("Received call from site", "call", call)
 				// Received a call from the site
 				jsonData, err := json.Marshal(call)
 				if err != nil {
