@@ -9,10 +9,9 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	"github.com/glebarez/sqlite"
 	"github.com/uptrace/opentelemetry-go-extra/otelgorm"
-	"gorm.io/gorm"
-
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 func getDialect(config *configPkg.Config) gorm.Dialector {
@@ -27,11 +26,12 @@ func getDialect(config *configPkg.Config) gorm.Dialector {
 		hasPassword := config.Persistence.Database.Password != ""
 		hasUserAndPassword := hasUser && hasPassword
 		prefix := ""
-		if hasUserAndPassword {
+		switch {
+		case hasUserAndPassword:
 			prefix = fmt.Sprintf("%s:%s@", config.Persistence.Database.Username, config.Persistence.Database.Password)
-		} else if hasUser {
+		case hasUser:
 			prefix = fmt.Sprintf("%s@", config.Persistence.Database.Username)
-		} else if hasPassword {
+		case hasPassword:
 			prefix = fmt.Sprintf(":%s@", config.Persistence.Database.Password)
 		}
 		portStr := ""
