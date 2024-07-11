@@ -15,6 +15,7 @@ require (
 	github.com/mattn/go-nulltype v0.0.0-20230117041332-6715e831ac05
 	github.com/prometheus/client_golang v1.19.1
 	github.com/puzpuzpuz/xsync/v3 v3.3.1
+	github.com/redis/go-redis/v9 v9.5.3
 	github.com/samber/slog-gin v1.13.3
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
@@ -38,6 +39,7 @@ require (
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/colega/zeropool v0.0.0-20230505084239-6fb4a4f75381 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.4 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect

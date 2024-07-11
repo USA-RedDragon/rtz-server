@@ -5,10 +5,12 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/USA-RedDragon/rtz-server/internal/config"
 	"github.com/USA-RedDragon/rtz-server/internal/server/apimodels"
 	"github.com/USA-RedDragon/rtz-server/internal/server/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 func HandleRPC(c *gin.Context) {
@@ -16,6 +18,24 @@ func HandleRPC(c *gin.Context) {
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
 		return
+	}
+
+	config, ok := c.MustGet("config").(*config.Config)
+	if !ok {
+		slog.Error("Failed to get config from context")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	maybeRedis, ok := c.Get("redis")
+	if !ok && config.Redis.Enabled {
+		slog.Error("Failed to get redis from context")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+	redis, ok := maybeRedis.(*redis.Client)
+	if !ok {
+		redis = nil
 	}
 
 	var inboundCall apimodels.InboundRPCCall
@@ -47,7 +67,7 @@ func HandleRPC(c *gin.Context) {
 		JSONRPCVersion: inboundCall.JSONRPCVersion,
 	}
 
-	resp, err := rpcCaller.Call(dongleID, call)
+	resp, err := rpcCaller.Call(c, redis, dongleID, call)
 	if err != nil {
 		if errors.Is(err, websocket.ErrNotConnected) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Dongle not connected"})

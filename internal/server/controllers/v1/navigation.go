@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/USA-RedDragon/rtz-server/internal/config"
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	"github.com/USA-RedDragon/rtz-server/internal/server/apimodels"
 	v1 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1"
@@ -14,6 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/mattn/go-nulltype"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -30,6 +32,25 @@ func POSTSetDestination(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
 		return
 	}
+
+	config, ok := c.MustGet("config").(*config.Config)
+	if !ok {
+		slog.Error("Failed to get config from context")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	maybeRedis, ok := c.Get("redis")
+	if !ok && config.Redis.Enabled {
+		slog.Error("Failed to get redis from context")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+	redis, ok := maybeRedis.(*redis.Client)
+	if !ok {
+		redis = nil
+	}
+
 	db, ok := c.MustGet("db").(*gorm.DB)
 	if !ok {
 		slog.Error("Failed to get db from context")
@@ -56,7 +77,7 @@ func POSTSetDestination(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-		resp, err := rpcCaller.Call(device.DongleID, apimodels.RPCCall{
+		resp, err := rpcCaller.Call(c, redis, device.DongleID, apimodels.RPCCall{
 			ID:     uuid.String(),
 			Method: "setNavDestination",
 			Params: map[string]any{

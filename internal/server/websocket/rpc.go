@@ -14,6 +14,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/websocket"
 	gorillaWebsocket "github.com/gorilla/websocket"
 	"github.com/puzpuzpuz/xsync/v3"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -30,6 +31,34 @@ type bidiChannel struct {
 type dongle struct {
 	bidiChannel    *bidiChannel
 	channelWatcher *channelWatcher
+}
+
+func (d *dongle) watchRedis(ctx context.Context, redis *redis.Client, device *models.Device) {
+	if redis == nil {
+		return
+	}
+	sub := redis.Subscribe(ctx, "rpc:call:"+device.DongleID)
+	defer sub.Close()
+	subChan := sub.Channel()
+	checkOpen := time.NewTicker(1 * time.Second)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-checkOpen.C:
+			if !d.bidiChannel.open {
+				return
+			}
+		case msg := <-subChan:
+			var call apimodels.RPCCall
+			err := json.Unmarshal([]byte(msg.Payload), &call)
+			if err != nil {
+				slog.Warn("Error unmarshalling RPC call", "error", err)
+				continue
+			}
+			d.bidiChannel.inbound <- call
+		}
+	}
 }
 
 type RPCWebsocket struct {
@@ -69,9 +98,53 @@ func (cw *channelWatcher) Subscribe(callID string, subscriber func(apimodels.RPC
 	cw.subscribers.Store(callID, subscriber)
 }
 
-func (c *RPCWebsocket) Call(dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
+func (c *RPCWebsocket) Call(ctx context.Context, redis *redis.Client, dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
 	dongle, loaded := c.dongles.Load(dongleID)
 	if !loaded {
+		// Dongle is not here, send to redis if enabled
+		if redis != nil {
+			msg, err := json.Marshal(call)
+			if err != nil {
+				return apimodels.RPCResponse{}, err
+			}
+			sub := redis.Subscribe(ctx, "rpc:response:"+dongleID+":"+call.ID)
+			defer sub.Close()
+			respChannel := make(chan apimodels.RPCResponse)
+			go func() {
+				subChan := sub.Channel()
+				ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
+				defer cancel()
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case msg := <-subChan:
+						var response apimodels.RPCResponse
+						err := json.Unmarshal([]byte(msg.Payload), &response)
+						if err != nil {
+							slog.Warn("Error unmarshalling RPC response", "error", err)
+							continue
+						}
+						respChannel <- response
+						return
+					}
+				}
+			}()
+
+			err = redis.Publish(ctx, "rpc:call:"+dongleID, msg).Err()
+			if err != nil {
+				slog.Warn("Error sending RPC to redis", "error", err)
+			}
+
+			ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
+			defer cancel()
+			select {
+			case <-ctx.Done():
+				return apimodels.RPCResponse{}, fmt.Errorf("timeout")
+			case resp := <-respChannel:
+				return resp, nil
+			}
+		}
 		return apimodels.RPCResponse{}, ErrNotConnected
 	}
 
@@ -97,7 +170,7 @@ func (c *RPCWebsocket) Call(dongleID string, call apimodels.RPCCall) (apimodels.
 	}
 }
 
-func (c *RPCWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket.Writer, msg []byte, msgType int, device *models.Device, _ *gorm.DB) {
+func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websocket.Writer, msg []byte, msgType int, device *models.Device, _ *gorm.DB, redis *redis.Client) {
 	var rawJSON map[string]interface{}
 	err := json.Unmarshal(msg, &rawJSON)
 	if err != nil {
@@ -106,6 +179,26 @@ func (c *RPCWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket
 	}
 	dongle, loaded := c.dongles.Load(device.DongleID)
 	if !loaded {
+		if redis != nil {
+			if _, ok := rawJSON["result"]; ok {
+				// This is a response
+				maybeID, ok := rawJSON["id"]
+				if !ok {
+					slog.Warn("Invalid response ID")
+					return
+				}
+				id, ok := maybeID.(string)
+				if !ok {
+					slog.Warn("Invalid response ID")
+					return
+				}
+				err := redis.Publish(ctx, "rpc:response:"+device.DongleID+":"+id, msg).Err()
+				if err != nil {
+					slog.Warn("Error sending RPC to redis", "error", err)
+				}
+				return
+			}
+		}
 		slog.Warn("Dongle not connected", "dongle", device.DongleID)
 		return
 	}
@@ -157,7 +250,7 @@ func (c *RPCWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket
 	}
 }
 
-func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer, device *models.Device, _ *gorm.DB) {
+func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer, device *models.Device, _ *gorm.DB, redis *redis.Client) {
 	bidi := bidiChannel{
 		open:     true,
 		inbound:  make(chan apimodels.RPCCall),
@@ -172,6 +265,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 		},
 	}
 	go dongle.channelWatcher.WatchChannel()
+	go dongle.watchRedis(ctx, redis, device)
 	c.dongles.Store(device.DongleID, &dongle)
 	c.connectedClients.Inc()
 

@@ -68,6 +68,19 @@ persistence:
   # Path where upload files are stored
   uploads: 'uploads/'
 
+# Redis MUST BE configured if you are going to run multiple instances of the server
+# or use blue/green deployments, otherwise websockets will only work for users
+# if they happen to hit the same instance where the device has a websocket connection.
+redis:
+  enabled: false
+  sentinel: false
+  sentinel_addresses:
+    - 'localhost:26379'
+  sentinel_master: 'mymaster'
+  address: 'localhost:6379'
+  password: ''
+  database: 0
+
 # User registration configuration
 registration:
   # Enable user registration

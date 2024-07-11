@@ -19,6 +19,17 @@ type Config struct {
 	Auth         Auth         `json:"auth"`
 	JWT          JWT          `json:"jwt"`
 	Mapbox       Mapbox       `json:"mapbox"`
+	Redis        Redis        `json:"redis"`
+}
+
+type Redis struct {
+	Enabled           bool     `json:"enabled"`
+	Sentinel          bool     `json:"sentinel"`
+	SentinelMaster    string   `json:"sentinel_master" yaml:"sentinel_master"`
+	SentinelAddresses []string `json:"sentinel_addresses" yaml:"sentinel_addresses"`
+	Address           string   `json:"address"`
+	Password          string   `json:"password"`
+	Database          int      `json:"database"`
 }
 
 type JWT struct {
@@ -143,6 +154,13 @@ var (
 	JWTSecretKey              = "jwt.secret"
 	MapboxPublicTokenKey      = "mapbox.public_token"
 	MapboxSecretTokenKey      = "mapbox.secret_token"
+	RedisEnabledKey           = "redis.enabled"
+	RedisSentinelKey          = "redis.sentinel"
+	RedisSentinelMasterKey    = "redis.sentinel_master"
+	RedisSentinelHostsKey     = "redis.sentinel_hosts"
+	RedisAddressKey           = "redis.address"
+	RedisPasswordKey          = "redis.password"
+	RedisDatabaseKey          = "redis.database"
 )
 
 const (
@@ -157,6 +175,7 @@ const (
 	DefaultPersistenceDatabaseDatabase = "rtz.db"
 	DefaultPersistenceUploads          = "uploads/"
 	DefaultRegistrationEnabled         = false
+	DefaultRedisEnabled                = false
 )
 
 func RegisterFlags(cmd *cobra.Command) {
@@ -191,18 +210,28 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(JWTSecretKey, "", "JWT signing secret")
 	cmd.Flags().String(MapboxPublicTokenKey, "", "Mapbox public token")
 	cmd.Flags().String(MapboxSecretTokenKey, "", "Mapbox secret token")
+	cmd.Flags().Bool(RedisEnabledKey, DefaultRedisEnabled, "Enable Redis")
+	cmd.Flags().Bool(RedisSentinelKey, false, "Enable Redis Sentinel")
+	cmd.Flags().String(RedisSentinelMasterKey, "", "Redis Sentinel master name")
+	cmd.Flags().StringSlice(RedisSentinelHostsKey, []string{}, "Comma-separated list of Redis Sentinel hosts")
+	cmd.Flags().String(RedisAddressKey, "", "Redis host")
+	cmd.Flags().String(RedisPasswordKey, "", "Redis password")
+	cmd.Flags().Int(RedisDatabaseKey, 0, "Redis DB")
 }
 
 var (
-	ErrJWTSecretRequired         = errors.New("JWT secret is required")
-	ErrBackendURLRequired        = errors.New("Backend URL is required")
-	ErrFrontendURLRequired       = errors.New("Frontend URL is required")
-	ErrOTLPEndpointRequired      = errors.New("OTLP endpoint is required when tracing is enabled")
-	ErrMapboxPublicTokenRequired = errors.New("Mapbox public token is required")
-	ErrMapboxSecretTokenRequired = errors.New("Mapbox secret token is required")
-	ErrDBHostRequired            = errors.New("Database host is required")
-	ErrDBDatabaseRequired        = errors.New("Database name is required")
-	ErrDatabaseDriverRequired    = errors.New("Database driver is required")
+	ErrJWTSecretRequired           = errors.New("JWT secret is required")
+	ErrBackendURLRequired          = errors.New("Backend URL is required")
+	ErrFrontendURLRequired         = errors.New("Frontend URL is required")
+	ErrOTLPEndpointRequired        = errors.New("OTLP endpoint is required when tracing is enabled")
+	ErrMapboxPublicTokenRequired   = errors.New("Mapbox public token is required")
+	ErrMapboxSecretTokenRequired   = errors.New("Mapbox secret token is required")
+	ErrDBHostRequired              = errors.New("Database host is required")
+	ErrDBDatabaseRequired          = errors.New("Database name is required")
+	ErrDatabaseDriverRequired      = errors.New("Database driver is required")
+	ErrRedisHostRequired           = errors.New("Redis host is required")
+	ErrRedisSentinelMasterRequired = errors.New("Redis Sentinel master is required")
+	ErrRedisSentinelHostsRequired  = errors.New("Redis Sentinel hosts are required")
 )
 
 func (c *Config) Validate() error {
@@ -232,6 +261,15 @@ func (c *Config) Validate() error {
 	}
 	if c.Persistence.Database.Database == "" {
 		return ErrDBDatabaseRequired
+	}
+	if c.Redis.Enabled && c.Redis.Address == "" {
+		return ErrRedisHostRequired
+	}
+	if c.Redis.Enabled && c.Redis.Sentinel && c.Redis.SentinelMaster == "" {
+		return ErrRedisSentinelMasterRequired
+	}
+	if c.Redis.Enabled && c.Redis.Sentinel && len(c.Redis.SentinelAddresses) == 0 {
+		return ErrRedisSentinelHostsRequired
 	}
 
 	return nil
@@ -520,6 +558,55 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		config.Mapbox.SecretToken, err = cmd.Flags().GetString(MapboxSecretTokenKey)
 		if err != nil {
 			return fmt.Errorf("failed to get Mapbox secret token: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(RedisEnabledKey) {
+		config.Redis.Enabled, err = cmd.Flags().GetBool(RedisEnabledKey)
+		if err != nil {
+			return fmt.Errorf("failed to get Redis enabled: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(RedisSentinelKey) {
+		config.Redis.Sentinel, err = cmd.Flags().GetBool(RedisSentinelKey)
+		if err != nil {
+			return fmt.Errorf("failed to get Redis Sentinel enabled: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(RedisSentinelMasterKey) {
+		config.Redis.SentinelMaster, err = cmd.Flags().GetString(RedisSentinelMasterKey)
+		if err != nil {
+			return fmt.Errorf("failed to get Redis Sentinel master: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(RedisSentinelHostsKey) {
+		config.Redis.SentinelAddresses, err = cmd.Flags().GetStringSlice(RedisSentinelHostsKey)
+		if err != nil {
+			return fmt.Errorf("failed to get Redis Sentinel hosts: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(RedisAddressKey) {
+		config.Redis.Address, err = cmd.Flags().GetString(RedisAddressKey)
+		if err != nil {
+			return fmt.Errorf("failed to get Redis host: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(RedisPasswordKey) {
+		config.Redis.Password, err = cmd.Flags().GetString(RedisPasswordKey)
+		if err != nil {
+			return fmt.Errorf("failed to get Redis password: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(RedisDatabaseKey) {
+		config.Redis.Database, err = cmd.Flags().GetInt(RedisDatabaseKey)
+		if err != nil {
+			return fmt.Errorf("failed to get Redis DB: %w", err)
 		}
 	}
 

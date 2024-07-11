@@ -17,6 +17,7 @@ import (
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 )
@@ -43,7 +44,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.Engine.ServeHTTP(w, req)
 }
 
-func NewServer(config *config.Config, db *gorm.DB) *Server {
+func NewServer(config *config.Config, db *gorm.DB, redis *redis.Client) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	if config.HTTP.PProf.Enabled {
 		gin.SetMode(gin.DebugMode)
@@ -64,7 +65,7 @@ func NewServer(config *config.Config, db *gorm.DB) *Server {
 	writeTimeout := defTimeout
 
 	rpcWebsocket := websocketControllers.CreateRPCWebsocket()
-	applyMiddleware(r, config, "api", db, rpcWebsocket)
+	applyMiddleware(r, config, "api", db, rpcWebsocket, redis)
 	applyRoutes(r, config, rpcWebsocket)
 
 	var metricsIPV4Server *http.Server
@@ -72,7 +73,7 @@ func NewServer(config *config.Config, db *gorm.DB) *Server {
 
 	if config.HTTP.Metrics.Enabled {
 		metricsRouter := gin.New()
-		applyMiddleware(metricsRouter, config, "metrics", db, rpcWebsocket)
+		applyMiddleware(metricsRouter, config, "metrics", db, rpcWebsocket, redis)
 
 		metricsRouter.GET("/metrics", gin.WrapH(promhttp.Handler()))
 		metricsIPV4Server = &http.Server{

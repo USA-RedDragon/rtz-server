@@ -10,6 +10,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/config"
 	"github.com/USA-RedDragon/rtz-server/internal/db"
 	"github.com/USA-RedDragon/rtz-server/internal/server"
+	"github.com/redis/go-redis/v9"
 	"github.com/spf13/cobra"
 	"github.com/ztrue/shutdown"
 	"golang.org/x/sync/errgroup"
@@ -50,6 +51,12 @@ func run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create uploads directory: %w", err)
 	}
 
+	var redis *redis.Client
+	if config.Redis.Enabled {
+		redis = connectRedis(config)
+		defer redis.Close()
+	}
+
 	db, err := db.MakeDB(config)
 	if err != nil {
 		return fmt.Errorf("failed to make database: %w", err)
@@ -57,7 +64,7 @@ func run(cmd *cobra.Command, _ []string) error {
 	slog.Info("Database connection established")
 
 	slog.Info("Starting HTTP server")
-	server := server.NewServer(config, db)
+	server := server.NewServer(config, db, redis)
 	err = server.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start HTTP server: %w", err)
@@ -95,4 +102,19 @@ func run(cmd *cobra.Command, _ []string) error {
 	}
 
 	return nil
+}
+
+func connectRedis(config *config.Config) *redis.Client {
+	if config.Redis.Sentinel {
+		return redis.NewFailoverClient(&redis.FailoverOptions{
+			MasterName:    config.Redis.SentinelMaster,
+			SentinelAddrs: config.Redis.SentinelAddresses,
+		})
+	} else {
+		return redis.NewClient(&redis.Options{
+			Addr:     config.Redis.Address,
+			Password: config.Redis.Password,
+			DB:       config.Redis.Database,
+		})
+	}
 }

@@ -149,6 +149,13 @@ func TestEnvConfig(t *testing.T) {
 	t.Setenv("AUTH__GOOGLE__CLIENT_SECRET", "googlesecret")
 	t.Setenv("AUTH__GITHUB__CLIENT_ID", "githubid")
 	t.Setenv("AUTH__GITHUB__CLIENT_SECRET", "githubsecret")
+	t.Setenv("REDIS__ENABLED", "true")
+	t.Setenv("REDIS__ADDRESS", "localhost:6379")
+	t.Setenv("REDIS__PASSWORD", "password")
+	t.Setenv("REDIS__DATABASE", "0")
+	t.Setenv("REDIS__SENTINEL", "true")
+	t.Setenv("REDIS__SENTINEL_HOSTS", "localhost:26379,localhost:26380")
+	t.Setenv("REDIS__SENTINEL_MASTER", "master")
 
 	config, err := config.LoadConfig(cmd)
 	if err != nil {
@@ -244,4 +251,32 @@ func TestEnvConfig(t *testing.T) {
 	if config.Auth.GitHub.ClientSecret != "githubsecret" {
 		t.Errorf("unexpected GitHub client secret: %s", config.Auth.GitHub.ClientSecret)
 	}
+	if !config.Redis.Enabled {
+		t.Error("unexpected Redis enabled")
+	}
+	if config.Redis.Address != "localhost:6379" {
+		t.Errorf("unexpected Redis address: %s", config.Redis.Address)
+	}
+	if config.Redis.Password != "password" {
+		t.Errorf("unexpected Redis password: %s", config.Redis.Password)
+	}
+	if config.Redis.Database != 0 {
+		t.Errorf("unexpected Redis database: %d", config.Redis.Database)
+	}
+	if !config.Redis.Sentinel {
+		t.Error("unexpected Redis sentinel enabled")
+	}
+	if len(config.Redis.SentinelAddresses) != 2 {
+		t.Errorf("unexpected Redis sentinel hosts: %v", config.Redis.SentinelAddresses)
+	}
+	if config.Redis.SentinelAddresses[0] != "localhost:26379" {
+		t.Errorf("unexpected Redis sentinel host: %s", config.Redis.SentinelAddresses[0])
+	}
+	if config.Redis.SentinelAddresses[1] != "localhost:26380" {
+		t.Errorf("unexpected Redis sentinel host: %s", config.Redis.SentinelAddresses[1])
+	}
+	if config.Redis.SentinelMaster != "master" {
+		t.Errorf("unexpected Redis sentinel master: %s", config.Redis.SentinelMaster)
+	}
+
 }

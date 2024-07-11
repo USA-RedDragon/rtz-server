@@ -18,6 +18,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/redis/go-redis/v9"
 	sloggin "github.com/samber/slog-gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel/attribute"
@@ -32,7 +33,7 @@ const (
 	AuthTypeDevice
 )
 
-func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string, db *gorm.DB, rpcWebsocket *websocketControllers.RPCWebsocket) {
+func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string, db *gorm.DB, rpcWebsocket *websocketControllers.RPCWebsocket, redis *redis.Client) {
 	r.Use(gin.Recovery())
 
 	r.TrustedPlatform = "X-Real-IP"
@@ -55,6 +56,7 @@ func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string,
 
 	r.Use(rpcSocketMiddleware(rpcWebsocket))
 	r.Use(dbMiddleware(db))
+	r.Use(redisMiddleware(redis))
 	r.Use(configMiddleware(config))
 
 	if config.HTTP.Tracing.Enabled {
@@ -99,6 +101,13 @@ func tracingProvider(config *config.Config) gin.HandlerFunc {
 func dbMiddleware(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Set("db", db)
+		c.Next()
+	}
+}
+
+func redisMiddleware(redis *redis.Client) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("redis", redis)
 		c.Next()
 	}
 }
