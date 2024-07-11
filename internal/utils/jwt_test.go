@@ -39,6 +39,7 @@ ZRGjZeD/s7HrtbW0EWP2aLjG2U/KetWUN/nZO/718nYFh9LjJwdwol7ZjLBFJw1a
 dxWHtQPRWjZOgPRyYXX5u8yRjya0/Lt0COlzuaWRm5IksVUrYUqz4Q5efeU1/0kN
 tj9ue+ao4wtoE2lGIGVJGxsCAwEAAQ==
 -----END PUBLIC KEY-----`
+	//nolint:golint,gosec
 	privkey = `-----BEGIN RSA PRIVATE KEY-----
 MIIJKAIBAAKCAgEAu+s1YTUZXA4BMIoqPPgdF2ll9wek/rOssGYA65w6oEI6FmJq
 o1ESEXy+b0RdgwY72nAANlKd+/uZ8PQ+u42zKT0JhEJK9F88gUiFacI6s/wP1gut
@@ -90,6 +91,7 @@ xFEtcyH4O7rkltRCLLgf7zSv+XlOxSHPsb0AjXCmc5fJauNlGDG6RBasHs9Jh6Ob
 VIaVz2Fp736TQ8GOGMFC++070dz0JIwruwPmfrzzdSrjTmeQxpCTJ3A5zeHaNQVs
 yDsPMWjukIjy/gUhzS2JLWlzJ4f/36cqXymau+C+gVtXzEBG4YTJMGtqzCY=
 -----END RSA PRIVATE KEY-----`
+	//nolint:golint,gosec
 	nonAssociatedPrivkey = `-----BEGIN RSA PRIVATE KEY-----
 MIIJKAIBAAKCAgEAsRfCiFJrtBBoIJgdwedCew6teYrHLzDlJ0ta3//YTwDMQF2t
 Iufni96cf78KUBAtHUgSyYfrtyepV1E9iJ7PeexQayYbwQscrWX4WM+9b43jhRVv
