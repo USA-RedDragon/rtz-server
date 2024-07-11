@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
-	sloggin "github.com/samber/slog-gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -35,7 +33,7 @@ const (
 
 func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string, db *gorm.DB, rpcWebsocket *websocketControllers.RPCWebsocket, redis *redis.Client) {
 	r.Use(gin.Recovery())
-
+	r.Use(gin.Logger())
 	r.TrustedPlatform = "X-Real-IP"
 
 	// CORS
@@ -63,16 +61,6 @@ func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string,
 		r.Use(otelgin.Middleware(otelComponent))
 		r.Use(tracingProvider(config))
 	}
-
-	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
-	r.Use(sloggin.NewWithConfig(logger, sloggin.Config{
-		WithSpanID:        config.HTTP.Tracing.Enabled,
-		WithTraceID:       config.HTTP.Tracing.Enabled,
-		DefaultLevel:      slog.LevelInfo,
-		ClientErrorLevel:  slog.LevelWarn,
-		ServerErrorLevel:  slog.LevelError,
-		WithRequestHeader: false,
-	}))
 }
 
 func configMiddleware(config *config.Config) gin.HandlerFunc {
