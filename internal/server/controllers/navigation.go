@@ -38,7 +38,7 @@ func GETMapboxDirections(c *gin.Context) {
 	url.Scheme = "https"
 	url.RawQuery = query.Encode()
 
-	resp, err := utils.HTTPRequest(http.MethodGet, url.String(), nil, nil)
+	resp, err := utils.HTTPRequest(c, http.MethodGet, url.String(), nil, nil)
 	if err != nil {
 		slog.Error("GETMapboxDirections", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})

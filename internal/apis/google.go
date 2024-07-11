@@ -1,6 +1,7 @@
 package apis
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -11,8 +12,8 @@ type GoogleUserResponse struct {
 	ID string `json:"id"`
 }
 
-func GetGoogleUserID(token string) (string, error) {
-	resp, err := utils.HTTPRequest(http.MethodGet, "https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token="+token, nil, nil)
+func GetGoogleUserID(ctx context.Context, token string) (string, error) {
+	resp, err := utils.HTTPRequest(ctx, http.MethodGet, "https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token="+token, nil, nil)
 	if err != nil {
 		return "", err
 	}

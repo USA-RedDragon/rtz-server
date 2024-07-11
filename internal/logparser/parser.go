@@ -1,6 +1,7 @@
 package logparser
 
 import (
+	"errors"
 	"io"
 
 	"capnproto.org/go/capnp/v3"
@@ -28,17 +29,17 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 	for {
 		msg, err := decoder.Decode()
 		if err != nil {
-			if err != io.EOF {
+			if errors.Is(err, io.EOF) {
 				return SegmentData{}, err
-			} else {
-				break
 			}
+			break
 		}
 		event, err := cereal.ReadRootEvent(msg)
 		if err != nil {
 			return SegmentData{}, err
 		}
-
+		// We're definitely not going to be handling every event type, so we can ignore the exhaustive linter warning
+		//nolint:golint,exhaustive
 		switch event.Which() {
 		case cereal.Event_Which_liveLocationKalman:
 			liveLocationKalman, err := event.LiveLocationKalman()
@@ -111,8 +112,7 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 				}
 				key := keyPtr.Text()
 				val := valPtr.Data()
-				switch key {
-				case "CarModel":
+				if key == "CarModel" {
 					segmentData.CarModel = string(val)
 				}
 			}

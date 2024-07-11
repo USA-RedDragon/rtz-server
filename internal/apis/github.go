@@ -1,6 +1,7 @@
 package apis
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -11,8 +12,8 @@ type UserResponse struct {
 	ID int `json:"id"`
 }
 
-func GetGitHubUserID(token string) (int, error) {
-	resp, err := utils.HTTPRequest(http.MethodGet, "https://api.github.com/user", nil, map[string]string{
+func GetGitHubUserID(ctx context.Context, token string) (int, error) {
+	resp, err := utils.HTTPRequest(ctx, http.MethodGet, "https://api.github.com/user", nil, map[string]string{
 		"Authorization":        "Bearer " + token,
 		"Accept":               "application/vnd.github+json",
 		"X-GitHub-Api-Version": "2022-11-28",

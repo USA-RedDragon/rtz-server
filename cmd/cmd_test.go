@@ -6,6 +6,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/cmd"
 )
 
+//nolint:golint,gochecknoglobals
 var requiredFlags = []string{
 	"--jwt.secret", "changeme",
 	"--http.backend_url", "http://localhost:8081",

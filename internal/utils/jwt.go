@@ -72,7 +72,11 @@ func VerifyJWT(signingKey string, tokenString string) (uint, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("invalid signing method: %s", token.Header["alg"])
 			}
-			claims = token.Claims.(*UserJWT)
+			var ok bool
+			claims, ok = token.Claims.(*UserJWT)
+			if !ok {
+				return nil, errors.New("invalid claims")
+			}
 
 			// ParseWithClaims will skip expiration check
 			// if expiration has default value;
@@ -101,7 +105,11 @@ func VerifyDeviceJWT(did string, signingKey string, tokenString string) error {
 			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 				return nil, fmt.Errorf("invalid signing method: %s", token.Header["alg"])
 			}
-			claims = token.Claims.(*DeviceJWT)
+			var ok bool
+			claims, ok = token.Claims.(*DeviceJWT)
+			if !ok {
+				return nil, errors.New("invalid claims")
+			}
 
 			// ParseWithClaims will skip expiration check
 			// if expiration has default value;

@@ -43,7 +43,10 @@ func POSTPilotPair(c *gin.Context) {
 			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 				slog.Error("Invalid signing method", "method", token.Header["alg"])
 			}
-			claims = token.Claims.(*v2.PilotPairJWTClaims)
+			claims, ok = token.Claims.(*v2.PilotPairJWTClaims)
+			if !ok {
+				return nil, errors.New("invalid claims")
+			}
 
 			// ParseWithClaims will skip expiration check
 			// if expiration has default value;
@@ -127,16 +130,16 @@ func POSTPilotAuth(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Registration is disabled"})
 		return
 	}
-	param_imei, ok := c.GetQuery("imei")
+	paramIMEI, ok := c.GetQuery("imei")
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "imei is required"})
 		return
 	}
-	if len(param_imei) != 15 {
+	if len(paramIMEI) != 15 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "imei must be 15 characters"})
 		return
 	}
-	imei, err := strconv.ParseInt(param_imei, 10, 64)
+	imei, err := strconv.ParseInt(paramIMEI, 10, 64)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "imei is not an integer"})
 	}
@@ -145,14 +148,14 @@ func POSTPilotAuth(c *gin.Context) {
 		return
 	}
 
-	param_imei2, ok := c.GetQuery("imei2")
+	paramIMEI2, ok := c.GetQuery("imei2")
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "imei2 is required"})
 		return
 	}
 	var imei2 int64
-	if len(param_imei2) != 0 {
-		imei2, err = strconv.ParseInt(param_imei2, 10, 64)
+	if len(paramIMEI2) != 0 {
+		imei2, err = strconv.ParseInt(paramIMEI2, 10, 64)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "imei2 is not an integer"})
 		}
@@ -162,33 +165,33 @@ func POSTPilotAuth(c *gin.Context) {
 		return
 	}
 
-	param_serial, ok := c.GetQuery("serial")
+	paramSerial, ok := c.GetQuery("serial")
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "serial is required"})
 		return
 	}
-	if len(param_serial) == 0 {
+	if len(paramSerial) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "serial is required"})
 		return
 	}
 
-	param_public_key, ok := c.GetQuery("public_key")
+	paramPublicKey, ok := c.GetQuery("public_key")
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "public_key is required"})
 		return
 	}
-	if len(param_public_key) == 0 {
+	if len(paramPublicKey) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "public_key is required"})
 		return
 	}
 
-	param_register_token, ok := c.GetQuery("register_token")
+	paramRegisterToken, ok := c.GetQuery("register_token")
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "register_token is required"})
 		return
 	}
 
-	blk, _ := pem.Decode([]byte(param_public_key))
+	blk, _ := pem.Decode([]byte(paramPublicKey))
 	key, err := x509.ParsePKIXPublicKey(blk.Bytes)
 	if err != nil {
 		slog.Error("Failed to parse public key", "error", err)
@@ -201,11 +204,14 @@ func POSTPilotAuth(c *gin.Context) {
 	token, err := jwt.NewParser(
 		jwt.WithLeeway(5*time.Minute),
 		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name})).
-		ParseWithClaims(param_register_token, claims, func(token *jwt.Token) (interface{}, error) {
+		ParseWithClaims(paramRegisterToken, claims, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 				slog.Error("Invalid signing method", "method", token.Header["alg"])
 			}
-			claims = token.Claims.(*v2.RegisterJWTClaims)
+			claims, ok = token.Claims.(*v2.RegisterJWTClaims)
+			if !ok {
+				return nil, errors.New("invalid claims")
+			}
 
 			// ParseWithClaims will skip expiration check
 			// if expiration has default value;
@@ -239,7 +245,7 @@ func POSTPilotAuth(c *gin.Context) {
 		return
 	}
 
-	_, err = models.FindDeviceBySerial(db, param_serial)
+	_, err = models.FindDeviceBySerial(db, paramSerial)
 	// We can ignore the error here, as we're just checking if the device exists
 	if err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "serial is already registered"})
@@ -253,8 +259,8 @@ func POSTPilotAuth(c *gin.Context) {
 
 	err = db.Create(&models.Device{
 		DongleID:  dongleID,
-		Serial:    param_serial,
-		PublicKey: param_public_key,
+		Serial:    paramSerial,
+		PublicKey: paramPublicKey,
 	}).Error
 	if err != nil {
 		slog.Error("Failed to create device", "error", err)

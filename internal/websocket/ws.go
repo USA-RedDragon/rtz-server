@@ -86,8 +86,11 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 		}
 		handler.conn = conn
 		handler.conn.SetPongHandler(func(string) error {
-			handler.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
-			err := models.UpdateAthenaPingTimestamp(db, device.ID)
+			err := handler.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+			if err != nil {
+				slog.Warn("Failed to set read deadline", "error", err)
+			}
+			err = models.UpdateAthenaPingTimestamp(db, device.ID)
 			if err != nil {
 				slog.Warn("Error updating athena ping timestamp", "error", err)
 			}

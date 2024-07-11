@@ -108,11 +108,11 @@ func DeleteDevice(db *gorm.DB, id uint) error {
 // GenerateDognleID generates a unique random dongle ID
 func GenerateDongleID(db *gorm.DB) (string, error) {
 	buff := make([]byte, 32)
-	len, err := rand.Read(buff)
+	leng, err := rand.Read(buff)
 	if err != nil {
 		return "", err
 	}
-	if len != 32 {
+	if leng != 32 {
 		return "", fmt.Errorf("not enough random bytes")
 	}
 	candidate := hex.EncodeToString(buff)[:16]
