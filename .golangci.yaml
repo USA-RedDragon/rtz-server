@@ -1,6 +1,10 @@
 run:
   timeout: 30m
 
+issues:
+  exclude-files:
+    - ".*\\_capnp\\.go$"
+
 linters:
   enable:
     - asasalint

@@ -91,26 +91,28 @@ type HTTP struct {
 
 //nolint:golint,gochecknoglobals
 var (
-	ConfigFileKey             = "config"
-	HTTPIPV4HostKey           = "http.ipv4_host"
-	HTTPIPV6HostKey           = "http.ipv6_host"
-	HTTPPortKey               = "http.port"
-	HTTPTracingEnabledKey     = "http.tracing.enabled"
-	HTTPTracingOTLPEndKey     = "http.tracing.otlp_endpoint"
-	HTTPPProfEnabledKey       = "http.pprof.enabled"
-	HTTPTrustedProxiesKey     = "http.trusted_proxies"
-	HTTPMetricsEnabledKey     = "http.metrics.enabled"
-	HTTPMetricsIPV4HostKey    = "http.metrics.ipv4_host"
-	HTTPMetricsIPV6HostKey    = "http.metrics.ipv6_host"
-	HTTPMetricsPortKey        = "http.metrics.port"
-	HTTPCORSHostsKey          = "http.cors_hosts"
-	HTTPBackendURLKey         = "http.backend_url"
-	PersistenceDatabaseKey    = "persistence.database"
-	PersistenceUploadsKey     = "persistence.uploads"
-	RegistrationEnabledKey    = "registration.enabled"
-	AuthGoogleClientIDKey     = "auth.google.client_id"
+	ConfigFileKey          = "config"
+	HTTPIPV4HostKey        = "http.ipv4_host"
+	HTTPIPV6HostKey        = "http.ipv6_host"
+	HTTPPortKey            = "http.port"
+	HTTPTracingEnabledKey  = "http.tracing.enabled"
+	HTTPTracingOTLPEndKey  = "http.tracing.otlp_endpoint"
+	HTTPPProfEnabledKey    = "http.pprof.enabled"
+	HTTPTrustedProxiesKey  = "http.trusted_proxies"
+	HTTPMetricsEnabledKey  = "http.metrics.enabled"
+	HTTPMetricsIPV4HostKey = "http.metrics.ipv4_host"
+	HTTPMetricsIPV6HostKey = "http.metrics.ipv6_host"
+	HTTPMetricsPortKey     = "http.metrics.port"
+	HTTPCORSHostsKey       = "http.cors_hosts"
+	HTTPBackendURLKey      = "http.backend_url"
+	PersistenceDatabaseKey = "persistence.database"
+	PersistenceUploadsKey  = "persistence.uploads"
+	RegistrationEnabledKey = "registration.enabled"
+	AuthGoogleClientIDKey  = "auth.google.client_id"
+	//nolint:golint,gosec
 	AuthGoogleClientSecretKey = "auth.google.client_secret"
 	AuthGitHubClientIDKey     = "auth.github.client_id"
+	//nolint:golint,gosec
 	AuthGitHubClientSecretKey = "auth.github.client_secret"
 	JWTSecretKey              = "jwt.secret"
 	MapboxPublicTokenKey      = "mapbox.public_token"
@@ -158,28 +160,28 @@ func RegisterFlags(cmd *cobra.Command) {
 }
 
 var (
-	ErrorJWTSecretRequired         = errors.New("JWT secret is required")
-	ErrorBackendURLRequired        = errors.New("Backend URL is required")
-	ErrorOTLPEndpointRequired      = errors.New("OTLP endpoint is required when tracing is enabled")
-	ErrorMapboxPublicTokenRequired = errors.New("Mapbox public token is required")
-	ErrorMapboxSecretTokenRequired = errors.New("Mapbox secret token is required")
+	ErrJWTSecretRequired         = errors.New("JWT secret is required")
+	ErrBackendURLRequired        = errors.New("Backend URL is required")
+	ErrOTLPEndpointRequired      = errors.New("OTLP endpoint is required when tracing is enabled")
+	ErrMapboxPublicTokenRequired = errors.New("Mapbox public token is required")
+	ErrMapboxSecretTokenRequired = errors.New("Mapbox secret token is required")
 )
 
 func (c *Config) Validate() error {
 	if c.JWT.Secret == "" {
-		return ErrorJWTSecretRequired
+		return ErrJWTSecretRequired
 	}
 	if c.HTTP.BackendURL == "" {
-		return ErrorBackendURLRequired
+		return ErrBackendURLRequired
 	}
 	if c.HTTP.Tracing.Enabled && c.HTTP.Tracing.OTLPEndpoint == "" {
-		return ErrorOTLPEndpointRequired
+		return ErrOTLPEndpointRequired
 	}
 	if c.Mapbox.PublicToken == "" {
-		return ErrorMapboxPublicTokenRequired
+		return ErrMapboxPublicTokenRequired
 	}
 	if c.Mapbox.SecretToken == "" {
-		return ErrorMapboxSecretTokenRequired
+		return ErrMapboxSecretTokenRequired
 	}
 	return nil
 }
@@ -211,14 +213,12 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 	}
 	if configPath != "" {
 		data, err := os.ReadFile(configPath)
-		if errors.Is(err, os.ErrNotExist) {
-			// This is okay, we default to reading a config file
-		} else if err != nil {
+		if err != nil && !errors.Is(err, os.ErrNotExist) {
 			return &config, fmt.Errorf("failed to read config: %w", err)
-		}
-
-		if err := yaml.Unmarshal(data, &config); err != nil {
-			return &config, fmt.Errorf("failed to unmarshal config: %w", err)
+		} else if err == nil {
+			if err := yaml.Unmarshal(data, &config); err != nil {
+				return &config, fmt.Errorf("failed to unmarshal config: %w", err)
+			}
 		}
 	}
 

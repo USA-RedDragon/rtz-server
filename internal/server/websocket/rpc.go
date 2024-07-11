@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	ErrorNotConnected = errors.New("dongle not connected")
+	ErrNotConnected = errors.New("dongle not connected")
 )
 
 type bidiChannel struct {
@@ -72,11 +72,11 @@ func (cw *channelWatcher) Subscribe(callID string, subscriber func(apimodels.RPC
 func (c *RPCWebsocket) Call(dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
 	dongle, loaded := c.dongles.Load(dongleID)
 	if !loaded {
-		return apimodels.RPCResponse{}, ErrorNotConnected
+		return apimodels.RPCResponse{}, ErrNotConnected
 	}
 
 	if !dongle.bidiChannel.open {
-		return apimodels.RPCResponse{}, ErrorNotConnected
+		return apimodels.RPCResponse{}, ErrNotConnected
 	}
 
 	responseChan := make(chan apimodels.RPCResponse)
@@ -97,7 +97,7 @@ func (c *RPCWebsocket) Call(dongleID string, call apimodels.RPCCall) (apimodels.
 	}
 }
 
-func (c *RPCWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket.Writer, msg []byte, msgType int, device *models.Device, db *gorm.DB) {
+func (c *RPCWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket.Writer, msg []byte, msgType int, device *models.Device, _ *gorm.DB) {
 	var rawJSON map[string]interface{}
 	err := json.Unmarshal(msg, &rawJSON)
 	if err != nil {
@@ -157,7 +157,7 @@ func (c *RPCWebsocket) OnMessage(_ context.Context, _ *http.Request, _ websocket
 	}
 }
 
-func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer, device *models.Device, db *gorm.DB) {
+func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer, device *models.Device, _ *gorm.DB) {
 	bidi := bidiChannel{
 		open:     true,
 		inbound:  make(chan apimodels.RPCCall),
@@ -201,7 +201,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 	}()
 }
 
-func (c *RPCWebsocket) OnDisconnect(ctx context.Context, _ *http.Request, device *models.Device, db *gorm.DB) {
+func (c *RPCWebsocket) OnDisconnect(_ context.Context, _ *http.Request, device *models.Device, _ *gorm.DB) {
 	c.connectedClients.Dec()
 	slog.Info("RPC websocket disconnected", "device", device.DongleID)
 	dongle, loaded := c.dongles.LoadAndDelete(device.DongleID)

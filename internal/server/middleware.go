@@ -20,7 +20,6 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-
 	"gorm.io/gorm"
 )
 
@@ -135,7 +134,10 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 				if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
 					return nil, fmt.Errorf("invalid signing method: %s", token.Header["alg"])
 				}
-				claims = token.Claims.(*jwt.RegisteredClaims)
+				claims, ok = token.Claims.(*jwt.RegisteredClaims)
+				if !ok {
+					return nil, errors.New("invalid claims")
+				}
 
 				// ParseWithClaims will skip expiration check
 				// if expiration has default value;
@@ -230,7 +232,11 @@ func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {
 							dongleIDChan <- ""
 							return nil, fmt.Errorf("invalid signing method: %s", token.Header["alg"])
 						}
-						claims = token.Claims.(*utils.DeviceJWT)
+						claims, ok = token.Claims.(*utils.DeviceJWT)
+						if !ok {
+							dongleIDChan <- ""
+							return nil, errors.New("invalid claims")
+						}
 						dongleIDChan <- claims.Identity
 						return nil, nil
 					})

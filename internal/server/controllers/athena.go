@@ -49,7 +49,7 @@ func HandleRPC(c *gin.Context) {
 
 	resp, err := rpcCaller.Call(dongleID, call)
 	if err != nil {
-		if errors.Is(err, websocket.ErrorNotConnected) {
+		if errors.Is(err, websocket.ErrNotConnected) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Dongle not connected"})
 			return
 		}

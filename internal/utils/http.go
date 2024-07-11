@@ -1,17 +1,19 @@
 package utils
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"time"
 )
 
+//nolint:golint,gochecknoglobals
 var client = http.Client{
 	Timeout: 5 * time.Second,
 }
 
-func HTTPRequest(method string, url string, body io.Reader, headers map[string]string) (*http.Response, error) {
-	req, err := http.NewRequest(method, url, body)
+func HTTPRequest(ctx context.Context, method string, url string, body io.Reader, headers map[string]string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return &http.Response{}, err
 	}

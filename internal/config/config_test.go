@@ -9,6 +9,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/config"
 )
 
+//nolint:golint,gochecknoglobals
 var requiredFlags = []string{
 	"--jwt.secret", "changeme",
 	"--http.backend_url", "http://localhost:8081",
@@ -20,7 +21,10 @@ func TestExampleConfig(t *testing.T) {
 	t.Parallel()
 	cmd := cmd.NewCommand("testing", "deadbeef")
 	cmd.SetContext(context.Background())
-	cmd.ParseFlags([]string{"--config", "../../config.example.yaml"})
+	err := cmd.ParseFlags([]string{"--config", "../../config.example.yaml"})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 	testConfig, err := config.LoadConfig(cmd)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -35,16 +39,22 @@ func TesMissingOLTPEndpoint(t *testing.T) {
 
 	cmd := cmd.NewCommand("testing", "deadbeef")
 	cmd.SetContext(context.Background())
-	cmd.ParseFlags(append([]string{"--http.tracing.enabled", "true"}, requiredFlags...))
+	err := cmd.ParseFlags(append([]string{"--http.tracing.enabled", "true"}, requiredFlags...))
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 	testConfig, err := config.LoadConfig(cmd)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if err := testConfig.Validate(); !errors.Is(err, config.ErrorOTLPEndpointRequired) {
+	if err := testConfig.Validate(); !errors.Is(err, config.ErrOTLPEndpointRequired) {
 		t.Errorf("unexpected error: %v", err)
 	}
 
-	cmd.ParseFlags(append([]string{"--http.tracing.enabled", "true", "--http.tracing.otlp_endpoint", "dummy"}, requiredFlags...))
+	err = cmd.ParseFlags(append([]string{"--http.tracing.enabled", "true", "--http.tracing.otlp_endpoint", "dummy"}, requiredFlags...))
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 	testConfig, err = config.LoadConfig(cmd)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -58,16 +68,19 @@ func TestMissingJWTSecret(t *testing.T) {
 	t.Parallel()
 	cmd := cmd.NewCommand("testing", "deadbeef")
 	cmd.SetContext(context.Background())
-	cmd.ParseFlags([]string{
+	err := cmd.ParseFlags([]string{
 		"--http.backend_url", "http://localhost:8081",
 		"--mapbox.secret_token", "dummy",
 		"--mapbox.public_token", "dummy",
 	})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 	testConfig, err := config.LoadConfig(cmd)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if err := testConfig.Validate(); !errors.Is(err, config.ErrorJWTSecretRequired) {
+	if err := testConfig.Validate(); !errors.Is(err, config.ErrJWTSecretRequired) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
@@ -77,26 +90,35 @@ func TestMissingMapboxTokens(t *testing.T) {
 	baseCmd := cmd.NewCommand("testing", "deadbeef")
 	baseCmd.SetContext(context.Background())
 	baseFlags := []string{"--jwt.secret", "changeme", "--http.backend_url", "http://localhost:8081"}
-	baseCmd.ParseFlags(append(baseFlags, []string{"--mapbox.secret_token", "dummy"}...))
+	err := baseCmd.ParseFlags(append(baseFlags, []string{"--mapbox.secret_token", "dummy"}...))
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 	testConfig, err := config.LoadConfig(baseCmd)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if err := testConfig.Validate(); !errors.Is(err, config.ErrorMapboxPublicTokenRequired) {
+	if err := testConfig.Validate(); !errors.Is(err, config.ErrMapboxPublicTokenRequired) {
 		t.Errorf("unexpected error: %v", err)
 	}
 	baseCmd = cmd.NewCommand("testing", "deadbeef")
 	baseCmd.SetContext(context.Background())
-	baseCmd.ParseFlags(append(baseFlags, []string{"--mapbox.public_token", "dummy"}...))
+	err = baseCmd.ParseFlags(append(baseFlags, []string{"--mapbox.public_token", "dummy"}...))
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 	testConfig, err = config.LoadConfig(baseCmd)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
-	if err := testConfig.Validate(); !errors.Is(err, config.ErrorMapboxSecretTokenRequired) {
+	if err := testConfig.Validate(); !errors.Is(err, config.ErrMapboxSecretTokenRequired) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
 
+// Parallel tests are not allowed with t.Setenv
+//
+//nolint:golint,paralleltest
 func TestEnvConfig(t *testing.T) {
 	cmd := cmd.NewCommand("testing", "deadbeef")
 	cmd.SetContext(context.Background())

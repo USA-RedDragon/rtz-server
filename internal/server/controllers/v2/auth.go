@@ -50,6 +50,7 @@ func POSTAuth(c *gin.Context) {
 	var user models.User
 	switch data.Provider {
 	case "g":
+		//nolint:golint,gosec
 		tokenURL := "https://oauth2.googleapis.com/token"
 
 		urldata := url.Values{}
@@ -59,7 +60,7 @@ func POSTAuth(c *gin.Context) {
 		urldata.Set("redirect_uri", config.HTTP.BackendURL+"/v2/auth/g/redirect/")
 		urldata.Set("grant_type", "authorization_code")
 
-		resp, err := utils.HTTPRequest(http.MethodPost, tokenURL, strings.NewReader(urldata.Encode()), map[string]string{
+		resp, err := utils.HTTPRequest(c, http.MethodPost, tokenURL, strings.NewReader(urldata.Encode()), map[string]string{
 			"Content-Type": "application/x-www-form-urlencoded",
 		})
 		if err != nil {
@@ -84,7 +85,7 @@ func POSTAuth(c *gin.Context) {
 			return
 		}
 
-		id, err := apis.GetGoogleUserID(tokenResponse.AccessToken)
+		id, err := apis.GetGoogleUserID(c, tokenResponse.AccessToken)
 		if err != nil {
 			slog.Error("Failed to get Google user ID", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
@@ -127,7 +128,7 @@ func POSTAuth(c *gin.Context) {
 			config.Auth.GitHub.ClientID,
 			config.Auth.GitHub.ClientSecret)
 
-		resp, err := utils.HTTPRequest(http.MethodPost, tokenURL, strings.NewReader(urldata.Encode()), map[string]string{
+		resp, err := utils.HTTPRequest(c, http.MethodPost, tokenURL, strings.NewReader(urldata.Encode()), map[string]string{
 			"Accept": "application/json",
 		})
 		if err != nil {
@@ -152,7 +153,7 @@ func POSTAuth(c *gin.Context) {
 			return
 		}
 
-		id, err := apis.GetGitHubUserID(tokenResponse.AccessToken)
+		id, err := apis.GetGitHubUserID(c, tokenResponse.AccessToken)
 		if err != nil {
 			slog.Error("Failed to get GitHub user ID", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
@@ -199,9 +200,9 @@ func POSTAuth(c *gin.Context) {
 }
 
 func GETGoogleRedirect(c *gin.Context) {
-	error := c.Query("error")
-	if error != "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": error})
+	queryError := c.Query("error")
+	if queryError != "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": queryError})
 		return
 	}
 	code := c.Query("code")
