@@ -9,6 +9,8 @@ import (
 var requiredFlags = []string{
 	"--jwt.secret", "changeme",
 	"--http.backend_url", "http://localhost:8081",
+	"--mapbox.secret_token", "dummy",
+	"--mapbox.public_token", "dummy",
 }
 
 func TestExampleConfig(t *testing.T) {
@@ -24,10 +26,17 @@ func TestExampleConfig(t *testing.T) {
 
 func TestTracing(t *testing.T) {
 	t.Parallel()
-	baseCmd := cmd.NewCommand("testing", "deadbeef")
 	// Avoid port conflict
-	baseCmd.SetArgs(append([]string{"--http.port", "8085", "--http.metrics.port", "8086", "--http.tracing.enabled", "true"}, requiredFlags...))
+	baseArgs := []string{"--http.port", "8085", "--http.metrics.port", "8086", "--http.tracing.enabled", "true"}
+	baseCmd := cmd.NewCommand("testing", "deadbeef")
+	baseCmd.SetArgs(append(baseArgs, requiredFlags...))
 	err := baseCmd.Execute()
+	if err == nil {
+		t.Error("Tracing enabled but OTLP endpoint not set")
+	}
+	baseArgs = append(baseArgs, "--http.tracing.otlp_endpoint", "http://localhost:4317")
+	baseCmd.SetArgs(append(baseArgs, requiredFlags...))
+	err = baseCmd.Execute()
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}

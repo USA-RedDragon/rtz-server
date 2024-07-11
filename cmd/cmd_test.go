@@ -9,6 +9,8 @@ import (
 var requiredFlags = []string{
 	"--jwt.secret", "changeme",
 	"--http.backend_url", "http://localhost:8081",
+	"--mapbox.secret_token", "dummy",
+	"--mapbox.public_token", "dummy",
 }
 
 func TestDefault(t *testing.T) {

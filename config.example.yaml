@@ -77,5 +77,5 @@ jwt:
   secret: 'secret'
 
 mapbox:
-  public_token: ''
-  secret_token: ''
+  public_token: 'changeme'
+  secret_token: 'changeme'
