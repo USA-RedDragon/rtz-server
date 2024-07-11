@@ -182,28 +182,6 @@ func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websock
 	}
 	dongle, loaded := c.dongles.Load(device.DongleID)
 	if !loaded {
-		if redis != nil {
-			if _, ok := rawJSON["result"]; ok {
-				slog.Info("Want to send rpc response to redis")
-				// This is a response
-				maybeID, ok := rawJSON["id"]
-				if !ok {
-					slog.Warn("Invalid response ID")
-					return
-				}
-				id, ok := maybeID.(string)
-				if !ok {
-					slog.Warn("Invalid response ID")
-					return
-				}
-				slog.Info("Sending response to redis", "key", "rpc:response:"+device.DongleID+":"+id)
-				err := redis.Publish(ctx, "rpc:response:"+device.DongleID+":"+id, msg).Err()
-				if err != nil {
-					slog.Warn("Error sending RPC to redis", "error", err)
-				}
-				return
-			}
-		}
 		slog.Warn("Dongle not connected", "dongle", device.DongleID)
 		return
 	}
@@ -237,6 +215,26 @@ func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websock
 		}()
 	} else if _, ok := rawJSON["result"]; ok {
 		// This is a response
+		if redis != nil {
+			slog.Info("Want to send rpc response to redis")
+			// This is a response
+			maybeID, ok := rawJSON["id"]
+			if !ok {
+				slog.Warn("Invalid response ID")
+				return
+			}
+			id, ok := maybeID.(string)
+			if !ok {
+				slog.Warn("Invalid response ID")
+				return
+			}
+			slog.Info("Sending response to redis", "key", "rpc:response:"+device.DongleID+":"+id)
+			err := redis.Publish(ctx, "rpc:response:"+device.DongleID+":"+id, msg).Err()
+			if err != nil {
+				slog.Warn("Error sending RPC to redis", "error", err)
+			}
+		}
+
 		jsonRPC := apimodels.RPCResponse{}
 		err := json.Unmarshal(msg, &jsonRPC)
 		if err != nil {
@@ -283,6 +281,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 				if !more {
 					return
 				}
+				slog.Info("Received call from site", "call", call)
 				// Received a call from the site
 				jsonData, err := json.Marshal(call)
 				if err != nil {
