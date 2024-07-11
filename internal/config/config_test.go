@@ -1,9 +1,11 @@
 package config_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/USA-RedDragon/rtz-server/cmd"
+	"github.com/USA-RedDragon/rtz-server/internal/config"
 )
 
 var requiredFlags = []string{
@@ -43,12 +45,22 @@ func TestTracing(t *testing.T) {
 }
 
 func TestEnvConfig(t *testing.T) {
+	cmd := cmd.NewCommand("testing", "deadbeef")
+	cmd.SetContext(context.Background())
 	t.Setenv("HTTP__PORT", "8087")
 	t.Setenv("HTTP__METRICS__PORT", "8088")
-	baseCmd := cmd.NewCommand("testing", "deadbeef")
-	baseCmd.SetArgs(requiredFlags)
-	err := baseCmd.Execute()
+	t.Setenv("HTTP__METRICS__IPV4_HOST", "0.0.0.0")
+	config, err := config.LoadConfig(cmd)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
+	}
+	if config.HTTP.Port != 8087 {
+		t.Errorf("unexpected HTTP port: %d", config.HTTP.Port)
+	}
+	if config.HTTP.Metrics.Port != 8088 {
+		t.Errorf("unexpected HTTP metrics port: %d", config.HTTP.Metrics.Port)
+	}
+	if config.HTTP.Metrics.IPV4Host != "0.0.0.0" {
+		t.Errorf("unexpected HTTP metrics IPv4 host: %s", config.HTTP.Metrics.IPV4Host)
 	}
 }

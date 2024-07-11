@@ -39,6 +39,11 @@ func run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
+	err = config.Validate()
+	if err != nil {
+		return fmt.Errorf("config validation failed: %w", err)
+	}
+
 	// Check access to the upload directory
 	err = os.MkdirAll(config.Persistence.Uploads, 0755)
 	if err != nil {

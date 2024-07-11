@@ -245,11 +245,6 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 		config.Persistence.Uploads = DefaultPersistenceUploads
 	}
 
-	err = config.Validate()
-	if err != nil {
-		return &config, fmt.Errorf("failed to validate config: %w", err)
-	}
-
 	return &config, nil
 }
 
