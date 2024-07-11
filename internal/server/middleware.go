@@ -33,7 +33,7 @@ const (
 
 func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string, db *gorm.DB, rpcWebsocket *websocketControllers.RPCWebsocket, redis *redis.Client) {
 	r.Use(gin.Recovery())
-	r.Use(gin.Logger())
+	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{SkipPaths: []string{"/health", "/metrics"}}))
 	r.TrustedPlatform = "X-Real-IP"
 
 	// CORS
