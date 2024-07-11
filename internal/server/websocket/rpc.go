@@ -107,6 +107,7 @@ func (c *RPCWebsocket) Call(ctx context.Context, redis *redis.Client, dongleID s
 			if err != nil {
 				return apimodels.RPCResponse{}, err
 			}
+			slog.Info("Reading RPC response to redis", "key", "rpc:response:"+dongleID+":"+call.ID)
 			sub := redis.Subscribe(ctx, "rpc:response:"+dongleID+":"+call.ID)
 			defer sub.Close()
 			respChannel := make(chan apimodels.RPCResponse)
@@ -119,6 +120,7 @@ func (c *RPCWebsocket) Call(ctx context.Context, redis *redis.Client, dongleID s
 					case <-ctx.Done():
 						return
 					case msg := <-subChan:
+						slog.Info("Received RPC response from redis", "key", "rpc:response:"+dongleID+":"+call.ID)
 						var response apimodels.RPCResponse
 						err := json.Unmarshal([]byte(msg.Payload), &response)
 						if err != nil {
@@ -131,6 +133,7 @@ func (c *RPCWebsocket) Call(ctx context.Context, redis *redis.Client, dongleID s
 				}
 			}()
 
+			slog.Info("Sending RPC to redis", "key", "rpc:call:"+dongleID)
 			err = redis.Publish(ctx, "rpc:call:"+dongleID, msg).Err()
 			if err != nil {
 				slog.Warn("Error sending RPC to redis", "error", err)
@@ -192,6 +195,7 @@ func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websock
 					slog.Warn("Invalid response ID")
 					return
 				}
+				slog.Info("Sending response to redis", "key", "rpc:response:"+device.DongleID+":"+id)
 				err := redis.Publish(ctx, "rpc:response:"+device.DongleID+":"+id, msg).Err()
 				if err != nil {
 					slog.Warn("Error sending RPC to redis", "error", err)
