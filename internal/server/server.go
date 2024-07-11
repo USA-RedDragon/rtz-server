@@ -12,8 +12,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/USA-RedDragon/connect-server/internal/config"
-	websocketControllers "github.com/USA-RedDragon/connect-server/internal/server/websocket"
+	"github.com/USA-RedDragon/rtz-server/internal/config"
+	websocketControllers "github.com/USA-RedDragon/rtz-server/internal/server/websocket"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
 	"github.com/prometheus/client_golang/prometheus/promhttp"

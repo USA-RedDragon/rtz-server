@@ -56,7 +56,7 @@ http:
 # Persistence configuration
 persistence:
   # Path to the SQLite3 database file
-  database: 'connect.sqlite3'
+  database: 'rtz.sqlite3'
   # Path where upload files are stored
   uploads: 'uploads/'
 

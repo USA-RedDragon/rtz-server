@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/USA-RedDragon/connect-server/internal/config"
-	"github.com/USA-RedDragon/connect-server/internal/db/models"
+	"github.com/USA-RedDragon/rtz-server/internal/config"
+	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"gorm.io/gorm"

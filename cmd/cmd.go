@@ -7,9 +7,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/USA-RedDragon/connect-server/internal/config"
-	"github.com/USA-RedDragon/connect-server/internal/db"
-	"github.com/USA-RedDragon/connect-server/internal/server"
+	"github.com/USA-RedDragon/rtz-server/internal/config"
+	"github.com/USA-RedDragon/rtz-server/internal/db"
+	"github.com/USA-RedDragon/rtz-server/internal/server"
 	"github.com/spf13/cobra"
 	"github.com/ztrue/shutdown"
 	"golang.org/x/sync/errgroup"
@@ -17,7 +17,7 @@ import (
 
 func NewCommand(version, commit string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "connect-server",
+		Use:     "rtz-server",
 		Version: fmt.Sprintf("%s - %s", version, commit),
 		Annotations: map[string]string{
 			"version": version,
@@ -32,7 +32,7 @@ func NewCommand(version, commit string) *cobra.Command {
 }
 
 func run(cmd *cobra.Command, _ []string) error {
-	slog.Info("connect-server", "version", cmd.Annotations["version"], "commit", cmd.Annotations["commit"])
+	slog.Info("rtz-server", "version", cmd.Annotations["version"], "commit", cmd.Annotations["commit"])
 
 	config, err := config.LoadConfig(cmd)
 	if err != nil {

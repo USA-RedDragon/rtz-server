@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/USA-RedDragon/connect-server/internal/server/apimodels"
-	"github.com/USA-RedDragon/connect-server/internal/server/websocket"
+	"github.com/USA-RedDragon/rtz-server/internal/server/apimodels"
+	"github.com/USA-RedDragon/rtz-server/internal/server/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )

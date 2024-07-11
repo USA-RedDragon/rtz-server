@@ -9,9 +9,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/USA-RedDragon/connect-server/internal/db/models"
-	"github.com/USA-RedDragon/connect-server/internal/server/apimodels"
-	"github.com/USA-RedDragon/connect-server/internal/websocket"
+	"github.com/USA-RedDragon/rtz-server/internal/db/models"
+	"github.com/USA-RedDragon/rtz-server/internal/server/apimodels"
+	"github.com/USA-RedDragon/rtz-server/internal/websocket"
 	gorillaWebsocket "github.com/gorilla/websocket"
 	"github.com/puzpuzpuz/xsync/v3"
 	"gorm.io/gorm"

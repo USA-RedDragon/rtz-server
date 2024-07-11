@@ -3,7 +3,7 @@ package cmd_test
 import (
 	"testing"
 
-	"github.com/USA-RedDragon/connect-server/cmd"
+	"github.com/USA-RedDragon/rtz-server/cmd"
 )
 
 var requiredFlags = []string{

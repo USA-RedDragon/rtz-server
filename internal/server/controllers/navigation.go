@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/USA-RedDragon/connect-server/internal/config"
-	"github.com/USA-RedDragon/connect-server/internal/utils"
+	"github.com/USA-RedDragon/rtz-server/internal/config"
+	"github.com/USA-RedDragon/rtz-server/internal/utils"
 	"github.com/gin-gonic/gin"
 )
 

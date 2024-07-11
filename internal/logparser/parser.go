@@ -4,7 +4,7 @@ import (
 	"io"
 
 	"capnproto.org/go/capnp/v3"
-	"github.com/USA-RedDragon/connect-server/internal/cereal"
+	"github.com/USA-RedDragon/rtz-server/internal/cereal"
 )
 
 type GpsCoordinates struct {

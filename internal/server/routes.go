@@ -4,14 +4,14 @@ import (
 	"log/slog"
 	"net/http"
 
-	"github.com/USA-RedDragon/connect-server/internal/config"
-	"github.com/USA-RedDragon/connect-server/internal/server/controllers"
-	controllersV1 "github.com/USA-RedDragon/connect-server/internal/server/controllers/v1"
-	controllersV1dot1 "github.com/USA-RedDragon/connect-server/internal/server/controllers/v1.1"
-	controllersV1dot4 "github.com/USA-RedDragon/connect-server/internal/server/controllers/v1.4"
-	controllersV2 "github.com/USA-RedDragon/connect-server/internal/server/controllers/v2"
-	websocketControllers "github.com/USA-RedDragon/connect-server/internal/server/websocket"
-	"github.com/USA-RedDragon/connect-server/internal/websocket"
+	"github.com/USA-RedDragon/rtz-server/internal/config"
+	"github.com/USA-RedDragon/rtz-server/internal/server/controllers"
+	controllersV1 "github.com/USA-RedDragon/rtz-server/internal/server/controllers/v1"
+	controllersV1dot1 "github.com/USA-RedDragon/rtz-server/internal/server/controllers/v1.1"
+	controllersV1dot4 "github.com/USA-RedDragon/rtz-server/internal/server/controllers/v1.4"
+	controllersV2 "github.com/USA-RedDragon/rtz-server/internal/server/controllers/v2"
+	websocketControllers "github.com/USA-RedDragon/rtz-server/internal/server/websocket"
+	"github.com/USA-RedDragon/rtz-server/internal/websocket"
 	"github.com/gin-gonic/gin"
 )
 

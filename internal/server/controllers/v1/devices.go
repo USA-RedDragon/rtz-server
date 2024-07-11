@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/USA-RedDragon/connect-server/internal/db/models"
-	v1 "github.com/USA-RedDragon/connect-server/internal/server/apimodels/v1"
+	"github.com/USA-RedDragon/rtz-server/internal/db/models"
+	v1 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )

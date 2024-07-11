@@ -1,8 +1,8 @@
-# connect-server
+# RTZ Server
 
-[![Release](https://github.com/USA-RedDragon/connect-server/actions/workflows/release.yaml/badge.svg)](https://github.com/USA-RedDragon/connect-server/actions/workflows/release.yaml) [![License](https://badgen.net/github/license/USA-RedDragon/connect-server)](https://github.com/USA-RedDragon/connect-server/blob/master/LICENSE) [![go.mod version](https://img.shields.io/github/go-mod/go-version/USA-RedDragon/connect-server.svg)](https://github.com/USA-RedDragon/connect-server) [![GoReportCard](https://goreportcard.com/badge/github.com/USA-RedDragon/connect-server)](https://goreportcard.com/report/github.com/USA-RedDragon/connect-server) [![codecov](https://codecov.io/gh/USA-RedDragon/connect-server/graph/badge.svg?token=6ASKMAKOZE)](https://codecov.io/gh/USA-RedDragon/connect-server)
+[![Release](https://github.com/USA-RedDragon/rtz-server/actions/workflows/release.yaml/badge.svg)](https://github.com/USA-RedDragon/rtz-server/actions/workflows/release.yaml) [![License](https://badgen.net/github/license/USA-RedDragon/rtz-server)](https://github.com/USA-RedDragon/rtz-server/blob/master/LICENSE) [![go.mod version](https://img.shields.io/github/go-mod/go-version/USA-RedDragon/rtz-server.svg)](https://github.com/USA-RedDragon/rtz-server) [![GoReportCard](https://goreportcard.com/badge/github.com/USA-RedDragon/rtz-server)](https://goreportcard.com/report/github.com/USA-RedDragon/rtz-server) [![codecov](https://codecov.io/gh/USA-RedDragon/rtz-server/graph/badge.svg?token=6ASKMAKOZE)](https://codecov.io/gh/USA-RedDragon/rtz-server)
 
-An implementation of the Comma.ai API service for self-hosted folks.
+An implementation of the Comma.ai API service for self-hosted folks. Pronounced like "Routes".
 
 > [!WARNING]
 > This is considered under _ACTIVE DEVELOPMENT_ until v1.0.0 or later.
@@ -53,13 +53,13 @@ WEBSOCKET_URL="wss://your-server.com" # Replace this with your server's URL
 
 cd /data/openpilot
 
-# Adds the connect-server configuration to the launch_env.sh file
-sed -i '3i # connect-server configuration, comment or remove the following lines to revert back to stock' launch_env.sh
+# Adds the rtz-server configuration to the launch_env.sh file
+sed -i '3i # rtz-server configuration, comment or remove the following lines to revert back to stock' launch_env.sh
 sed -i '4i # comment or remove the following lines to revert back to stock' launch_env.sh
 sed -i "5i export ATHENA_HOST=\"$WEBSOCKET_URL\"" launch_env.sh
 sed -i "6i export API_HOST=\"$URL\"" launch_env.sh
 sed -i "7i export COMMA_MAPS_HOST=\"$URL\"" launch_env.sh
-sed -i '8i # end of connect-server configuration\n' launch_env.sh
+sed -i '8i # end of rtz-server configuration\n' launch_env.sh
 
 # Removes hard-coded Comma API URL
 # Some versions of OpenPilot have removed navd, so we need to check for its existence

@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/USA-RedDragon/connect-server/cmd"
+	"github.com/USA-RedDragon/rtz-server/cmd"
 )
 
 // https://goreleaser.com/cookbooks/using-main.version/

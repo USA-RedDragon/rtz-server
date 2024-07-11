@@ -1,4 +1,4 @@
-module github.com/USA-RedDragon/connect-server
+module github.com/USA-RedDragon/rtz-server
 
 go 1.22.5
 

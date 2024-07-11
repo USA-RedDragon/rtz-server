@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/USA-RedDragon/connect-server/internal/utils"
+	"github.com/USA-RedDragon/rtz-server/internal/utils"
 )
 
 type GoogleUserResponse struct {

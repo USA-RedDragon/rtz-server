@@ -1,6 +1,6 @@
 package v1
 
-import "github.com/USA-RedDragon/connect-server/internal/db/models"
+import "github.com/USA-RedDragon/rtz-server/internal/db/models"
 
 type Destination struct {
 	Set          bool    `json:"-"`

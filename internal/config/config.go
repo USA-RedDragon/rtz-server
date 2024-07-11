@@ -125,7 +125,7 @@ const (
 	DefaultHTTPMetricsIPV4Host = "127.0.0.1"
 	DefaultHTTPMetricsIPV6Host = "::1"
 	DefaultHTTPMetricsPort     = 8081
-	DefaultPersistenceDatabase = "connect.db"
+	DefaultPersistenceDatabase = "rtz.db"
 	DefaultPersistenceUploads  = "uploads/"
 	DefaultRegistrationEnabled = false
 )

@@ -5,8 +5,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/USA-RedDragon/connect-server/internal/config"
-	"github.com/USA-RedDragon/connect-server/internal/db/models"
+	"github.com/USA-RedDragon/rtz-server/internal/config"
+	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	"github.com/glebarez/sqlite"
 	"github.com/uptrace/opentelemetry-go-extra/otelgorm"
 	"gorm.io/gorm"
