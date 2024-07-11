@@ -55,8 +55,15 @@ http:
 
 # Persistence configuration
 persistence:
-  # Path to the SQLite3 database file
-  database: 'rtz.sqlite3'
+  # Database configuration
+  database:
+    driver: 'sqlite' # sqlite, mysql, postgres
+    database: 'rtz.sqlite3' # Path to the SQLite3 database file or database name for other drivers
+    # host: 'localhost' # Hostname of the database server
+    # port: 3306 # Port of the database server
+    # username: 'root' # Username to connect to the database server
+    # password: '' # Password to connect to the database server
+    # extra_parameters: '' # Extra parameters to pass to the database driver
   # Path where upload files are stored
   uploads: 'uploads/'
 
