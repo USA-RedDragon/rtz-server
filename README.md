@@ -84,7 +84,7 @@ sudo reboot
 
 ## Frotend TODOs
 
-- [ ] Remove Comma trademarked assets (logo, branding)
+- [ ] Replace HERE API key
 - [ ] Demo mode
 
 ## Wants
