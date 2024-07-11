@@ -202,8 +202,7 @@ func PUTUpload(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file"})
 				return
 			}
-			slog.Info("Got segment data", "data", segmentData)
-			slog.Info("Timestamps", "last", device.LastGPSTime.TimeValue().UnixNano(), "latest", segmentData.LatestTimestamp, "valid", device.LastGPSTime.Valid())
+			slog.Info("Got segment data", "data", len(segmentData.GPSLocations))
 			if (!device.LastGPSTime.Valid() || segmentData.LatestTimestamp > uint64(device.LastGPSTime.TimeValue().UnixNano())) && len(segmentData.GPSLocations) > 0 {
 				latestTimeStamp := time.Unix(0, int64(segmentData.LatestTimestamp))
 				err := db.Model(&device).

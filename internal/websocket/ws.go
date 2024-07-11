@@ -103,7 +103,6 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 
 func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.Device, db *gorm.DB) {
 	defer func() {
-		slog.Info("Websocket disconnected", "device_id", device.ID)
 		h.handler.OnDisconnect(c, r, device, db)
 		_ = h.conn.Close()
 	}()
