@@ -220,13 +220,14 @@ func GETGoogleRedirect(c *gin.Context) {
 		return
 	}
 
-	refererStr := c.Request.Header.Get("Referer")
-	if refererStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is required"})
+	config, ok := c.MustGet("config").(*config.Config)
+	if !ok {
+		slog.Error("Failed to get config from context")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
 
-	referer, err := url.Parse(refererStr)
+	referer, err := url.Parse(config.HTTP.FrontendURL)
 	if err != nil {
 		slog.Error("Failed to parse referer", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is invalid"})
@@ -246,8 +247,6 @@ func GETGoogleRedirect(c *gin.Context) {
 
 	authRedirect.RawQuery = queries.Encode()
 
-	slog.Info("Google redirect", "Referer", c.Request.Header.Get("Referer"), "authRedirect", authRedirect.String())
-
 	// Redirect to the app with the code
 	c.Redirect(http.StatusFound, authRedirect.String())
 }
@@ -259,13 +258,14 @@ func GETGitHubRedirect(c *gin.Context) {
 		return
 	}
 
-	refererStr := c.Request.Header.Get("Referer")
-	if refererStr == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is required"})
+	config, ok := c.MustGet("config").(*config.Config)
+	if !ok {
+		slog.Error("Failed to get config from context")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
 
-	referer, err := url.Parse(refererStr)
+	referer, err := url.Parse(config.HTTP.FrontendURL)
 	if err != nil {
 		slog.Error("Failed to parse referer", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is invalid"})
@@ -284,8 +284,6 @@ func GETGitHubRedirect(c *gin.Context) {
 	queries.Add("provider", "h")
 
 	authRedirect.RawQuery = queries.Encode()
-
-	slog.Info("GitHub redirect", "Referer", c.Request.Header.Get("Referer"), "authRedirect", authRedirect.String())
 
 	// Redirect to the app with the code
 	c.Redirect(http.StatusFound, authRedirect.String())

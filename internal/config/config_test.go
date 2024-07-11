@@ -12,6 +12,7 @@ import (
 //nolint:golint,gochecknoglobals
 var requiredFlags = []string{
 	"--jwt.secret", "changeme",
+	"--http.frontend_url", "http://localhost:8082",
 	"--http.backend_url", "http://localhost:8081",
 	"--mapbox.secret_token", "dummy",
 	"--mapbox.public_token", "dummy",
@@ -89,7 +90,7 @@ func TestMissingMapboxTokens(t *testing.T) {
 	t.Parallel()
 	baseCmd := cmd.NewCommand("testing", "deadbeef")
 	baseCmd.SetContext(context.Background())
-	baseFlags := []string{"--jwt.secret", "changeme", "--http.backend_url", "http://localhost:8081"}
+	baseFlags := []string{"--jwt.secret", "changeme", "--http.backend_url", "http://localhost:8081", "--http.frontend_url", "http://localhost:8083"}
 	err := baseCmd.ParseFlags(append(baseFlags, []string{"--mapbox.secret_token", "dummy"}...))
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)

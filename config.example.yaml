@@ -3,6 +3,7 @@
 
 # HTTP server configuration
 http:
+  frontend_url: 'http://localhost:8081'
 
   # The URL of the backend
   backend_url: 'http://localhost:8080'
