@@ -201,15 +201,11 @@ func POSTAuth(c *gin.Context) {
 		urldata.Set("code", data.Code)
 		urldata.Set("client_id", config.Auth.Custom.ClientID)
 		urldata.Set("client_secret", config.Auth.Custom.ClientSecret)
+		urldata.Set("grant_type", "authorization_code")
+		urldata.Set("scope", "user:email")
+		urldata.Set("redirect_uri", fmt.Sprintf(config.HTTP.BackendURL+"/v2/auth/c/redirect/"))
 
-		tokenURL := fmt.Sprintf(
-			"%s?code=%s&client_id=%s&client_secret=%s",
-			config.Auth.Custom.TokenURL,
-			data.Code,
-			config.Auth.Custom.ClientID,
-			config.Auth.Custom.ClientSecret)
-
-		resp, err := utils.HTTPRequest(c, http.MethodPost, tokenURL, strings.NewReader(urldata.Encode()), map[string]string{
+		resp, err := utils.HTTPRequest(c, http.MethodPost, config.Auth.Custom.TokenURL, strings.NewReader(urldata.Encode()), map[string]string{
 			"Accept": "application/json",
 		})
 		if err != nil {
