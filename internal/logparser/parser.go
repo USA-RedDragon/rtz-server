@@ -1,6 +1,7 @@
 package logparser
 
 import (
+	"fmt"
 	"io"
 
 	"capnproto.org/go/capnp/v3"
@@ -29,13 +30,13 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 		msg, err := decoder.Decode()
 		if err != nil {
 			if err != io.EOF {
-				return SegmentData{}, err
+				return SegmentData{}, fmt.Errorf("failed to decode log: %w", err)
 			}
 			break
 		}
 		event, err := cereal.ReadRootEvent(msg)
 		if err != nil {
-			return SegmentData{}, err
+			return SegmentData{}, fmt.Errorf("failed to read event: %w", err)
 		}
 		// We're definitely not going to be handling every event type, so we can ignore the exhaustive linter warning
 		//nolint:golint,exhaustive
