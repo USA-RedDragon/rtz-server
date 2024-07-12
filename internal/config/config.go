@@ -262,7 +262,7 @@ func (c *Config) Validate() error {
 	if c.Persistence.Database.Database == "" {
 		return ErrDBDatabaseRequired
 	}
-	if c.Redis.Enabled && c.Redis.Address == "" {
+	if c.Redis.Enabled && !c.Redis.Sentinel && c.Redis.Address == "" {
 		return ErrRedisHostRequired
 	}
 	if c.Redis.Enabled && c.Redis.Sentinel && c.Redis.SentinelMaster == "" {
