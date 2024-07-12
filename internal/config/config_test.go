@@ -151,6 +151,7 @@ func TestEnvConfig(t *testing.T) {
 	t.Setenv("AUTH__GITHUB__CLIENT_SECRET", "githubsecret")
 	t.Setenv("REDIS__ENABLED", "true")
 	t.Setenv("REDIS__ADDRESS", "localhost:6379")
+	t.Setenv("REDIS__USERNAME", "user123")
 	t.Setenv("REDIS__PASSWORD", "password")
 	t.Setenv("REDIS__DATABASE", "0")
 	t.Setenv("REDIS__SENTINEL__ENABLED", "true")
@@ -258,6 +259,9 @@ func TestEnvConfig(t *testing.T) {
 	}
 	if config.Redis.Address != "localhost:6379" {
 		t.Errorf("unexpected Redis address: %s", config.Redis.Address)
+	}
+	if config.Redis.Username != "user123" {
+		t.Errorf("unexpected Redis username: %s", config.Redis.Username)
 	}
 	if config.Redis.Password != "password" {
 		t.Errorf("unexpected Redis password: %s", config.Redis.Password)

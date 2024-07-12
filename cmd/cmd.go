@@ -111,10 +111,13 @@ func connectRedis(config *config.Config) *redis.Client {
 			SentinelAddrs:    config.Redis.Sentinel.Addresses,
 			SentinelPassword: config.Redis.Sentinel.Password,
 			Password:         config.Redis.Password,
+			Username:         config.Redis.Username,
+			DB:               config.Redis.Database,
 		})
 	}
 	return redis.NewClient(&redis.Options{
 		Addr:     config.Redis.Address,
+		Username: config.Redis.Username,
 		Password: config.Redis.Password,
 		DB:       config.Redis.Database,
 	})

@@ -26,6 +26,7 @@ type Redis struct {
 	Enabled  bool     `json:"enabled"`
 	Sentinel Sentinel `json:"sentinel"`
 	Address  string   `json:"address"`
+	Username string   `json:"username"`
 	Password string   `json:"password"`
 	Database int      `json:"database"`
 }
@@ -162,6 +163,7 @@ var (
 	RedisSentinelPasswordKey   = "redis.sentinel.password"
 	RedisSentinelUsernameKey   = "redis.sentinel.username"
 	RedisAddressKey            = "redis.address"
+	RedisUsernameKey           = "redis.username"
 	RedisPasswordKey           = "redis.password"
 	RedisDatabaseKey           = "redis.database"
 )
@@ -220,6 +222,7 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(RedisSentinelPasswordKey, "", "Redis Sentinel password")
 	cmd.Flags().String(RedisSentinelUsernameKey, "", "Redis Sentinel username")
 	cmd.Flags().String(RedisAddressKey, "", "Redis host")
+	cmd.Flags().String(RedisUsernameKey, "", "Redis username")
 	cmd.Flags().String(RedisPasswordKey, "", "Redis password")
 	cmd.Flags().Int(RedisDatabaseKey, 0, "Redis DB")
 }
@@ -612,6 +615,13 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		config.Redis.Address, err = cmd.Flags().GetString(RedisAddressKey)
 		if err != nil {
 			return fmt.Errorf("failed to get Redis host: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(RedisUsernameKey) {
+		config.Redis.Username, err = cmd.Flags().GetString(RedisUsernameKey)
+		if err != nil {
+			return fmt.Errorf("failed to get Redis username: %w", err)
 		}
 	}
 
