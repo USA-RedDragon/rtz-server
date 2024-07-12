@@ -80,7 +80,6 @@ sudo reboot
 - [ ] Add more documentation
 - [ ] Add more tests
 - [ ] Document deployment
-- [ ] Allow custom IDPs for sign in
 - [ ] Demo mode
 
 ## Frotend TODOs
