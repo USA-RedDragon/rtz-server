@@ -114,14 +114,11 @@ func (c *RPCWebsocket) Call(ctx context.Context, redis *redis.Client, dongleID s
 			tCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
 			defer cancel()
 			go func() {
-				slog.Info("Waiting for RPC response from redis", "key", "rpc:response:"+dongleID+":"+call.ID)
 				for {
 					select {
 					case <-tCtx.Done():
-						slog.Warn("Timeout waiting for RPC response from redis")
 						return
 					case msg := <-subChan:
-						slog.Info("Received RPC response from redis", "key", "rpc:response:"+dongleID+":"+call.ID)
 						var response apimodels.RPCResponse
 						err := json.Unmarshal([]byte(msg.Payload), &response)
 						if err != nil {
@@ -134,14 +131,15 @@ func (c *RPCWebsocket) Call(ctx context.Context, redis *redis.Client, dongleID s
 				}
 			}()
 
+			ctx, cancel = context.WithTimeout(ctx, 120*time.Second)
+			defer cancel()
+
 			slog.Info("Sending RPC call to redis", "key", "rpc:call:"+dongleID)
 			err = redis.Publish(ctx, "rpc:call:"+dongleID, msg).Err()
 			if err != nil {
 				slog.Warn("Error sending RPC to redis", "error", err)
 			}
 
-			ctx, cancel = context.WithTimeout(ctx, 120*time.Second)
-			defer cancel()
 			select {
 			case <-ctx.Done():
 				return apimodels.RPCResponse{}, fmt.Errorf("timeout")
