@@ -165,10 +165,12 @@ var (
 	AuthGitHubEnabledKey      = "auth.github.enabled"
 	AuthGitHubClientIDKey     = "auth.github.client_id"
 	//nolint:golint,gosec
-	AuthGitHubClientSecretKey  = "auth.github.client_secret"
-	AuthCustomEnabledKey       = "auth.custom.enabled"
-	AuthCustomClientIDKey      = "auth.custom.client_id"
-	AuthCustomClientSecretKey  = "auth.custom.client_secret"
+	AuthGitHubClientSecretKey = "auth.github.client_secret"
+	AuthCustomEnabledKey      = "auth.custom.enabled"
+	AuthCustomClientIDKey     = "auth.custom.client_id"
+	//nolint:golint,gosec
+	AuthCustomClientSecretKey = "auth.custom.client_secret"
+	//nolint:golint,gosec
 	AuthCustomTokenURLKey      = "auth.custom.token_url"
 	AuthCustomUserURLKey       = "auth.custom.user_url"
 	JWTSecretKey               = "jwt.secret"
