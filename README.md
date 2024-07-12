@@ -84,7 +84,6 @@ sudo reboot
 
 ## Frotend TODOs
 
-- [ ] Replace HERE API key
 - [ ] Demo mode
 
 ## Wants
