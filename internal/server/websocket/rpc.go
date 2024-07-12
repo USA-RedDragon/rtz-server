@@ -111,13 +111,14 @@ func (c *RPCWebsocket) Call(ctx context.Context, redis *redis.Client, dongleID s
 			defer sub.Close()
 			respChannel := make(chan apimodels.RPCResponse)
 			subChan := sub.Channel()
-			ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
+			tCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
 			defer cancel()
 			go func() {
 				slog.Info("Waiting for RPC response from redis", "key", "rpc:response:"+dongleID+":"+call.ID)
 				for {
 					select {
-					case <-ctx.Done():
+					case <-tCtx.Done():
+						slog.Warn("Timeout waiting for RPC response from redis")
 						return
 					case msg := <-subChan:
 						slog.Info("Received RPC response from redis", "key", "rpc:response:"+dongleID+":"+call.ID)

@@ -1,7 +1,6 @@
 package logparser
 
 import (
-	"errors"
 	"io"
 
 	"capnproto.org/go/capnp/v3"
@@ -29,7 +28,7 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 	for {
 		msg, err := decoder.Decode()
 		if err != nil {
-			if !errors.Is(err, io.EOF) {
+			if err != io.EOF {
 				return SegmentData{}, err
 			}
 			break
