@@ -199,22 +199,21 @@ func PUTUpload(c *gin.Context) {
 			segmentData, err := logparser.DecodeSegmentData(bzip2.NewReader(bufio.NewReader(file)))
 			if err != nil {
 				slog.Error("Failed to decode segment data", "error", err)
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file"})
-				return
-			}
-			slog.Info("Got segment data", "data", len(segmentData.GPSLocations))
-			if (!device.LastGPSTime.Valid() || segmentData.LatestTimestamp > uint64(device.LastGPSTime.TimeValue().UnixNano())) && len(segmentData.GPSLocations) > 0 {
-				latestTimeStamp := time.Unix(0, int64(segmentData.LatestTimestamp))
-				err := db.Model(&device).
-					Updates(models.Device{
-						LastGPSTime: nulltype.NullTimeOf(latestTimeStamp),
-						LastGPSLat:  nulltype.NullFloat64Of(segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Latitude),
-						LastGPSLng:  nulltype.NullFloat64Of(segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Longitude),
-					}).Error
-				if err != nil {
-					slog.Error("Failed to update device", "error", err)
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-					return
+			} else {
+				slog.Info("Got segment data", "data", len(segmentData.GPSLocations))
+				if (!device.LastGPSTime.Valid() || segmentData.LatestTimestamp > uint64(device.LastGPSTime.TimeValue().UnixNano())) && len(segmentData.GPSLocations) > 0 {
+					latestTimeStamp := time.Unix(0, int64(segmentData.LatestTimestamp))
+					err := db.Model(&device).
+						Updates(models.Device{
+							LastGPSTime: nulltype.NullTimeOf(latestTimeStamp),
+							LastGPSLat:  nulltype.NullFloat64Of(segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Latitude),
+							LastGPSLng:  nulltype.NullFloat64Of(segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Longitude),
+						}).Error
+					if err != nil {
+						slog.Error("Failed to update device", "error", err)
+						c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+						return
+					}
 				}
 			}
 		}
