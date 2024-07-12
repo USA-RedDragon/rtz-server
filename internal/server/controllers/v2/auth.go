@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -216,7 +217,11 @@ func POSTAuth(c *gin.Context) {
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			slog.Error("Failed to get token", "status", resp.StatusCode)
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				slog.Error("Failed to read body", "error", err)
+			}
+			slog.Error("Failed to get token", "status", resp.StatusCode, "body", body)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
