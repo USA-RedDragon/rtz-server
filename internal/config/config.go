@@ -23,13 +23,19 @@ type Config struct {
 }
 
 type Redis struct {
-	Enabled           bool     `json:"enabled"`
-	Sentinel          bool     `json:"sentinel"`
-	SentinelMaster    string   `json:"sentinel_master" yaml:"sentinel_master"`
-	SentinelAddresses []string `json:"sentinel_addresses" yaml:"sentinel_addresses"`
-	Address           string   `json:"address"`
-	Password          string   `json:"password"`
-	Database          int      `json:"database"`
+	Enabled  bool     `json:"enabled"`
+	Sentinel Sentinel `json:"sentinel"`
+	Address  string   `json:"address"`
+	Password string   `json:"password"`
+	Database int      `json:"database"`
+}
+
+type Sentinel struct {
+	Enabled    bool     `json:"enabled"`
+	MasterName string   `json:"master_name" yaml:"master_name"`
+	Addresses  []string `json:"addresses"`
+	Password   string   `json:"password"`
+	Username   string   `json:"username"`
 }
 
 type JWT struct {
@@ -58,11 +64,6 @@ type GitHub struct {
 
 type Registration struct {
 	Enabled bool `json:"enabled"`
-}
-
-type InitialAdmin struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
 }
 
 type Persistence struct {
@@ -150,17 +151,19 @@ var (
 	AuthGoogleClientSecretKey = "auth.google.client_secret"
 	AuthGitHubClientIDKey     = "auth.github.client_id"
 	//nolint:golint,gosec
-	AuthGitHubClientSecretKey = "auth.github.client_secret"
-	JWTSecretKey              = "jwt.secret"
-	MapboxPublicTokenKey      = "mapbox.public_token"
-	MapboxSecretTokenKey      = "mapbox.secret_token"
-	RedisEnabledKey           = "redis.enabled"
-	RedisSentinelKey          = "redis.sentinel"
-	RedisSentinelMasterKey    = "redis.sentinel_master"
-	RedisSentinelAddressesKey = "redis.sentinel_addresses"
-	RedisAddressKey           = "redis.address"
-	RedisPasswordKey          = "redis.password"
-	RedisDatabaseKey          = "redis.database"
+	AuthGitHubClientSecretKey  = "auth.github.client_secret"
+	JWTSecretKey               = "jwt.secret"
+	MapboxPublicTokenKey       = "mapbox.public_token"
+	MapboxSecretTokenKey       = "mapbox.secret_token"
+	RedisEnabledKey            = "redis.enabled"
+	RedisSentinelEnabledKey    = "redis.sentinel.enabled"
+	RedisSentinelMasterNameKey = "redis.sentinel.master_name"
+	RedisSentinelAddressesKey  = "redis.sentinel.addresses"
+	RedisSentinelPasswordKey   = "redis.sentinel.password"
+	RedisSentinelUsernameKey   = "redis.sentinel.username"
+	RedisAddressKey            = "redis.address"
+	RedisPasswordKey           = "redis.password"
+	RedisDatabaseKey           = "redis.database"
 )
 
 const (
@@ -211,9 +214,11 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(MapboxPublicTokenKey, "", "Mapbox public token")
 	cmd.Flags().String(MapboxSecretTokenKey, "", "Mapbox secret token")
 	cmd.Flags().Bool(RedisEnabledKey, DefaultRedisEnabled, "Enable Redis")
-	cmd.Flags().Bool(RedisSentinelKey, false, "Enable Redis Sentinel")
-	cmd.Flags().String(RedisSentinelMasterKey, "", "Redis Sentinel master name")
+	cmd.Flags().Bool(RedisSentinelEnabledKey, false, "Enable Redis Sentinel")
+	cmd.Flags().String(RedisSentinelMasterNameKey, "", "Redis Sentinel master name")
 	cmd.Flags().StringSlice(RedisSentinelAddressesKey, []string{}, "Comma-separated list of Redis Sentinel hosts")
+	cmd.Flags().String(RedisSentinelPasswordKey, "", "Redis Sentinel password")
+	cmd.Flags().String(RedisSentinelUsernameKey, "", "Redis Sentinel username")
 	cmd.Flags().String(RedisAddressKey, "", "Redis host")
 	cmd.Flags().String(RedisPasswordKey, "", "Redis password")
 	cmd.Flags().Int(RedisDatabaseKey, 0, "Redis DB")
@@ -262,13 +267,13 @@ func (c *Config) Validate() error {
 	if c.Persistence.Database.Database == "" {
 		return ErrDBDatabaseRequired
 	}
-	if c.Redis.Enabled && !c.Redis.Sentinel && c.Redis.Address == "" {
+	if c.Redis.Enabled && !c.Redis.Sentinel.Enabled && c.Redis.Address == "" {
 		return ErrRedisHostRequired
 	}
-	if c.Redis.Enabled && c.Redis.Sentinel && c.Redis.SentinelMaster == "" {
+	if c.Redis.Enabled && c.Redis.Sentinel.Enabled && c.Redis.Sentinel.MasterName == "" {
 		return ErrRedisSentinelMasterRequired
 	}
-	if c.Redis.Enabled && c.Redis.Sentinel && len(c.Redis.SentinelAddresses) == 0 {
+	if c.Redis.Enabled && c.Redis.Sentinel.Enabled && len(c.Redis.Sentinel.Addresses) == 0 {
 		return ErrRedisSentinelHostsRequired
 	}
 
@@ -568,24 +573,38 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		}
 	}
 
-	if cmd.Flags().Changed(RedisSentinelKey) {
-		config.Redis.Sentinel, err = cmd.Flags().GetBool(RedisSentinelKey)
+	if cmd.Flags().Changed(RedisSentinelEnabledKey) {
+		config.Redis.Sentinel.Enabled, err = cmd.Flags().GetBool(RedisSentinelEnabledKey)
 		if err != nil {
 			return fmt.Errorf("failed to get Redis Sentinel enabled: %w", err)
 		}
 	}
 
-	if cmd.Flags().Changed(RedisSentinelMasterKey) {
-		config.Redis.SentinelMaster, err = cmd.Flags().GetString(RedisSentinelMasterKey)
+	if cmd.Flags().Changed(RedisSentinelMasterNameKey) {
+		config.Redis.Sentinel.MasterName, err = cmd.Flags().GetString(RedisSentinelMasterNameKey)
 		if err != nil {
 			return fmt.Errorf("failed to get Redis Sentinel master: %w", err)
 		}
 	}
 
 	if cmd.Flags().Changed(RedisSentinelAddressesKey) {
-		config.Redis.SentinelAddresses, err = cmd.Flags().GetStringSlice(RedisSentinelAddressesKey)
+		config.Redis.Sentinel.Addresses, err = cmd.Flags().GetStringSlice(RedisSentinelAddressesKey)
 		if err != nil {
 			return fmt.Errorf("failed to get Redis Sentinel hosts: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(RedisSentinelPasswordKey) {
+		config.Redis.Sentinel.Password, err = cmd.Flags().GetString(RedisSentinelPasswordKey)
+		if err != nil {
+			return fmt.Errorf("failed to get Redis Sentinel password: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(RedisSentinelUsernameKey) {
+		config.Redis.Sentinel.Username, err = cmd.Flags().GetString(RedisSentinelUsernameKey)
+		if err != nil {
+			return fmt.Errorf("failed to get Redis Sentinel username: %w", err)
 		}
 	}
 

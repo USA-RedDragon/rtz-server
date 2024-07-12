@@ -153,9 +153,11 @@ func TestEnvConfig(t *testing.T) {
 	t.Setenv("REDIS__ADDRESS", "localhost:6379")
 	t.Setenv("REDIS__PASSWORD", "password")
 	t.Setenv("REDIS__DATABASE", "0")
-	t.Setenv("REDIS__SENTINEL", "true")
-	t.Setenv("REDIS__SENTINEL_HOSTS", "localhost:26379,localhost:26380")
-	t.Setenv("REDIS__SENTINEL_MASTER", "master")
+	t.Setenv("REDIS__SENTINEL__ENABLED", "true")
+	t.Setenv("REDIS__SENTINEL__ADDRESSES", "localhost:26379,localhost:26380")
+	t.Setenv("REDIS__SENTINEL__MASTER_NAME", "master")
+	t.Setenv("REDIS__SENTINEL__USERNAME", "user")
+	t.Setenv("REDIS__SENTINEL__PASSWORD", "password")
 
 	config, err := config.LoadConfig(cmd)
 	if err != nil {
@@ -263,19 +265,25 @@ func TestEnvConfig(t *testing.T) {
 	if config.Redis.Database != 0 {
 		t.Errorf("unexpected Redis database: %d", config.Redis.Database)
 	}
-	if !config.Redis.Sentinel {
+	if !config.Redis.Sentinel.Enabled {
 		t.Error("unexpected Redis sentinel enabled")
 	}
-	if len(config.Redis.SentinelAddresses) != 2 {
-		t.Errorf("unexpected Redis sentinel hosts: %v", config.Redis.SentinelAddresses)
+	if len(config.Redis.Sentinel.Addresses) != 2 {
+		t.Errorf("unexpected Redis sentinel hosts: %v", config.Redis.Sentinel.Addresses)
 	}
-	if config.Redis.SentinelAddresses[0] != "localhost:26379" {
-		t.Errorf("unexpected Redis sentinel host: %s", config.Redis.SentinelAddresses[0])
+	if config.Redis.Sentinel.Addresses[0] != "localhost:26379" {
+		t.Errorf("unexpected Redis sentinel host: %s", config.Redis.Sentinel.Addresses[0])
 	}
-	if config.Redis.SentinelAddresses[1] != "localhost:26380" {
-		t.Errorf("unexpected Redis sentinel host: %s", config.Redis.SentinelAddresses[1])
+	if config.Redis.Sentinel.Addresses[1] != "localhost:26380" {
+		t.Errorf("unexpected Redis sentinel host: %s", config.Redis.Sentinel.Addresses[1])
 	}
-	if config.Redis.SentinelMaster != "master" {
-		t.Errorf("unexpected Redis sentinel master: %s", config.Redis.SentinelMaster)
+	if config.Redis.Sentinel.MasterName != "master" {
+		t.Errorf("unexpected Redis sentinel master: %s", config.Redis.Sentinel.MasterName)
+	}
+	if config.Redis.Sentinel.Username != "user" {
+		t.Errorf("unexpected Redis sentinel username: %s", config.Redis.Sentinel.Username)
+	}
+	if config.Redis.Sentinel.Password != "password" {
+		t.Errorf("unexpected Redis sentinel password: %s", config.Redis.Sentinel.Password)
 	}
 }

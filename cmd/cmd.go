@@ -105,11 +105,12 @@ func run(cmd *cobra.Command, _ []string) error {
 }
 
 func connectRedis(config *config.Config) *redis.Client {
-	if config.Redis.Sentinel {
+	if config.Redis.Sentinel.Enabled {
 		return redis.NewFailoverClient(&redis.FailoverOptions{
-			MasterName:       config.Redis.SentinelMaster,
-			SentinelAddrs:    config.Redis.SentinelAddresses,
-			SentinelPassword: config.Redis.Password,
+			MasterName:       config.Redis.Sentinel.MasterName,
+			SentinelAddrs:    config.Redis.Sentinel.Addresses,
+			SentinelPassword: config.Redis.Sentinel.Password,
+			Password:         config.Redis.Password,
 		})
 	}
 	return redis.NewClient(&redis.Options{

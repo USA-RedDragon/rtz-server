@@ -73,11 +73,15 @@ persistence:
 # if they happen to hit the same instance where the device has a websocket connection.
 redis:
   enabled: false
-  sentinel: false
-  sentinel_addresses:
+  sentinel:
+    enabled: false
+    addresses:
     - 'localhost:26379'
-  sentinel_master: 'mymaster'
+    master_name: 'mymaster'
+    username: ''
+    password: ''
   address: 'localhost:6379'
+  username: ''
   password: ''
   database: 0
 
