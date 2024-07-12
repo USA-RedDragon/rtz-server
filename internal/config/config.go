@@ -46,6 +46,7 @@ type JWT struct {
 type Auth struct {
 	Google Google `json:"google"`
 	GitHub GitHub `json:"github"`
+	Custom Custom `json:"custom"`
 }
 
 type Mapbox struct {
@@ -54,13 +55,23 @@ type Mapbox struct {
 }
 
 type Google struct {
+	Enabled      bool   `json:"enabled"`
 	ClientID     string `json:"client_id" yaml:"client_id"`
 	ClientSecret string `json:"client_secret" yaml:"client_secret"`
 }
 
 type GitHub struct {
+	Enabled      bool   `json:"enabled"`
 	ClientID     string `json:"client_id" yaml:"client_id"`
 	ClientSecret string `json:"client_secret" yaml:"client_secret"`
+}
+
+type Custom struct {
+	Enabled      bool   `json:"enabled"`
+	ClientID     string `json:"client_id" yaml:"client_id"`
+	ClientSecret string `json:"client_secret" yaml:"client_secret"`
+	TokenURL     string `json:"token_url" yaml:"token_url"`
+	UserURL      string `json:"user_url" yaml:"user_url"`
 }
 
 type Registration struct {
@@ -147,12 +158,19 @@ var (
 	PersistenceDatabaseExtraParametersKey = "persistence.database.extra_parameters"
 	PersistenceUploadsKey                 = "persistence.uploads"
 	RegistrationEnabledKey                = "registration.enabled"
+	AuthGoogleEnabledKey                  = "auth.google.enabled"
 	AuthGoogleClientIDKey                 = "auth.google.client_id"
 	//nolint:golint,gosec
 	AuthGoogleClientSecretKey = "auth.google.client_secret"
+	AuthGitHubEnabledKey      = "auth.github.enabled"
 	AuthGitHubClientIDKey     = "auth.github.client_id"
 	//nolint:golint,gosec
 	AuthGitHubClientSecretKey  = "auth.github.client_secret"
+	AuthCustomEnabledKey       = "auth.custom.enabled"
+	AuthCustomClientIDKey      = "auth.custom.client_id"
+	AuthCustomClientSecretKey  = "auth.custom.client_secret"
+	AuthCustomTokenURLKey      = "auth.custom.token_url"
+	AuthCustomUserURLKey       = "auth.custom.user_url"
 	JWTSecretKey               = "jwt.secret"
 	MapboxPublicTokenKey       = "mapbox.public_token"
 	MapboxSecretTokenKey       = "mapbox.secret_token"
@@ -181,6 +199,9 @@ const (
 	DefaultPersistenceUploads          = "uploads/"
 	DefaultRegistrationEnabled         = false
 	DefaultRedisEnabled                = false
+	DefaultAuthGitHubEnabled           = false
+	DefaultAuthGoogleEnabled           = false
+	DefaultAuthCustomEnabled           = false
 )
 
 func RegisterFlags(cmd *cobra.Command) {
@@ -208,10 +229,17 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(PersistenceDatabaseExtraParametersKey, "", "Database extra parameters")
 	cmd.Flags().String(PersistenceUploadsKey, DefaultPersistenceUploads, "Uploads directory")
 	cmd.Flags().Bool(RegistrationEnabledKey, DefaultRegistrationEnabled, "Enable registration")
+	cmd.Flags().Bool(AuthGoogleEnabledKey, DefaultAuthGoogleEnabled, "Enable Google OAuth")
 	cmd.Flags().String(AuthGoogleClientIDKey, "", "Google OAuth client ID")
 	cmd.Flags().String(AuthGoogleClientSecretKey, "", "Google OAuth client secret")
+	cmd.Flags().Bool(AuthGitHubEnabledKey, DefaultAuthGitHubEnabled, "Enable GitHub OAuth")
 	cmd.Flags().String(AuthGitHubClientIDKey, "", "GitHub OAuth client ID")
 	cmd.Flags().String(AuthGitHubClientSecretKey, "", "GitHub OAuth client secret")
+	cmd.Flags().Bool(AuthCustomEnabledKey, DefaultAuthCustomEnabled, "Enable custom OAuth")
+	cmd.Flags().String(AuthCustomClientIDKey, "", "Custom OAuth client ID")
+	cmd.Flags().String(AuthCustomClientSecretKey, "", "Custom OAuth client secret")
+	cmd.Flags().String(AuthCustomTokenURLKey, "", "Custom OAuth token URL")
+	cmd.Flags().String(AuthCustomUserURLKey, "", "Custom OAuth user URL")
 	cmd.Flags().String(JWTSecretKey, "", "JWT signing secret")
 	cmd.Flags().String(MapboxPublicTokenKey, "", "Mapbox public token")
 	cmd.Flags().String(MapboxSecretTokenKey, "", "Mapbox secret token")
@@ -240,6 +268,11 @@ var (
 	ErrRedisHostRequired           = errors.New("Redis host is required")
 	ErrRedisSentinelMasterRequired = errors.New("Redis Sentinel master is required")
 	ErrRedisSentinelHostsRequired  = errors.New("Redis Sentinel hosts are required")
+	ErrGitHubOAuthRequired         = errors.New("GitHub OAuth client ID and secret are required")
+	ErrGoogleOAuthRequired         = errors.New("Google OAuth client ID and secret are required")
+	ErrCustomOAuthRequired         = errors.New("Custom OAuth client ID and secret are required")
+	ErrCustomTokenURLRequired      = errors.New("Custom OAuth token URL is required")
+	ErrCustomUserURLRequired       = errors.New("Custom OAuth user URL is required")
 )
 
 func (c *Config) Validate() error {
@@ -278,6 +311,21 @@ func (c *Config) Validate() error {
 	}
 	if c.Redis.Enabled && c.Redis.Sentinel.Enabled && len(c.Redis.Sentinel.Addresses) == 0 {
 		return ErrRedisSentinelHostsRequired
+	}
+	if c.Auth.GitHub.Enabled && (c.Auth.GitHub.ClientID == "" || c.Auth.GitHub.ClientSecret == "") {
+		return ErrGitHubOAuthRequired
+	}
+	if c.Auth.Google.Enabled && (c.Auth.Google.ClientID == "" || c.Auth.Google.ClientSecret == "") {
+		return ErrGoogleOAuthRequired
+	}
+	if c.Auth.Custom.Enabled && (c.Auth.Custom.ClientID == "" || c.Auth.Custom.ClientSecret == "") {
+		return ErrCustomOAuthRequired
+	}
+	if c.Auth.Custom.Enabled && c.Auth.Custom.TokenURL == "" {
+		return ErrCustomTokenURLRequired
+	}
+	if c.Auth.Custom.Enabled && c.Auth.Custom.UserURL == "" {
+		return ErrCustomUserURLRequired
 	}
 
 	return nil
@@ -534,6 +582,20 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		}
 	}
 
+	if cmd.Flags().Changed(AuthGoogleEnabledKey) {
+		config.Auth.Google.Enabled, err = cmd.Flags().GetBool(AuthGoogleEnabledKey)
+		if err != nil {
+			return fmt.Errorf("failed to get Google OAuth enabled: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(AuthGitHubEnabledKey) {
+		config.Auth.GitHub.Enabled, err = cmd.Flags().GetBool(AuthGitHubEnabledKey)
+		if err != nil {
+			return fmt.Errorf("failed to get GitHub OAuth enabled: %w", err)
+		}
+	}
+
 	if cmd.Flags().Changed(AuthGitHubClientIDKey) {
 		config.Auth.GitHub.ClientID, err = cmd.Flags().GetString(AuthGitHubClientIDKey)
 		if err != nil {
@@ -545,6 +607,41 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		config.Auth.GitHub.ClientSecret, err = cmd.Flags().GetString(AuthGitHubClientSecretKey)
 		if err != nil {
 			return fmt.Errorf("failed to get GitHub OAuth client secret: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(AuthCustomEnabledKey) {
+		config.Auth.Custom.Enabled, err = cmd.Flags().GetBool(AuthCustomEnabledKey)
+		if err != nil {
+			return fmt.Errorf("failed to get custom OAuth enabled: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(AuthCustomClientIDKey) {
+		config.Auth.Custom.ClientID, err = cmd.Flags().GetString(AuthCustomClientIDKey)
+		if err != nil {
+			return fmt.Errorf("failed to get custom OAuth client ID: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(AuthCustomClientSecretKey) {
+		config.Auth.Custom.ClientSecret, err = cmd.Flags().GetString(AuthCustomClientSecretKey)
+		if err != nil {
+			return fmt.Errorf("failed to get custom OAuth client secret: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(AuthCustomTokenURLKey) {
+		config.Auth.Custom.TokenURL, err = cmd.Flags().GetString(AuthCustomTokenURLKey)
+		if err != nil {
+			return fmt.Errorf("failed to get custom OAuth token URL: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(AuthCustomUserURLKey) {
+		config.Auth.Custom.UserURL, err = cmd.Flags().GetString(AuthCustomUserURLKey)
+		if err != nil {
+			return fmt.Errorf("failed to get custom OAuth user URL: %w", err)
 		}
 	}
 

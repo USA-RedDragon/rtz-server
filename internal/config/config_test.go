@@ -145,10 +145,17 @@ func TestEnvConfig(t *testing.T) {
 	t.Setenv("PERSISTENCE__DATABASE__EXTRA_PARAMETERS", "sslmode=require")
 	t.Setenv("PERSISTENCE__UPLOADS", "notuploads")
 	t.Setenv("REGISTRATION__ENABLED", "true")
+	t.Setenv("AUTH__GOOGLE__ENABLED", "true")
 	t.Setenv("AUTH__GOOGLE__CLIENT_ID", "googleid")
 	t.Setenv("AUTH__GOOGLE__CLIENT_SECRET", "googlesecret")
+	t.Setenv("AUTH__GITHUB__ENABLED", "true")
 	t.Setenv("AUTH__GITHUB__CLIENT_ID", "githubid")
 	t.Setenv("AUTH__GITHUB__CLIENT_SECRET", "githubsecret")
+	t.Setenv("AUTH__CUSTOM__ENABLED", "true")
+	t.Setenv("AUTH__CUSTOM__CLIENT_ID", "customid")
+	t.Setenv("AUTH__CUSTOM__CLIENT_SECRET", "customsecret")
+	t.Setenv("AUTH__CUSTOM__TOKEN_URL", "http://localhost:8081")
+	t.Setenv("AUTH__CUSTOM__USER_URL", "http://localhost:8082")
 	t.Setenv("REDIS__ENABLED", "true")
 	t.Setenv("REDIS__ADDRESS", "localhost:6379")
 	t.Setenv("REDIS__USERNAME", "user123")
@@ -253,6 +260,27 @@ func TestEnvConfig(t *testing.T) {
 	}
 	if config.Auth.GitHub.ClientSecret != "githubsecret" {
 		t.Errorf("unexpected GitHub client secret: %s", config.Auth.GitHub.ClientSecret)
+	}
+	if config.Auth.Custom.ClientID != "customid" {
+		t.Errorf("unexpected custom client ID: %s", config.Auth.Custom.ClientID)
+	}
+	if config.Auth.Custom.ClientSecret != "customsecret" {
+		t.Errorf("unexpected custom client secret: %s", config.Auth.Custom.ClientSecret)
+	}
+	if config.Auth.Custom.TokenURL != "http://localhost:8081" {
+		t.Errorf("unexpected custom token URL: %s", config.Auth.Custom.TokenURL)
+	}
+	if config.Auth.Custom.UserURL != "http://localhost:8082" {
+		t.Errorf("unexpected custom user URL: %s", config.Auth.Custom.UserURL)
+	}
+	if !config.Auth.Custom.Enabled {
+		t.Error("unexpected custom enabled")
+	}
+	if !config.Auth.GitHub.Enabled {
+		t.Error("unexpected GitHub enabled")
+	}
+	if !config.Auth.Google.Enabled {
+		t.Error("unexpected Google enabled")
 	}
 	if !config.Redis.Enabled {
 		t.Error("unexpected Redis enabled")

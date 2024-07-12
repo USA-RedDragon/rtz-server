@@ -92,11 +92,19 @@ registration:
 
 auth:
   google:
+    enabled: false
     client_id: ''
     client_secret: ''
   github:
+    enabled: false
     client_id: ''
     client_secret: ''
+  custom:
+    enabled: false
+    client_id: ''
+    client_secret: ''
+    token_url: ''
+    user_url: ''
 
 jwt:
   secret: 'secret'

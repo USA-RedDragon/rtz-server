@@ -12,6 +12,7 @@ type User struct {
 	ID           uint                `json:"-" gorm:"primaryKey" binding:"required"`
 	GitHubUserID nulltype.NullInt64  `json:"github_user_id,omitempty" gorm:"uniqueIndex"`
 	GoogleUserID nulltype.NullString `json:"google_user_id,omitempty" gorm:"uniqueIndex"`
+	CustomUserID nulltype.NullInt64  `json:"custom_user_id,omitempty" gorm:"uniqueIndex"`
 	Superuser    bool                `json:"superuser" gorm:"default:false"`
 	CreatedAt    time.Time           `json:"created_at"`
 	UpdatedAt    time.Time           `json:"-"`
@@ -43,6 +44,12 @@ func FindUserByGitHubID(db *gorm.DB, id int) (User, error) {
 func FindUserByGoogleID(db *gorm.DB, id string) (User, error) {
 	var user User
 	err := db.Where(&User{GoogleUserID: nulltype.NullStringOf(id)}).First(&user).Error
+	return user, err
+}
+
+func FindUserByCustomID(db *gorm.DB, id int) (User, error) {
+	var user User
+	err := db.Where(&User{CustomUserID: nulltype.NullInt64Of(int64(id))}).First(&user).Error
 	return user, err
 }
 

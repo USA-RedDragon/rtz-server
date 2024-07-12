@@ -50,6 +50,10 @@ func POSTAuth(c *gin.Context) {
 	var user models.User
 	switch data.Provider {
 	case "g":
+		if !config.Auth.Google.Enabled {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Google auth is disabled"})
+			return
+		}
 		//nolint:golint,gosec
 		tokenURL := "https://oauth2.googleapis.com/token"
 
@@ -117,6 +121,10 @@ func POSTAuth(c *gin.Context) {
 			}
 		}
 	case "h":
+		if !config.Auth.GitHub.Enabled {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "GitHub auth is disabled"})
+			return
+		}
 		urldata := url.Values{}
 		urldata.Set("code", data.Code)
 		urldata.Set("client_id", config.Auth.GitHub.ClientID)
@@ -184,6 +192,79 @@ func POSTAuth(c *gin.Context) {
 				return
 			}
 		}
+	case "c":
+		if !config.Auth.Custom.Enabled {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Custom auth is disabled"})
+			return
+		}
+		urldata := url.Values{}
+		urldata.Set("code", data.Code)
+		urldata.Set("client_id", config.Auth.Custom.ClientID)
+		urldata.Set("client_secret", config.Auth.Custom.ClientSecret)
+
+		tokenURL := fmt.Sprintf(
+			"%s?code=%s&client_id=%s&client_secret=%s",
+			config.Auth.Custom.TokenURL,
+			data.Code,
+			config.Auth.Custom.ClientID,
+			config.Auth.Custom.ClientSecret)
+
+		resp, err := utils.HTTPRequest(c, http.MethodPost, tokenURL, strings.NewReader(urldata.Encode()), map[string]string{
+			"Accept": "application/json",
+		})
+		if err != nil {
+			slog.Error("Failed to make request", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			slog.Error("Failed to get token", "status", resp.StatusCode)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		tokenResponse := v2.GitHubTokenResponse{}
+
+		err = json.NewDecoder(resp.Body).Decode(&tokenResponse)
+		if err != nil {
+			slog.Error("Failed to decode response", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		id, err := apis.GetCustomUserID(c, config.Auth.Custom.UserURL, tokenResponse.AccessToken)
+		if err != nil {
+			slog.Error("Failed to get GitHub user ID", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		user, err = models.FindUserByCustomID(db, id)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) && config.Registration.Enabled {
+				// Create user
+				err = db.Create(&models.User{
+					CustomUserID: nulltype.NullInt64Of(int64(id)),
+				}).Error
+				if err != nil {
+					slog.Error("Failed to create user", "error", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+					return
+				}
+				user, err = models.FindUserByCustomID(db, id)
+				if err != nil {
+					slog.Error("Failed to find user", "error", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+					return
+				}
+			} else {
+				slog.Error("Failed to register or login user", "error", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+		}
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "provider is invalid"})
 		return
@@ -199,59 +280,13 @@ func POSTAuth(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"access_token": token})
 }
 
-func GETGoogleRedirect(c *gin.Context) {
-	queryError := c.Query("error")
-	if queryError != "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": queryError})
-		return
-	}
-	code := c.Query("code")
-	if code == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
-		return
-	}
-	scope := c.Query("scope")
-	if scope == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "scope is required"})
-		return
-	}
-	if !strings.Contains(scope, "https://www.googleapis.com/auth/userinfo.email") {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "scope is invalid"})
-		return
-	}
-
-	config, ok := c.MustGet("config").(*config.Config)
+func GETAuthRedirect(c *gin.Context) {
+	provider, ok := c.Params.Get("provider")
 	if !ok {
-		slog.Error("Failed to get config from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "provider is required"})
 		return
 	}
 
-	referer, err := url.Parse(config.HTTP.FrontendURL)
-	if err != nil {
-		slog.Error("Failed to parse referer", "error", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is invalid"})
-		return
-	}
-
-	authRedirect := referer.JoinPath("/auth/")
-	if authRedirect == nil {
-		slog.Error("Failed to join path", "error", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is invalid"})
-		return
-	}
-
-	queries := url.Values{}
-	queries.Add("code", code)
-	queries.Add("provider", "g")
-
-	authRedirect.RawQuery = queries.Encode()
-
-	// Redirect to the app with the code
-	c.Redirect(http.StatusFound, authRedirect.String())
-}
-
-func GETGitHubRedirect(c *gin.Context) {
 	code := c.Query("code")
 	if code == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
@@ -281,7 +316,45 @@ func GETGitHubRedirect(c *gin.Context) {
 
 	queries := url.Values{}
 	queries.Add("code", code)
-	queries.Add("provider", "h")
+
+	switch provider {
+	case "g":
+		// Google
+		if !config.Auth.Google.Enabled {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Google auth is disabled"})
+			return
+		}
+		queryError := c.Query("error")
+		if queryError != "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": queryError})
+			return
+		}
+
+		scope := c.Query("scope")
+		if scope == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "scope is required"})
+			return
+		}
+		if !strings.Contains(scope, "https://www.googleapis.com/auth/userinfo.email") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "scope is invalid"})
+			return
+		}
+		queries.Add("provider", "g")
+	case "h":
+		// GitHub
+		if !config.Auth.GitHub.Enabled {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "GitHub auth is disabled"})
+			return
+		}
+		queries.Add("provider", "h")
+	case "c":
+		// Custom
+		if !config.Auth.Custom.Enabled {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Custom auth is disabled"})
+			return
+		}
+		queries.Add("provider", "c")
+	}
 
 	authRedirect.RawQuery = queries.Encode()
 
