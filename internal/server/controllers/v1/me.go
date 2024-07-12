@@ -95,6 +95,7 @@ func GETMyDevices(c *gin.Context) {
 		}
 		devicesResp = append(devicesResp, v1.GETMyDevicesResponse{
 			Device: device,
+			Alias:  device.Alias.StringValue(),
 			EligibleFeatures: v1.EligibleFeatures{
 				Navigation: true,
 				Prime:      true,
