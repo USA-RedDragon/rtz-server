@@ -207,7 +207,8 @@ func POSTAuth(c *gin.Context) {
 		urldata.Set("redirect_uri", fmt.Sprintf(config.HTTP.BackendURL+"/v2/auth/c/redirect/"))
 
 		resp, err := utils.HTTPRequest(c, http.MethodPost, config.Auth.Custom.TokenURL, strings.NewReader(urldata.Encode()), map[string]string{
-			"Accept": "application/json",
+			"Accept":       "application/json",
+			"Content-Type": "application/x-www-form-urlencoded",
 		})
 		if err != nil {
 			slog.Error("Failed to make request", "error", err)
