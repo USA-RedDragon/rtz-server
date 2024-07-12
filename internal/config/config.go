@@ -157,7 +157,7 @@ var (
 	RedisEnabledKey           = "redis.enabled"
 	RedisSentinelKey          = "redis.sentinel"
 	RedisSentinelMasterKey    = "redis.sentinel_master"
-	RedisSentinelHostsKey     = "redis.sentinel_hosts"
+	RedisSentinelAddressesKey = "redis.sentinel_addresses"
 	RedisAddressKey           = "redis.address"
 	RedisPasswordKey          = "redis.password"
 	RedisDatabaseKey          = "redis.database"
@@ -213,7 +213,7 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool(RedisEnabledKey, DefaultRedisEnabled, "Enable Redis")
 	cmd.Flags().Bool(RedisSentinelKey, false, "Enable Redis Sentinel")
 	cmd.Flags().String(RedisSentinelMasterKey, "", "Redis Sentinel master name")
-	cmd.Flags().StringSlice(RedisSentinelHostsKey, []string{}, "Comma-separated list of Redis Sentinel hosts")
+	cmd.Flags().StringSlice(RedisSentinelAddressesKey, []string{}, "Comma-separated list of Redis Sentinel hosts")
 	cmd.Flags().String(RedisAddressKey, "", "Redis host")
 	cmd.Flags().String(RedisPasswordKey, "", "Redis password")
 	cmd.Flags().Int(RedisDatabaseKey, 0, "Redis DB")
@@ -582,8 +582,8 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		}
 	}
 
-	if cmd.Flags().Changed(RedisSentinelHostsKey) {
-		config.Redis.SentinelAddresses, err = cmd.Flags().GetStringSlice(RedisSentinelHostsKey)
+	if cmd.Flags().Changed(RedisSentinelAddressesKey) {
+		config.Redis.SentinelAddresses, err = cmd.Flags().GetStringSlice(RedisSentinelAddressesKey)
 		if err != nil {
 			return fmt.Errorf("failed to get Redis Sentinel hosts: %w", err)
 		}
