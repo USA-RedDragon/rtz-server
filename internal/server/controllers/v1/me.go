@@ -28,10 +28,13 @@ func GETMe(c *gin.Context) {
 		Superuser:      user.Superuser,
 	}
 
-	if user.GitHubUserID.Valid() {
-		userResp.UserID = fmt.Sprintf("%d", user.GitHubUserID.Int64Value())
-	} else {
-		userResp.UserID = user.GoogleUserID.StringValue()
+	switch {
+	case user.GitHubUserID.Valid():
+		userResp.UserID = fmt.Sprintf("github_%d", user.GitHubUserID.Int64Value())
+	case user.GoogleUserID.Valid():
+		userResp.UserID = "google_" + user.GoogleUserID.StringValue()
+	case user.CustomUserID.Valid():
+		userResp.UserID = fmt.Sprintf("custom_%d", user.CustomUserID.Int64Value())
 	}
 
 	c.JSON(http.StatusOK, userResp)

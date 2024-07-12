@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	v1 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1"
@@ -83,33 +84,59 @@ func POSTDeviceAddUser(c *gin.Context) {
 		return
 	}
 
-	// Search for the user by Google ID first
 	var user models.User
-	user, err = models.FindUserByGoogleID(db, req.Email)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// Convert the req.Email to an integer, then look for GitHub ID
-			ghID, err := strconv.Atoi(req.Email)
-			if err != nil {
-				slog.Error("Failed to convert email to int", "error", err)
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+	switch {
+	case strings.HasPrefix(req.Email, "google_"):
+		req.Email = strings.TrimPrefix(req.Email, "google_")
+		user, err = models.FindUserByGoogleID(db, req.Email)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 				return
 			}
-			user, err = models.FindUserByGitHubID(db, ghID)
-			if err != nil {
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
-					return
-				}
-				slog.Error("Failed to find user by GitHub ID", "error", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-				return
-			}
-		} else {
 			slog.Error("Failed to find user by Google ID", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
+	case strings.HasPrefix(req.Email, "github_"):
+		req.Email = strings.TrimPrefix(req.Email, "github_")
+		id, err := strconv.Atoi(req.Email)
+		if err != nil {
+			slog.Error("Failed to convert GitHub ID to int", "error", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+		user, err = models.FindUserByGitHubID(db, id)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+				return
+			}
+			slog.Error("Failed to find user by GitHub ID", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+	case strings.HasPrefix(req.Email, "custom_"):
+		req.Email = strings.TrimPrefix(req.Email, "custom_")
+		id, err := strconv.Atoi(req.Email)
+		if err != nil {
+			slog.Error("Failed to convert Custom ID to int", "error", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+		user, err = models.FindUserByCustomID(db, id)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+				return
+			}
+			slog.Error("Failed to find user by Custom ID", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
 	}
 
 	err = db.Model(&models.DeviceShare{}).Where("device_id = ? AND shared_to_user_id = ?", device.ID, user.ID).FirstOrCreate(&models.DeviceShare{
