@@ -13,7 +13,7 @@ type Metrics struct {
 }
 
 func NewMetrics() *Metrics {
-	metrics := &Metrics{
+	return &Metrics{
 		athenaConnections: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "athena_connections",
 			Help: "The total number of Athena connections",
@@ -35,12 +35,6 @@ func NewMetrics() *Metrics {
 			Help: "The current number of active log parser jobs",
 		}),
 	}
-	metrics.register()
-	return metrics
-}
-
-func (m *Metrics) register() {
-	prometheus.MustRegister(m.athenaConnections)
 }
 
 func (m *Metrics) IncrementAthenaConnections(dongleID string) {
