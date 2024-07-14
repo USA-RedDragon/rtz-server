@@ -3,20 +3,30 @@ package logparser
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"capnproto.org/go/capnp/v3"
 	"github.com/USA-RedDragon/rtz-server/internal/cereal"
 )
 
 type GpsCoordinates struct {
-	Latitude  float64
-	Longitude float64
+	Latitude             float64
+	Longitude            float64
+	Time                 time.Time
+	AccuracyMeters       float64
+	SpeedMetersPerSecond float64
+	Bearing              float64
 }
 
 type SegmentData struct {
 	GPSLocations      []GpsCoordinates
+	EndCoordinates    GpsCoordinates
 	EarliestTimestamp uint64
 	LatestTimestamp   uint64
+	CANPresent        bool
+	DongleID          string
+	InitLogMonoTime   uint64
+	DeviceType        cereal.InitData_DeviceType
 	CarModel          string
 	GitRemote         string
 	GitBranch         string
@@ -28,6 +38,7 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 	var segmentData SegmentData
 
 	decoder := capnp.NewDecoder(reader)
+	cnt := 0
 	for {
 		msg, err := decoder.Decode()
 		if err != nil {
@@ -40,29 +51,30 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 		if err != nil {
 			return SegmentData{}, fmt.Errorf("failed to read event: %w", err)
 		}
+		if cnt < 5 {
+			fmt.Println(event.Which())
+			cnt++
+		}
 		// We're definitely not going to be handling every event type, so we can ignore the exhaustive linter warning
 		//nolint:golint,exhaustive
 		switch event.Which() {
-		case cereal.Event_Which_liveLocationKalman:
-			liveLocationKalman, err := event.LiveLocationKalman()
+		case cereal.Event_Which_can:
+			segmentData.CANPresent = true
+		case cereal.Event_Which_gpsLocation:
+			gpsLocation, err := event.GpsLocation()
 			if err != nil {
 				return SegmentData{}, err
 			}
-			position, err := liveLocationKalman.PositionGeodetic()
-			if err != nil {
-				return SegmentData{}, err
+			// TODO: associate logMonoTime with a wall time
+			gps := GpsCoordinates{
+				Latitude:             gpsLocation.Latitude(),
+				Longitude:            gpsLocation.Longitude(),
+				AccuracyMeters:       float64(gpsLocation.HorizontalAccuracy()),
+				SpeedMetersPerSecond: float64(gpsLocation.Speed()),
+				Bearing:              float64(gpsLocation.BearingDeg()),
 			}
-			if !liveLocationKalman.GpsOK() {
-				continue
-			}
-			values, err := position.Value()
-			if err != nil {
-				return SegmentData{}, err
-			}
-			segmentData.GPSLocations = append(segmentData.GPSLocations, GpsCoordinates{
-				Latitude:  values.At(0),
-				Longitude: values.At(1),
-			})
+			segmentData.GPSLocations = append(segmentData.GPSLocations, gps)
+			segmentData.EndCoordinates = gps
 		case cereal.Event_Which_sentinel:
 			sentinel, err := event.Sentinel()
 			if err != nil {
@@ -87,9 +99,6 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 				segmentData.LatestTimestamp = time
 			}
 		case cereal.Event_Which_initData:
-			if segmentData.CarModel != "" && segmentData.GitRemote != "" && segmentData.GitBranch != "" {
-				continue
-			}
 			initData, err := event.InitData()
 			if err != nil {
 				return SegmentData{}, err
@@ -104,6 +113,15 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 				return SegmentData{}, err
 			}
 			segmentData.GitBranch = branch
+
+			segmentData.InitLogMonoTime = event.LogMonoTime()
+
+			segmentData.DeviceType = initData.DeviceType()
+
+			segmentData.DongleID, err = initData.DongleId()
+			if err != nil {
+				return SegmentData{}, err
+			}
 
 			paramProto, err := initData.Params()
 			if err != nil {
