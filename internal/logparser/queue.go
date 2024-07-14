@@ -98,12 +98,13 @@ func (q *LogQueue) processLog(work work) error {
 		latestTimeStamp := time.Unix(0, int64(segmentData.LatestTimestamp))
 		err := q.db.Model(&device).
 			Updates(models.Device{
+				// TODO: grab from segmentData
 				LastGPSTime:     nulltype.NullTimeOf(latestTimeStamp),
-				LastGPSLat:      nulltype.NullFloat64Of(segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Latitude),
-				LastGPSLng:      nulltype.NullFloat64Of(segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Longitude),
-				LastGPSBearing:  nulltype.NullFloat64Of(segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Bearing),
-				LastGPSSpeed:    nulltype.NullFloat64Of(segmentData.GPSLocations[len(segmentData.GPSLocations)-1].SpeedMetersPerSecond),
-				LastGPSAccuracy: nulltype.NullFloat64Of(segmentData.GPSLocations[len(segmentData.GPSLocations)-1].AccuracyMeters),
+				LastGPSLat:      nulltype.NullFloat64Of(segmentData.EndCoordinates.Latitude),
+				LastGPSLng:      nulltype.NullFloat64Of(segmentData.EndCoordinates.Longitude),
+				LastGPSBearing:  nulltype.NullFloat64Of(segmentData.EndCoordinates.Bearing),
+				LastGPSSpeed:    nulltype.NullFloat64Of(segmentData.EndCoordinates.SpeedMetersPerSecond),
+				LastGPSAccuracy: nulltype.NullFloat64Of(segmentData.EndCoordinates.AccuracyMeters),
 			}).Error
 		if err != nil {
 			q.metrics.IncrementLogParserErrors(work.dongleID, "update_device")

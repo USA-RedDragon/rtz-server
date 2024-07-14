@@ -38,7 +38,7 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 	var segmentData SegmentData
 
 	decoder := capnp.NewDecoder(reader)
-	cnt := 0
+	gpsCnt := 0
 	for {
 		msg, err := decoder.Decode()
 		if err != nil {
@@ -50,10 +50,6 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 		event, err := cereal.ReadRootEvent(msg)
 		if err != nil {
 			return SegmentData{}, fmt.Errorf("failed to read event: %w", err)
-		}
-		if cnt < 5 {
-			fmt.Println(event.Which())
-			cnt++
 		}
 		// We're definitely not going to be handling every event type, so we can ignore the exhaustive linter warning
 		//nolint:golint,exhaustive
@@ -73,7 +69,10 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 				SpeedMetersPerSecond: float64(gpsLocation.Speed()),
 				Bearing:              float64(gpsLocation.BearingDeg()),
 			}
-			segmentData.GPSLocations = append(segmentData.GPSLocations, gps)
+			// Sample only evert 100th GPS point
+			if gpsCnt%100 == 0 {
+				segmentData.GPSLocations = append(segmentData.GPSLocations, gps)
+			}
 			segmentData.EndCoordinates = gps
 		case cereal.Event_Which_sentinel:
 			sentinel, err := event.Sentinel()
