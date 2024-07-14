@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
+	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	"github.com/mattn/go-nulltype"
 	"gorm.io/gorm"
 )
@@ -18,6 +19,7 @@ type LogQueue struct {
 	db        *gorm.DB
 	queue     chan work
 	closeChan chan any
+	metrics   *metrics.Metrics
 }
 
 type work struct {
@@ -25,11 +27,12 @@ type work struct {
 	dongleID string
 }
 
-func NewLogQueue(db *gorm.DB) *LogQueue {
+func NewLogQueue(db *gorm.DB, metrics *metrics.Metrics) *LogQueue {
 	return &LogQueue{
 		db:        db,
 		queue:     make(chan work, QueueDepth),
 		closeChan: make(chan any),
+		metrics:   metrics,
 	}
 }
 
@@ -55,6 +58,7 @@ func (q *LogQueue) AddLog(path string, dongleID string) {
 func (q *LogQueue) processLog(work work) error {
 	rt, err := os.Open(work.path)
 	if err != nil {
+		q.metrics.IncrementLogParserErrors(work.dongleID, "open_file")
 		slog.Error("Error opening file", "err", err)
 		return err
 	}
@@ -62,12 +66,14 @@ func (q *LogQueue) processLog(work work) error {
 
 	device, err := models.FindDeviceByDongleID(q.db, work.dongleID)
 	if err != nil {
+		q.metrics.IncrementLogParserErrors(work.dongleID, "find_device")
 		slog.Error("Error finding device by dongle ID", "dongleID", work.dongleID, "err", err)
 		return err
 	}
 
 	segmentData, err := DecodeSegmentData(bzip2.NewReader(bufio.NewReader(rt)))
 	if err != nil {
+		q.metrics.IncrementLogParserErrors(work.dongleID, "decode_segment_data")
 		slog.Error("Error decoding segment data", "err", err)
 		return err
 	}
@@ -81,6 +87,7 @@ func (q *LogQueue) processLog(work work) error {
 				LastGPSLng:  nulltype.NullFloat64Of(segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Longitude),
 			}).Error
 		if err != nil {
+			q.metrics.IncrementLogParserErrors(work.dongleID, "update_device")
 			slog.Error("Error updating device", "err", err)
 			return err
 		}
