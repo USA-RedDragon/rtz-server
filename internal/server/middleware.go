@@ -13,6 +13,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/config"
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	"github.com/USA-RedDragon/rtz-server/internal/logparser"
+	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	websocketControllers "github.com/USA-RedDragon/rtz-server/internal/server/websocket"
 	"github.com/USA-RedDragon/rtz-server/internal/utils"
 	"github.com/gin-contrib/cors"
@@ -32,7 +33,15 @@ const (
 	AuthTypeDevice
 )
 
-func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string, db *gorm.DB, rpcWebsocket *websocketControllers.RPCWebsocket, redis *redis.Client, logQueue *logparser.LogQueue) {
+func applyMiddleware(
+	r *gin.Engine,
+	config *config.Config,
+	otelComponent string,
+	db *gorm.DB,
+	rpcWebsocket *websocketControllers.RPCWebsocket,
+	redis *redis.Client,
+	logQueue *logparser.LogQueue,
+	metrics *metrics.Metrics) {
 	r.Use(gin.Recovery())
 	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{SkipPaths: []string{"/health", "/metrics"}}))
 	r.TrustedPlatform = "X-Real-IP"
@@ -58,6 +67,7 @@ func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string,
 	r.Use(redisMiddleware(redis))
 	r.Use(configMiddleware(config))
 	r.Use(logQueueMiddleware(logQueue))
+	r.Use(metricsMiddleware(metrics))
 
 	if config.HTTP.Tracing.Enabled {
 		r.Use(otelgin.Middleware(otelComponent))
@@ -68,6 +78,13 @@ func applyMiddleware(r *gin.Engine, config *config.Config, otelComponent string,
 func configMiddleware(config *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Set("config", config)
+		c.Next()
+	}
+}
+
+func metricsMiddleware(metrics *metrics.Metrics) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set("metrics", metrics)
 		c.Next()
 	}
 }

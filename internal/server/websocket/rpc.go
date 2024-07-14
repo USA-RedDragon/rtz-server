@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
+	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	"github.com/USA-RedDragon/rtz-server/internal/server/apimodels"
 	"github.com/USA-RedDragon/rtz-server/internal/websocket"
 	gorillaWebsocket "github.com/gorilla/websocket"
@@ -60,14 +61,12 @@ func (d *dongle) watchRedis(ctx context.Context, redis *redis.Client, device *mo
 
 type RPCWebsocket struct {
 	websocket.Websocket
-	connectedClients *xsync.Counter
-	dongles          *xsync.MapOf[string, *dongle]
+	dongles *xsync.MapOf[string, *dongle]
 }
 
 func CreateRPCWebsocket() *RPCWebsocket {
 	return &RPCWebsocket{
-		connectedClients: xsync.NewCounter(),
-		dongles:          xsync.NewMapOf[string, *dongle](),
+		dongles: xsync.NewMapOf[string, *dongle](),
 	}
 }
 
@@ -168,7 +167,7 @@ func (c *RPCWebsocket) Call(ctx context.Context, redis *redis.Client, dongleID s
 	}
 }
 
-func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websocket.Writer, msg []byte, msgType int, device *models.Device, _ *gorm.DB, redis *redis.Client) {
+func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websocket.Writer, msg []byte, msgType int, device *models.Device, _ *gorm.DB, redis *redis.Client, metrics *metrics.Metrics) {
 	var rawJSON map[string]interface{}
 	err := json.Unmarshal(msg, &rawJSON)
 	if err != nil {
@@ -246,7 +245,7 @@ func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websock
 	}
 }
 
-func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer, device *models.Device, _ *gorm.DB, redis *redis.Client) {
+func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer, device *models.Device, _ *gorm.DB, redis *redis.Client, metrics *metrics.Metrics) {
 	bidi := bidiChannel{
 		open:     true,
 		inbound:  make(chan apimodels.RPCCall),
@@ -263,7 +262,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 	go dongle.channelWatcher.WatchChannel()
 	go dongle.watchRedis(ctx, redis, device)
 	c.dongles.Store(device.DongleID, &dongle)
-	c.connectedClients.Inc()
+	metrics.IncrementAthenaConnections(device.DongleID)
 
 	go func() {
 		for {
@@ -289,8 +288,8 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 	}()
 }
 
-func (c *RPCWebsocket) OnDisconnect(_ context.Context, _ *http.Request, device *models.Device, _ *gorm.DB) {
-	c.connectedClients.Dec()
+func (c *RPCWebsocket) OnDisconnect(_ context.Context, _ *http.Request, device *models.Device, _ *gorm.DB, metrics *metrics.Metrics) {
+	metrics.DecrementAthenaConnections(device.DongleID)
 	dongle, loaded := c.dongles.LoadAndDelete(device.DongleID)
 	if !loaded {
 		return

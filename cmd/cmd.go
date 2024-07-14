@@ -10,6 +10,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/config"
 	"github.com/USA-RedDragon/rtz-server/internal/db"
 	"github.com/USA-RedDragon/rtz-server/internal/logparser"
+	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	"github.com/USA-RedDragon/rtz-server/internal/server"
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/cobra"
@@ -58,6 +59,8 @@ func run(cmd *cobra.Command, _ []string) error {
 		defer redis.Close()
 	}
 
+	metrics := metrics.NewMetrics()
+
 	db, err := db.MakeDB(config)
 	if err != nil {
 		return fmt.Errorf("failed to make database: %w", err)
@@ -68,7 +71,7 @@ func run(cmd *cobra.Command, _ []string) error {
 	go logQueue.Start()
 
 	slog.Info("Starting HTTP server")
-	server := server.NewServer(config, db, redis, logQueue)
+	server := server.NewServer(config, db, redis, logQueue, metrics)
 	err = server.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start HTTP server: %w", err)
