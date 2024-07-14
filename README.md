@@ -81,6 +81,7 @@ sudo reboot
 - [ ] Add more tests
 - [ ] Document deployment
 - [ ] Demo mode
+- [ ] SSH forwarding
 
 ## Frotend TODOs
 
