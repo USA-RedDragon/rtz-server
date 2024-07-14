@@ -9,6 +9,7 @@ import (
 
 	"github.com/USA-RedDragon/rtz-server/internal/config"
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
+	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	"github.com/USA-RedDragon/rtz-server/internal/server/apimodels"
 	v1 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1"
 	"github.com/USA-RedDragon/rtz-server/internal/server/websocket"
@@ -71,13 +72,19 @@ func POSTSetDestination(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
+		metrics, ok := c.MustGet("metrics").(*metrics.Metrics)
+		if !ok {
+			slog.Error("Failed to get metrics from context")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
 		uuid, err := uuid.NewRandom()
 		if err != nil {
 			slog.Error("Failed to generate UUID", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-		resp, err := rpcCaller.Call(c, redis, device.DongleID, apimodels.RPCCall{
+		resp, err := rpcCaller.Call(c, redis, metrics, device.DongleID, apimodels.RPCCall{
 			ID:     uuid.String(),
 			Method: "setNavDestination",
 			Params: map[string]any{

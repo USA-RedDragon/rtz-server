@@ -12,7 +12,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const QUEUE_DEPTH = 100
+const QueueDepth = 100
 
 type LogQueue struct {
 	db        *gorm.DB
@@ -28,7 +28,7 @@ type work struct {
 func NewLogQueue(db *gorm.DB) *LogQueue {
 	return &LogQueue{
 		db:        db,
-		queue:     make(chan work, QUEUE_DEPTH),
+		queue:     make(chan work, QueueDepth),
 		closeChan: make(chan any),
 	}
 }

@@ -6,6 +6,7 @@ import (
 
 type Metrics struct {
 	athenaConnections *prometheus.GaugeVec
+	athenaErrors      *prometheus.CounterVec
 }
 
 func NewMetrics() *Metrics {
@@ -14,6 +15,10 @@ func NewMetrics() *Metrics {
 			Name: "athena_connections",
 			Help: "The total number of Athena connections",
 		}, []string{"dongle_id"}),
+		athenaErrors: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "athena_errors",
+			Help: "The total number of Athena errors",
+		}, []string{"dongle_id", "error_type"}),
 	}
 	metrics.register()
 	return metrics
@@ -29,4 +34,8 @@ func (m *Metrics) IncrementAthenaConnections(dongleID string) {
 
 func (m *Metrics) DecrementAthenaConnections(dongleID string) {
 	m.athenaConnections.WithLabelValues(dongleID).Dec()
+}
+
+func (m *Metrics) IncrementAthenaErrors(dongleID, errorType string) {
+	m.athenaErrors.WithLabelValues(dongleID, errorType).Inc()
 }
