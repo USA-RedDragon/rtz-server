@@ -65,6 +65,7 @@ func run(cmd *cobra.Command, _ []string) error {
 	slog.Info("Database connection established")
 
 	logQueue := logparser.NewLogQueue(db)
+	go logQueue.Start()
 
 	slog.Info("Starting HTTP server")
 	server := server.NewServer(config, db, redis, logQueue)

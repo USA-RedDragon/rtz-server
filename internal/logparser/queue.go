@@ -3,7 +3,6 @@ package logparser
 import (
 	"bufio"
 	"compress/bzip2"
-	"context"
 	"log/slog"
 	"os"
 	"time"
@@ -28,18 +27,20 @@ type work struct {
 
 func NewLogQueue(db *gorm.DB) *LogQueue {
 	return &LogQueue{
-		db:    db,
-		queue: make(chan work, QUEUE_DEPTH),
+		db:        db,
+		queue:     make(chan work, QUEUE_DEPTH),
+		closeChan: make(chan any),
 	}
 }
 
-func (q *LogQueue) Start(ctx context.Context) {
+func (q *LogQueue) Start() {
 	for work := range q.queue {
 		err := q.processLog(work)
 		if err != nil {
 			slog.Error("Error processing log", "log", work.path, "err", err)
 		}
 	}
+	q.closeChan <- struct{}{}
 }
 
 func (q *LogQueue) Stop() {
