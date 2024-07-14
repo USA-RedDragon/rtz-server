@@ -2,7 +2,6 @@ package v1dot4
 
 import (
 	"bufio"
-	"compress/bzip2"
 	"io"
 	"log/slog"
 	"net/http"
@@ -11,14 +10,12 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/USA-RedDragon/rtz-server/internal/config"
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	"github.com/USA-RedDragon/rtz-server/internal/logparser"
 	v1dot4 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1.4"
 	"github.com/gin-gonic/gin"
-	"github.com/mattn/go-nulltype"
 	"gorm.io/gorm"
 )
 
@@ -183,7 +180,6 @@ func PUTUpload(c *gin.Context) {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 				return
 			}
-			defer file.Close()
 			header := make([]byte, 3)
 			read, err := file.ReadAt(header, 0)
 			if err != nil {
@@ -196,26 +192,14 @@ func PUTUpload(c *gin.Context) {
 				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file"})
 				return
 			}
-			segmentData, err := logparser.DecodeSegmentData(bzip2.NewReader(bufio.NewReader(file)))
-			if err != nil {
-				slog.Error("Failed to decode segment data", "error", err)
-			} else {
-				slog.Info("Got segment data", "data", len(segmentData.GPSLocations))
-				if (!device.LastGPSTime.Valid() || segmentData.LatestTimestamp > uint64(device.LastGPSTime.TimeValue().UnixNano())) && len(segmentData.GPSLocations) > 0 {
-					latestTimeStamp := time.Unix(0, int64(segmentData.LatestTimestamp))
-					err := db.Model(&device).
-						Updates(models.Device{
-							LastGPSTime: nulltype.NullTimeOf(latestTimeStamp),
-							LastGPSLat:  nulltype.NullFloat64Of(segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Latitude),
-							LastGPSLng:  nulltype.NullFloat64Of(segmentData.GPSLocations[len(segmentData.GPSLocations)-1].Longitude),
-						}).Error
-					if err != nil {
-						slog.Error("Failed to update device", "error", err)
-						c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-						return
-					}
-				}
+			file.Close()
+			logQueue, ok := c.MustGet("logQueue").(*logparser.LogQueue)
+			if !ok {
+				slog.Error("Failed to get log queue from context")
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
 			}
+			go logQueue.AddLog(cleanedAbsolutePath, dongleID)
 		}
 	case oldRouteRegex.Match([]byte(path)):
 		slog.Warn("Old route upload", "path", path)

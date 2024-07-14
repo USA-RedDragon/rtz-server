@@ -9,6 +9,7 @@ import (
 
 	"github.com/USA-RedDragon/rtz-server/internal/config"
 	"github.com/USA-RedDragon/rtz-server/internal/db"
+	"github.com/USA-RedDragon/rtz-server/internal/logparser"
 	"github.com/USA-RedDragon/rtz-server/internal/server"
 	"github.com/redis/go-redis/v9"
 	"github.com/spf13/cobra"
@@ -63,8 +64,10 @@ func run(cmd *cobra.Command, _ []string) error {
 	}
 	slog.Info("Database connection established")
 
+	logQueue := logparser.NewLogQueue(db)
+
 	slog.Info("Starting HTTP server")
-	server := server.NewServer(config, db, redis)
+	server := server.NewServer(config, db, redis, logQueue)
 	err = server.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start HTTP server: %w", err)
@@ -77,6 +80,11 @@ func run(cmd *cobra.Command, _ []string) error {
 
 		errGrp.Go(func() error {
 			return server.Stop()
+		})
+
+		errGrp.Go(func() error {
+			logQueue.Stop()
+			return nil
 		})
 
 		err := errGrp.Wait()

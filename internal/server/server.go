@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/USA-RedDragon/rtz-server/internal/config"
+	"github.com/USA-RedDragon/rtz-server/internal/logparser"
 	websocketControllers "github.com/USA-RedDragon/rtz-server/internal/server/websocket"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
@@ -44,7 +45,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.Engine.ServeHTTP(w, req)
 }
 
-func NewServer(config *config.Config, db *gorm.DB, redis *redis.Client) *Server {
+func NewServer(config *config.Config, db *gorm.DB, redis *redis.Client, logQueue *logparser.LogQueue) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	if config.HTTP.PProf.Enabled {
 		gin.SetMode(gin.DebugMode)
@@ -65,7 +66,7 @@ func NewServer(config *config.Config, db *gorm.DB, redis *redis.Client) *Server 
 	writeTimeout := defTimeout
 
 	rpcWebsocket := websocketControllers.CreateRPCWebsocket()
-	applyMiddleware(r, config, "api", db, rpcWebsocket, redis)
+	applyMiddleware(r, config, "api", db, rpcWebsocket, redis, logQueue)
 	applyRoutes(r, config, rpcWebsocket)
 
 	var metricsIPV4Server *http.Server
@@ -73,7 +74,7 @@ func NewServer(config *config.Config, db *gorm.DB, redis *redis.Client) *Server 
 
 	if config.HTTP.Metrics.Enabled {
 		metricsRouter := gin.New()
-		applyMiddleware(metricsRouter, config, "metrics", db, rpcWebsocket, redis)
+		applyMiddleware(metricsRouter, config, "metrics", db, rpcWebsocket, redis, logQueue)
 
 		metricsRouter.GET("/metrics", gin.WrapH(promhttp.Handler()))
 		metricsIPV4Server = &http.Server{

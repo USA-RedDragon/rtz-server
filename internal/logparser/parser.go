@@ -20,6 +20,8 @@ type SegmentData struct {
 	CarModel          string
 	GitRemote         string
 	GitBranch         string
+	StartOfRoute      bool
+	EndOfRoute        bool
 }
 
 func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
@@ -61,6 +63,17 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 				Latitude:  values.At(0),
 				Longitude: values.At(1),
 			})
+		case cereal.Event_Which_sentinel:
+			sentinel, err := event.Sentinel()
+			if err != nil {
+				return SegmentData{}, err
+			}
+			switch sentinel.Type() {
+			case cereal.Sentinel_SentinelType_startOfRoute:
+				segmentData.StartOfRoute = true
+			case cereal.Sentinel_SentinelType_endOfRoute:
+				segmentData.EndOfRoute = true
+			}
 		case cereal.Event_Which_clocks:
 			clocks, err := event.Clocks()
 			if err != nil {
