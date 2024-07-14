@@ -41,6 +41,10 @@ func NewMetrics() *Metrics {
 
 func (m *Metrics) register() {
 	prometheus.MustRegister(m.athenaConnections)
+	prometheus.MustRegister(m.athenaErrors)
+	prometheus.MustRegister(m.logParserErrors)
+	prometheus.MustRegister(m.logParserQueueSize)
+	prometheus.MustRegister(m.logParserActiveJobs)
 }
 
 func (m *Metrics) IncrementAthenaConnections(dongleID string) {
