@@ -13,13 +13,14 @@ import (
 )
 
 type Config struct {
-	HTTP         HTTP         `json:"http"`
-	Persistence  Persistence  `json:"persistence"`
-	Registration Registration `json:"registration"`
-	Auth         Auth         `json:"auth"`
-	JWT          JWT          `json:"jwt"`
-	Mapbox       Mapbox       `json:"mapbox"`
-	Redis        Redis        `json:"redis"`
+	HTTP               HTTP         `json:"http"`
+	Persistence        Persistence  `json:"persistence"`
+	Registration       Registration `json:"registration"`
+	Auth               Auth         `json:"auth"`
+	JWT                JWT          `json:"jwt"`
+	Mapbox             Mapbox       `json:"mapbox"`
+	Redis              Redis        `json:"redis"`
+	ParallelLogParsers uint         `json:"parallel_log_parsers"`
 }
 
 type Redis struct {
@@ -186,6 +187,7 @@ var (
 	RedisUsernameKey           = "redis.username"
 	RedisPasswordKey           = "redis.password"
 	RedisDatabaseKey           = "redis.database"
+	ParallelLogParsersKey      = "parallel_log_parsers"
 )
 
 const (
@@ -204,6 +206,7 @@ const (
 	DefaultAuthGitHubEnabled           = false
 	DefaultAuthGoogleEnabled           = false
 	DefaultAuthCustomEnabled           = false
+	DefaultParallelLogParsers          = 4
 )
 
 func RegisterFlags(cmd *cobra.Command) {
@@ -255,6 +258,7 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(RedisUsernameKey, "", "Redis username")
 	cmd.Flags().String(RedisPasswordKey, "", "Redis password")
 	cmd.Flags().Int(RedisDatabaseKey, 0, "Redis DB")
+	cmd.Flags().Uint(ParallelLogParsersKey, DefaultParallelLogParsers, "Number of parallel log parsers")
 }
 
 var (
@@ -275,6 +279,7 @@ var (
 	ErrCustomOAuthRequired         = errors.New("Custom OAuth client ID and secret are required")
 	ErrCustomTokenURLRequired      = errors.New("Custom OAuth token URL is required")
 	ErrCustomUserURLRequired       = errors.New("Custom OAuth user URL is required")
+	ErrParallelLogParsersNotZero   = errors.New("Number of parallel log parsers must be greater than zero")
 )
 
 func (c *Config) Validate() error {
@@ -328,6 +333,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Auth.Custom.Enabled && c.Auth.Custom.UserURL == "" {
 		return ErrCustomUserURLRequired
+	}
+	if c.ParallelLogParsers == 0 {
+		return ErrParallelLogParsersNotZero
 	}
 
 	return nil
@@ -401,6 +409,9 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 	}
 	if config.Persistence.Uploads == "" {
 		config.Persistence.Uploads = DefaultPersistenceUploads
+	}
+	if config.ParallelLogParsers == 0 {
+		config.ParallelLogParsers = DefaultParallelLogParsers
 	}
 
 	return &config, nil
@@ -735,6 +746,13 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		config.Redis.Database, err = cmd.Flags().GetInt(RedisDatabaseKey)
 		if err != nil {
 			return fmt.Errorf("failed to get Redis DB: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(ParallelLogParsersKey) {
+		config.ParallelLogParsers, err = cmd.Flags().GetUint(ParallelLogParsersKey)
+		if err != nil {
+			return fmt.Errorf("failed to get number of parallel log parsers: %w", err)
 		}
 	}
 

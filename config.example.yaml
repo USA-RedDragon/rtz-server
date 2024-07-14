@@ -112,3 +112,6 @@ jwt:
 mapbox:
   public_token: 'changeme'
   secret_token: 'changeme'
+
+# The number of parallel log parsers to run
+parallel_log_parsers: 4

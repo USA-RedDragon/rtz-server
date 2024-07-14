@@ -7,19 +7,23 @@ import (
 	"os"
 	"time"
 
+	"github.com/USA-RedDragon/rtz-server/internal/config"
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	"github.com/mattn/go-nulltype"
+	"github.com/puzpuzpuz/xsync/v3"
 	"gorm.io/gorm"
 )
 
 const QueueDepth = 100
 
 type LogQueue struct {
-	db        *gorm.DB
-	queue     chan work
-	closeChan chan any
-	metrics   *metrics.Metrics
+	config     *config.Config
+	db         *gorm.DB
+	queue      chan work
+	closeChan  chan any
+	metrics    *metrics.Metrics
+	activeJobs *xsync.Counter
 }
 
 type work struct {
@@ -27,21 +31,33 @@ type work struct {
 	dongleID string
 }
 
-func NewLogQueue(db *gorm.DB, metrics *metrics.Metrics) *LogQueue {
+func NewLogQueue(config *config.Config, db *gorm.DB, metrics *metrics.Metrics) *LogQueue {
 	return &LogQueue{
-		db:        db,
-		queue:     make(chan work, QueueDepth),
-		closeChan: make(chan any),
-		metrics:   metrics,
+		config:     config,
+		db:         db,
+		queue:      make(chan work, QueueDepth),
+		closeChan:  make(chan any),
+		metrics:    metrics,
+		activeJobs: xsync.NewCounter(),
 	}
 }
 
 func (q *LogQueue) Start() {
 	for work := range q.queue {
-		err := q.processLog(work)
-		if err != nil {
-			slog.Error("Error processing log", "log", work.path, "err", err)
+		if uint(q.activeJobs.Value()) < q.config.ParallelLogParsers {
+			q.activeJobs.Inc()
+			go func() {
+				err := q.processLog(work)
+				if err != nil {
+					slog.Error("Error processing log", "log", work.path, "err", err)
+				}
+				q.activeJobs.Dec()
+			}()
+		} else {
+			q.queue <- work
 		}
+		q.metrics.SetLogParserActiveJobs(float64(q.activeJobs.Value()))
+		q.metrics.SetLogParserQueueSize(float64(len(q.queue)))
 	}
 	q.closeChan <- struct{}{}
 }
