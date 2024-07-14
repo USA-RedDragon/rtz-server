@@ -14,7 +14,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/mattn/go-nulltype v0.0.0-20230117041332-6715e831ac05
 	github.com/prometheus/client_golang v1.19.1
-	github.com/puzpuzpuz/xsync/v3 v3.3.1
+	github.com/puzpuzpuz/xsync/v3 v3.4.0
 	github.com/redis/go-redis/v9 v9.5.4
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
