@@ -3,6 +3,7 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
@@ -209,6 +210,9 @@ func (c *RPCWebsocket) OnDisconnect(_ *http.Request, device *models.Device, _ *g
 	if c.config.NATS.Enabled {
 		err := dongle.natsSub.Unsubscribe()
 		if err != nil {
+			if errors.Is(err, nats.ErrConnectionDraining) || errors.Is(err, nats.ErrConnectionClosed) {
+				return
+			}
 			slog.Warn("Error unsubscribing from NATS", "error", err)
 		}
 	}
