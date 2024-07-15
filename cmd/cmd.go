@@ -93,14 +93,8 @@ func run(cmd *cobra.Command, _ []string) error {
 	stop := func(_ os.Signal) {
 		slog.Info("Shutting down")
 
-		if cfg.NATS.Enabled {
-			err := nc.Drain()
-			if err != nil {
-				slog.Error("NATS drain error", "error", err.Error())
-			}
-		}
-
 		errGrp := errgroup.Group{}
+		errGrp.SetLimit(2)
 
 		errGrp.Go(func() error {
 			return server.Stop()
@@ -110,6 +104,12 @@ func run(cmd *cobra.Command, _ []string) error {
 			logQueue.Stop()
 			return nil
 		})
+
+		if cfg.NATS.Enabled {
+			errGrp.Go(func() error {
+				return nc.Drain()
+			})
+		}
 
 		err := errGrp.Wait()
 		if err != nil {
