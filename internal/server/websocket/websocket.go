@@ -99,12 +99,37 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 
 	dongle := dongle{
 		bidiChannel:    &bidi,
-		channelWatcher: utils.NewChannelWatcher[apimodels.RPCResponse](bidi.outbound),
+		channelWatcher: utils.NewChannelWatcher(bidi.outbound),
 		conn:           conn,
 	}
 	go dongle.channelWatcher.WatchChannel(func(resp apimodels.RPCResponse) string {
 		return resp.ID
 	})
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case call, more := <-dongle.bidiChannel.inbound:
+				if !more {
+					return
+				}
+				// Received a call from the site
+				jsonData, err := json.Marshal(call)
+				if err != nil {
+					metrics.IncrementAthenaErrors(device.DongleID, "marshal_rpc_call")
+					slog.Warn("Error marshalling call data:", "error", err)
+					continue
+				}
+				w.WriteMessage(websocket.Message{
+					Type: gorillaWebsocket.TextMessage,
+					Data: jsonData,
+				})
+			}
+		}
+	}()
+	c.dongles.Store(device.DongleID, &dongle)
+	metrics.IncrementAthenaConnections(device.DongleID)
 	if c.config.NATS.Enabled {
 		sub, err := nc.Subscribe("rpc:call:"+device.DongleID, func(msg *nats.Msg) {
 			var call apimodels.RPCCall
@@ -130,7 +155,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 
 			dongle.bidiChannel.inbound <- call
 
-			context, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+			context, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			select {
 			case <-context.Done():
@@ -165,32 +190,6 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 		}
 		dongle.natsSub = sub
 	}
-	c.dongles.Store(device.DongleID, &dongle)
-	metrics.IncrementAthenaConnections(device.DongleID)
-
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case call, more := <-dongle.bidiChannel.inbound:
-				if !more {
-					return
-				}
-				// Received a call from the site
-				jsonData, err := json.Marshal(call)
-				if err != nil {
-					metrics.IncrementAthenaErrors(device.DongleID, "marshal_rpc_call")
-					slog.Warn("Error marshalling call data:", "error", err)
-					continue
-				}
-				w.WriteMessage(websocket.Message{
-					Type: gorillaWebsocket.TextMessage,
-					Data: jsonData,
-				})
-			}
-		}
-	}()
 }
 
 func (c *RPCWebsocket) OnDisconnect(_ *http.Request, device *models.Device, _ *gorm.DB, metrics *metrics.Metrics) {
