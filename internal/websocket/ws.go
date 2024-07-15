@@ -19,9 +19,9 @@ import (
 const bufferSize = 1024
 
 type Websocket interface {
-	OnMessage(ctx context.Context, r *http.Request, w Writer, msg []byte, t int, device *models.Device, db *gorm.DB, nats *nats.Conn, metrics *metrics.Metrics)
+	OnMessage(r *http.Request, w Writer, msg []byte, t int, device *models.Device, db *gorm.DB, metrics *metrics.Metrics)
 	OnConnect(ctx context.Context, r *http.Request, w Writer, device *models.Device, db *gorm.DB, nats *nats.Conn, metrics *metrics.Metrics, conn *websocket.Conn)
-	OnDisconnect(ctx context.Context, r *http.Request, device *models.Device, db *gorm.DB, metrics *metrics.Metrics)
+	OnDisconnect(r *http.Request, device *models.Device, db *gorm.DB, metrics *metrics.Metrics)
 }
 
 type WSHandler struct {
@@ -121,7 +121,7 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 
 func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.Device, db *gorm.DB, nats *nats.Conn, metrics *metrics.Metrics) {
 	defer func() {
-		h.handler.OnDisconnect(c, r, device, db, metrics)
+		h.handler.OnDisconnect(r, device, db, metrics)
 		_ = h.conn.Close()
 	}()
 	writer := wsWriter{
@@ -158,6 +158,6 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 		if err != nil {
 			break
 		}
-		go h.handler.OnMessage(c, r, writer, msg, t, device, db, nats, metrics)
+		go h.handler.OnMessage(r, writer, msg, t, device, db, metrics)
 	}
 }

@@ -84,7 +84,7 @@ func POSTSetDestination(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-		resp, err := rpcCaller.Call(c, nats, metrics, device.DongleID, apimodels.RPCCall{
+		resp, err := rpcCaller.Call(nats, metrics, device.DongleID, apimodels.RPCCall{
 			ID:     uuid.String(),
 			Method: "setNavDestination",
 			Params: map[string]any{

@@ -47,7 +47,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.Engine.ServeHTTP(w, req)
 }
 
-func NewServer(ctx context.Context, config *config.Config, db *gorm.DB, nats *nats.Conn, logQueue *logparser.LogQueue, metrics *metrics.Metrics) *Server {
+func NewServer(config *config.Config, db *gorm.DB, nats *nats.Conn, logQueue *logparser.LogQueue, metrics *metrics.Metrics) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	if config.HTTP.PProf.Enabled {
 		gin.SetMode(gin.DebugMode)
@@ -67,7 +67,7 @@ func NewServer(ctx context.Context, config *config.Config, db *gorm.DB, nats *na
 
 	writeTimeout := defTimeout
 
-	rpcWebsocket := websocketControllers.CreateRPCWebsocket(ctx, config, nats, metrics)
+	rpcWebsocket := websocketControllers.CreateRPCWebsocket(config, metrics)
 	applyMiddleware(r, config, "api", db, rpcWebsocket, nats, logQueue, metrics)
 	applyRoutes(r, config, rpcWebsocket)
 

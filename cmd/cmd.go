@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -60,7 +59,6 @@ func run(cmd *cobra.Command, _ []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to connect to NATS: %w", err)
 		}
-		defer nc.Drain()
 	}
 
 	metrics := metrics.NewMetrics()
@@ -75,9 +73,7 @@ func run(cmd *cobra.Command, _ []string) error {
 	go logQueue.Start()
 
 	slog.Info("Starting HTTP server")
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	server := server.NewServer(ctx, config, db, nc, logQueue, metrics)
+	server := server.NewServer(config, db, nc, logQueue, metrics)
 	err = server.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start HTTP server: %w", err)
@@ -96,6 +92,13 @@ func run(cmd *cobra.Command, _ []string) error {
 			logQueue.Stop()
 			return nil
 		})
+
+		if config.NATS.Enabled {
+			errGrp.Go(func() error {
+				nc.Close()
+				return nil
+			})
+		}
 
 		err := errGrp.Wait()
 		if err != nil {

@@ -45,7 +45,7 @@ type RPCWebsocket struct {
 	config  *config.Config
 }
 
-func CreateRPCWebsocket(ctx context.Context, config *config.Config, nats *nats.Conn, metrics *metrics.Metrics) *RPCWebsocket {
+func CreateRPCWebsocket(config *config.Config, metrics *metrics.Metrics) *RPCWebsocket {
 	socket := &RPCWebsocket{
 		dongles: xsync.NewMapOf[string, *dongle](),
 		metrics: metrics,
@@ -114,7 +114,7 @@ func (c *RPCWebsocket) Stop(ctx context.Context) error {
 	return errGrp.Wait()
 }
 
-func (c *RPCWebsocket) Call(ctx context.Context, nats *nats.Conn, metrics *metrics.Metrics, dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
+func (c *RPCWebsocket) Call(nats *nats.Conn, metrics *metrics.Metrics, dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
 	dongle, loaded := c.dongles.Load(dongleID)
 	if !loaded {
 		// Dongle is not here, send to NATS if enabled
@@ -167,7 +167,7 @@ func (c *RPCWebsocket) Call(ctx context.Context, nats *nats.Conn, metrics *metri
 	}
 }
 
-func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websocket.Writer, msg []byte, msgType int, device *models.Device, _ *gorm.DB, nats *nats.Conn, metrics *metrics.Metrics) {
+func (c *RPCWebsocket) OnMessage(_ *http.Request, _ websocket.Writer, msg []byte, msgType int, device *models.Device, _ *gorm.DB, metrics *metrics.Metrics) {
 	var rawJSON map[string]interface{}
 	err := json.Unmarshal(msg, &rawJSON)
 	if err != nil {
@@ -248,10 +248,11 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 		},
 		conn: conn,
 	}
+	go dongle.channelWatcher.WatchChannel()
 	if c.config.NATS.Enabled {
 		sub, err := nc.Subscribe("rpc:call:"+device.DongleID, func(msg *nats.Msg) {
 			var call apimodels.RPCCall
-			err := json.Unmarshal([]byte(msg.Data), &call)
+			err := json.Unmarshal(msg.Data, &call)
 			if err != nil {
 				metrics.IncrementAthenaErrors(device.DongleID, "unmarshal_nats_rpc_call")
 				slog.Warn("Error unmarshalling RPC call", "error", err)
@@ -263,9 +264,15 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 				responseChan <- response
 			})
 
-			if dongle.bidiChannel.open {
-				dongle.bidiChannel.inbound <- call
+			if !dongle.bidiChannel.open {
+				err := msg.NakWithDelay(2 * time.Second)
+				if err != nil {
+					metrics.IncrementAthenaErrors(device.DongleID, "nats_rpc_nak")
+					slog.Warn("Error sending NAK to NATS", "error", err)
+				}
 			}
+
+			dongle.bidiChannel.inbound <- call
 
 			context, cancel := context.WithTimeout(context.Background(), 120*time.Second)
 			defer cancel()
@@ -282,7 +289,11 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 				if err != nil {
 					metrics.IncrementAthenaErrors(device.DongleID, "marshal_rpc_response")
 					slog.Warn("Error marshalling response data:", "error", err)
-					msg.NakWithDelay(2 * time.Second)
+					err := msg.NakWithDelay(2 * time.Second)
+					if err != nil {
+						metrics.IncrementAthenaErrors(device.DongleID, "nats_rpc_nak")
+						slog.Warn("Error sending NAK to NATS", "error", err)
+					}
 				}
 				err = msg.Respond(jsonData)
 				if err != nil {
@@ -298,7 +309,6 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 		}
 		dongle.natsSub = sub
 	}
-	go dongle.channelWatcher.WatchChannel()
 	c.dongles.Store(device.DongleID, &dongle)
 	metrics.IncrementAthenaConnections(device.DongleID)
 
@@ -327,7 +337,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 	}()
 }
 
-func (c *RPCWebsocket) OnDisconnect(ctx context.Context, _ *http.Request, device *models.Device, _ *gorm.DB, metrics *metrics.Metrics) {
+func (c *RPCWebsocket) OnDisconnect(_ *http.Request, device *models.Device, _ *gorm.DB, metrics *metrics.Metrics) {
 	metrics.DecrementAthenaConnections(device.DongleID)
 	dongle, loaded := c.dongles.LoadAndDelete(device.DongleID)
 	if !loaded {
