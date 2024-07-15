@@ -106,6 +106,13 @@ func (c *RPCWebsocket) Call(ctx context.Context, nc *nats.Conn, metrics *metrics
 						return apimodels.RPCResponse{}, err
 					}
 				}
+				if resp.Data == nil {
+					// This is essentially a NAK
+					// We should retry and not count towards the limit
+					// because the dongle is probably reconnecting
+					retry--
+					continue
+				}
 
 				var rpcResp apimodels.RPCResponse
 				slog.Debug("Received RPC response from NATS", "response", string(resp.Data))
