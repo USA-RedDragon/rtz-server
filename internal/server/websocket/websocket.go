@@ -3,10 +3,12 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"time"
 
+	"github.com/AzureAD/microsoft-authentication-library-for-go/apps/errors"
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	"github.com/USA-RedDragon/rtz-server/internal/server/apimodels"
@@ -209,6 +211,9 @@ func (c *RPCWebsocket) OnDisconnect(_ *http.Request, device *models.Device, _ *g
 	if c.config.NATS.Enabled {
 		err := dongle.natsSub.Unsubscribe()
 		if err != nil {
+			if errors.Is(err, nats.ErrConnectionDraining) || errors.Is(err, nats.ErrConnectionClosed) {
+				return
+			}
 			slog.Warn("Error unsubscribing from NATS", "error", err)
 		}
 	}
