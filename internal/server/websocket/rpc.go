@@ -13,6 +13,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	"github.com/USA-RedDragon/rtz-server/internal/server/apimodels"
+	"github.com/USA-RedDragon/rtz-server/internal/utils"
 	"github.com/USA-RedDragon/rtz-server/internal/websocket"
 	gorillaWebsocket "github.com/gorilla/websocket"
 	"github.com/nats-io/nats.go"
@@ -33,7 +34,7 @@ type bidiChannel struct {
 
 type dongle struct {
 	bidiChannel    *bidiChannel
-	channelWatcher *channelWatcher
+	channelWatcher *utils.ChannelWatcher[apimodels.RPCResponse]
 	conn           *gorillaWebsocket.Conn
 	natsSub        *nats.Subscription
 }
@@ -52,30 +53,6 @@ func CreateRPCWebsocket(config *config.Config, metrics *metrics.Metrics) *RPCWeb
 		config:  config,
 	}
 	return socket
-}
-
-type channelWatcher struct {
-	ch          chan apimodels.RPCResponse
-	subscribers *xsync.MapOf[string, func(apimodels.RPCResponse)]
-}
-
-func (cw *channelWatcher) WatchChannel() {
-	for {
-		response, more := <-cw.ch
-		if !more {
-			return
-		}
-		if response.ID == "" {
-			continue
-		}
-		if subscriber, loaded := cw.subscribers.LoadAndDelete(response.ID); loaded {
-			subscriber(response)
-		}
-	}
-}
-
-func (cw *channelWatcher) Subscribe(callID string, subscriber func(apimodels.RPCResponse)) {
-	cw.subscribers.Store(callID, subscriber)
 }
 
 func (c *RPCWebsocket) Stop(ctx context.Context) error {
@@ -135,6 +112,7 @@ func (c *RPCWebsocket) Call(nats *nats.Conn, metrics *metrics.Metrics, dongleID 
 				switch call.Method {
 				case "takeSnapshot":
 					timeout = 30 * time.Second
+				default:
 				}
 				resp, err := nats.Request("rpc:call:"+dongleID, msg, timeout)
 				if err != nil {
@@ -252,14 +230,13 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 	}
 
 	dongle := dongle{
-		bidiChannel: &bidi,
-		channelWatcher: &channelWatcher{
-			ch:          bidi.outbound,
-			subscribers: xsync.NewMapOf[string, func(apimodels.RPCResponse)](),
-		},
-		conn: conn,
+		bidiChannel:    &bidi,
+		channelWatcher: utils.NewChannelWatcher[apimodels.RPCResponse](bidi.outbound),
+		conn:           conn,
 	}
-	go dongle.channelWatcher.WatchChannel()
+	go dongle.channelWatcher.WatchChannel(func(resp apimodels.RPCResponse) string {
+		return resp.ID
+	})
 	if c.config.NATS.Enabled {
 		sub, err := nc.Subscribe("rpc:call:"+device.DongleID, func(msg *nats.Msg) {
 			var call apimodels.RPCCall
