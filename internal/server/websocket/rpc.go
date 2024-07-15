@@ -103,6 +103,7 @@ func (c *RPCWebsocket) Call(nats *nats.Conn, metrics *metrics.Metrics, dongleID 
 				}
 
 				var rpcResp apimodels.RPCResponse
+				slog.Debug("Received RPC response from NATS", "response", string(resp.Data))
 				err = json.Unmarshal(resp.Data, &rpcResp)
 				if err != nil {
 					metrics.IncrementAthenaErrors(dongleID, "rpc_call_nats_unmarshal")
