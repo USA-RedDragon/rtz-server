@@ -80,7 +80,12 @@ func (c *RPCWebsocket) Stop(ctx context.Context) error {
 
 	c.dongles.Range(func(key string, value *dongle) bool {
 		errGrp.Go(func() error {
-			c.metrics.DecrementAthenaConnections(key)
+			closedChan := make(chan any)
+			value.conn.SetCloseHandler(func(code int, text string) error {
+				close(closedChan)
+				return nil
+			})
+
 			// Close the socket
 			err := value.conn.WriteControl(
 				gorillaWebsocket.CloseMessage,
@@ -90,11 +95,15 @@ func (c *RPCWebsocket) Stop(ctx context.Context) error {
 				slog.Warn("Error sending close message to websocket", "error", err)
 				return err
 			}
+			ctx, cancel := context.WithTimeout(ctx, 6*time.Second)
+			defer cancel()
+			select {
+			case <-ctx.Done():
+				slog.Warn("Timeout waiting for websocket to close")
+			case <-closedChan:
+			}
 
-			value.bidiChannel.open = false
-			close(value.bidiChannel.inbound)
-			close(value.bidiChannel.outbound)
-			return value.conn.Close()
+			return nil
 		})
 		return true
 	})
