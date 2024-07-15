@@ -124,22 +124,29 @@ func (c *RPCWebsocket) Call(nats *nats.Conn, metrics *metrics.Metrics, dongleID 
 				return apimodels.RPCResponse{}, err
 			}
 
-			resp, err := nats.Request("rpc:call:"+dongleID, msg, 5*time.Second)
-			if err != nil {
-				metrics.IncrementAthenaErrors(dongleID, "rpc_call_nats_request")
-				slog.Warn("Error sending RPC to NATS", "error", err)
-				return apimodels.RPCResponse{}, err
-			}
+			retry := 0
+			for {
+				if retry > 5 {
+					return apimodels.RPCResponse{}, errors.New("failed to send RPC to NATS")
+				}
+				retry++
+				resp, err := nats.Request("rpc:call:"+dongleID, msg, 5*time.Second)
+				if err != nil {
+					metrics.IncrementAthenaErrors(dongleID, "rpc_call_nats_request")
+					slog.Warn("Error sending RPC to NATS", "error", err)
+					continue
+				}
 
-			var rpcResp apimodels.RPCResponse
-			err = json.Unmarshal(resp.Data, &rpcResp)
-			if err != nil {
-				metrics.IncrementAthenaErrors(dongleID, "rpc_call_nats_unmarshal")
-				slog.Warn("Error unmarshalling RPC response", "error", err)
-				return apimodels.RPCResponse{}, err
-			}
+				var rpcResp apimodels.RPCResponse
+				err = json.Unmarshal(resp.Data, &rpcResp)
+				if err != nil {
+					metrics.IncrementAthenaErrors(dongleID, "rpc_call_nats_unmarshal")
+					slog.Warn("Error unmarshalling RPC response", "error", err)
+					return apimodels.RPCResponse{}, err
+				}
 
-			return rpcResp, nil
+				return rpcResp, nil
+			}
 		}
 		return apimodels.RPCResponse{}, ErrNotConnected
 	}
