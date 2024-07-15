@@ -102,6 +102,10 @@ func (c *RPCWebsocket) Call(ctx context.Context, nc *nats.Conn, metrics *metrics
 				if err != nil {
 					if errors.Is(err, nats.ErrTimeout) {
 						continue
+					} else if errors.Is(err, nats.ErrNoResponders) {
+						// This could be a dongle reconnecting
+						time.Sleep(1 * time.Second)
+						continue
 					} else {
 						return apimodels.RPCResponse{}, err
 					}
