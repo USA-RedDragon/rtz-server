@@ -37,25 +37,36 @@ func NewCommand(version, commit string) *cobra.Command {
 func run(cmd *cobra.Command, _ []string) error {
 	slog.Info("rtz-server", "version", cmd.Annotations["version"], "commit", cmd.Annotations["commit"])
 
-	config, err := config.LoadConfig(cmd)
+	cfg, err := config.LoadConfig(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
 
-	err = config.Validate()
+	switch cfg.LogLevel {
+	case config.LogLevelDebug:
+		slog.SetLogLoggerLevel(slog.LevelDebug)
+	case config.LogLevelInfo:
+		slog.SetLogLoggerLevel(slog.LevelInfo)
+	case config.LogLevelWarn:
+		slog.SetLogLoggerLevel(slog.LevelWarn)
+	case config.LogLevelError:
+		slog.SetLogLoggerLevel(slog.LevelError)
+	}
+
+	err = cfg.Validate()
 	if err != nil {
 		return fmt.Errorf("config validation failed: %w", err)
 	}
 
 	// Check access to the upload directory
-	err = os.MkdirAll(config.Persistence.Uploads, 0755)
+	err = os.MkdirAll(cfg.Persistence.Uploads, 0755)
 	if err != nil {
 		return fmt.Errorf("failed to create uploads directory: %w", err)
 	}
 
 	var nc *nats.Conn
-	if config.NATS.Enabled {
-		nc, err = nats.Connect(config.NATS.URL, nats.Token(config.NATS.Token))
+	if cfg.NATS.Enabled {
+		nc, err = nats.Connect(cfg.NATS.URL, nats.Token(cfg.NATS.Token))
 		if err != nil {
 			return fmt.Errorf("failed to connect to NATS: %w", err)
 		}
@@ -63,17 +74,17 @@ func run(cmd *cobra.Command, _ []string) error {
 
 	metrics := metrics.NewMetrics()
 
-	db, err := db.MakeDB(config)
+	db, err := db.MakeDB(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to make database: %w", err)
 	}
 	slog.Info("Database connection established")
 
-	logQueue := logparser.NewLogQueue(config, db, metrics)
+	logQueue := logparser.NewLogQueue(cfg, db, metrics)
 	go logQueue.Start()
 
 	slog.Info("Starting HTTP server")
-	server := server.NewServer(config, db, nc, logQueue, metrics)
+	server := server.NewServer(cfg, db, nc, logQueue, metrics)
 	err = server.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start HTTP server: %w", err)
@@ -82,7 +93,7 @@ func run(cmd *cobra.Command, _ []string) error {
 	stop := func(_ os.Signal) {
 		slog.Info("Shutting down")
 
-		if config.NATS.Enabled {
+		if cfg.NATS.Enabled {
 			err := nc.Drain()
 			if err != nil {
 				slog.Error("NATS drain error", "error", err.Error())

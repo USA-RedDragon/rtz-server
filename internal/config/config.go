@@ -20,8 +20,18 @@ type Config struct {
 	JWT                JWT          `json:"jwt"`
 	Mapbox             Mapbox       `json:"mapbox"`
 	NATS               NATS         `json:"nats"`
-	ParallelLogParsers uint         `json:"parallel_log_parsers"`
+	ParallelLogParsers uint         `json:"parallel_log_parsers" yaml:"parallel_log_parsers"`
+	LogLevel           LogLevel     `json:"log_level" yaml:"log_level"`
 }
+
+type LogLevel string
+
+const (
+	LogLevelDebug LogLevel = "debug"
+	LogLevelInfo  LogLevel = "info"
+	LogLevelWarn  LogLevel = "warn"
+	LogLevelError LogLevel = "error"
+)
 
 type NATS struct {
 	Enabled bool   `json:"enabled"`
@@ -177,6 +187,7 @@ var (
 	NATSEnabledKey        = "nats.enabled"
 	NATSURLKey            = "nats.url"
 	NATSTokenKey          = "nats.token"
+	LogLevelKey           = "log_level"
 	ParallelLogParsersKey = "parallel_log_parsers"
 )
 
@@ -196,6 +207,7 @@ const (
 	DefaultAuthGitHubEnabled           = false
 	DefaultAuthGoogleEnabled           = false
 	DefaultAuthCustomEnabled           = false
+	DefaultLogLevel                    = LogLevelInfo
 	DefaultParallelLogParsers          = 4
 )
 
@@ -241,6 +253,7 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool(NATSEnabledKey, DefaultNATSEnabled, "Enable NATS")
 	cmd.Flags().String(NATSURLKey, "", "NATS URL")
 	cmd.Flags().String(NATSTokenKey, "", "NATS token")
+	cmd.Flags().String(LogLevelKey, string(DefaultLogLevel), "Log level")
 	cmd.Flags().Uint(ParallelLogParsersKey, DefaultParallelLogParsers, "Number of parallel log parsers")
 }
 
@@ -261,6 +274,7 @@ var (
 	ErrCustomTokenURLRequired    = errors.New("Custom OAuth token URL is required")
 	ErrCustomUserURLRequired     = errors.New("Custom OAuth user URL is required")
 	ErrParallelLogParsersNotZero = errors.New("Number of parallel log parsers must be greater than zero")
+	ErrInvalidLogLevel           = errors.New("Invalid log level")
 )
 
 func (c *Config) Validate() error {
@@ -311,6 +325,11 @@ func (c *Config) Validate() error {
 	}
 	if c.ParallelLogParsers == 0 {
 		return ErrParallelLogParsersNotZero
+	}
+	switch c.LogLevel {
+	case LogLevelDebug, LogLevelInfo, LogLevelWarn, LogLevelError:
+	default:
+		return ErrInvalidLogLevel
 	}
 
 	return nil
@@ -387,6 +406,9 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 	}
 	if config.ParallelLogParsers == 0 {
 		config.ParallelLogParsers = DefaultParallelLogParsers
+	}
+	if config.LogLevel == "" {
+		config.LogLevel = DefaultLogLevel
 	}
 
 	return &config, nil
@@ -673,6 +695,14 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		if err != nil {
 			return fmt.Errorf("failed to get NATS token: %w", err)
 		}
+	}
+
+	if cmd.Flags().Changed(LogLevelKey) {
+		ll, err := cmd.Flags().GetString(LogLevelKey)
+		if err != nil {
+			return fmt.Errorf("failed to get log level: %w", err)
+		}
+		config.LogLevel = LogLevel(ll)
 	}
 
 	if cmd.Flags().Changed(ParallelLogParsersKey) {
