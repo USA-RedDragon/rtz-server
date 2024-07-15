@@ -155,7 +155,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 
 			dongle.bidiChannel.inbound <- call
 
-			context, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			context, cancel := context.WithTimeout(ctx, 30*time.Second)
 			defer cancel()
 			select {
 			case <-context.Done():
