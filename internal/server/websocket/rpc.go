@@ -74,7 +74,7 @@ func (c *RPCWebsocket) Stop(ctx context.Context) error {
 	return errGrp.Wait()
 }
 
-func (c *RPCWebsocket) Call(nc *nats.Conn, metrics *metrics.Metrics, dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
+func (c *RPCWebsocket) Call(ctx context.Context, nc *nats.Conn, metrics *metrics.Metrics, dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
 	dongle, loaded := c.dongles.Load(dongleID)
 	if !loaded {
 		// Dongle is not here, send to NATS if enabled
@@ -134,7 +134,7 @@ func (c *RPCWebsocket) Call(nc *nats.Conn, metrics *metrics.Metrics, dongleID st
 
 	dongle.bidiChannel.inbound <- call
 
-	context, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	context, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 	select {
 	case <-context.Done():
