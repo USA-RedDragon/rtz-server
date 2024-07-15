@@ -16,7 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/mattn/go-nulltype"
-	"github.com/redis/go-redis/v9"
+	"github.com/nats-io/nats.go"
 	"gorm.io/gorm"
 )
 
@@ -41,15 +41,15 @@ func POSTSetDestination(c *gin.Context) {
 		return
 	}
 
-	maybeRedis, ok := c.Get("redis")
-	if !ok && config.Redis.Enabled {
-		slog.Error("Failed to get redis from context")
+	maybeNats, ok := c.Get("nats")
+	if !ok && config.NATS.Enabled {
+		slog.Error("Failed to get NATS from context")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
-	redis, ok := maybeRedis.(*redis.Client)
+	nats, ok := maybeNats.(*nats.Conn)
 	if !ok {
-		redis = nil
+		nats = nil
 	}
 
 	db, ok := c.MustGet("db").(*gorm.DB)
@@ -84,7 +84,7 @@ func POSTSetDestination(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-		resp, err := rpcCaller.Call(c, redis, metrics, device.DongleID, apimodels.RPCCall{
+		resp, err := rpcCaller.Call(c, nats, metrics, device.DongleID, apimodels.RPCCall{
 			ID:     uuid.String(),
 			Method: "setNavDestination",
 			Params: map[string]any{

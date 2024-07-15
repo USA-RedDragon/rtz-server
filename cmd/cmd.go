@@ -13,7 +13,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/logparser"
 	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	"github.com/USA-RedDragon/rtz-server/internal/server"
-	"github.com/redis/go-redis/v9"
+	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
 	"github.com/ztrue/shutdown"
 	"golang.org/x/sync/errgroup"
@@ -54,10 +54,13 @@ func run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("failed to create uploads directory: %w", err)
 	}
 
-	var redis *redis.Client
-	if config.Redis.Enabled {
-		redis = connectRedis(config)
-		defer redis.Close()
+	var nc *nats.Conn
+	if config.NATS.Enabled {
+		nc, err = nats.Connect(config.NATS.URL, nats.Token(config.NATS.Token))
+		if err != nil {
+			return fmt.Errorf("failed to connect to NATS: %w", err)
+		}
+		defer nc.Drain()
 	}
 
 	metrics := metrics.NewMetrics()
@@ -74,7 +77,7 @@ func run(cmd *cobra.Command, _ []string) error {
 	slog.Info("Starting HTTP server")
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	server := server.NewServer(ctx, config, db, redis, logQueue, metrics)
+	server := server.NewServer(ctx, config, db, nc, logQueue, metrics)
 	err = server.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start HTTP server: %w", err)
@@ -117,23 +120,4 @@ func run(cmd *cobra.Command, _ []string) error {
 	}
 
 	return nil
-}
-
-func connectRedis(config *config.Config) *redis.Client {
-	if config.Redis.Sentinel.Enabled {
-		return redis.NewFailoverClient(&redis.FailoverOptions{
-			MasterName:       config.Redis.Sentinel.MasterName,
-			SentinelAddrs:    config.Redis.Sentinel.Addresses,
-			SentinelPassword: config.Redis.Sentinel.Password,
-			Password:         config.Redis.Password,
-			Username:         config.Redis.Username,
-			DB:               config.Redis.Database,
-		})
-	}
-	return redis.NewClient(&redis.Options{
-		Addr:     config.Redis.Address,
-		Username: config.Redis.Username,
-		Password: config.Redis.Password,
-		DB:       config.Redis.Database,
-	})
 }

@@ -68,22 +68,13 @@ persistence:
   # Path where upload files are stored
   uploads: 'uploads/'
 
-# Redis MUST BE configured if you are going to run multiple instances of the server
+# NATS MUST BE configured if you are going to run multiple instances of the server
 # or use blue/green deployments, otherwise websockets will only work for users
 # if they happen to hit the same instance where the device has a websocket connection.
-redis:
+nats:
   enabled: false
-  sentinel:
-    enabled: false
-    addresses:
-    - 'localhost:26379'
-    master_name: 'mymaster'
-    username: ''
-    password: ''
-  address: 'localhost:6379'
-  username: ''
-  password: ''
-  database: 0
+  token: ''
+  url: 'nats://localhost:4222'
 
 # User registration configuration
 registration:

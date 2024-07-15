@@ -19,17 +19,14 @@ type Config struct {
 	Auth               Auth         `json:"auth"`
 	JWT                JWT          `json:"jwt"`
 	Mapbox             Mapbox       `json:"mapbox"`
-	Redis              Redis        `json:"redis"`
+	NATS               NATS         `json:"nats"`
 	ParallelLogParsers uint         `json:"parallel_log_parsers"`
 }
 
-type Redis struct {
-	Enabled  bool     `json:"enabled"`
-	Sentinel Sentinel `json:"sentinel"`
-	Address  string   `json:"address"`
-	Username string   `json:"username"`
-	Password string   `json:"password"`
-	Database int      `json:"database"`
+type NATS struct {
+	Enabled bool   `json:"enabled"`
+	URL     string `json:"url"`
+	Token   string `json:"token"`
 }
 
 type Sentinel struct {
@@ -172,22 +169,15 @@ var (
 	//nolint:golint,gosec
 	AuthCustomClientSecretKey = "auth.custom.client_secret"
 	//nolint:golint,gosec
-	AuthCustomTokenURLKey      = "auth.custom.token_url"
-	AuthCustomUserURLKey       = "auth.custom.user_url"
-	JWTSecretKey               = "jwt.secret"
-	MapboxPublicTokenKey       = "mapbox.public_token"
-	MapboxSecretTokenKey       = "mapbox.secret_token"
-	RedisEnabledKey            = "redis.enabled"
-	RedisSentinelEnabledKey    = "redis.sentinel.enabled"
-	RedisSentinelMasterNameKey = "redis.sentinel.master_name"
-	RedisSentinelAddressesKey  = "redis.sentinel.addresses"
-	RedisSentinelPasswordKey   = "redis.sentinel.password"
-	RedisSentinelUsernameKey   = "redis.sentinel.username"
-	RedisAddressKey            = "redis.address"
-	RedisUsernameKey           = "redis.username"
-	RedisPasswordKey           = "redis.password"
-	RedisDatabaseKey           = "redis.database"
-	ParallelLogParsersKey      = "parallel_log_parsers"
+	AuthCustomTokenURLKey = "auth.custom.token_url"
+	AuthCustomUserURLKey  = "auth.custom.user_url"
+	JWTSecretKey          = "jwt.secret"
+	MapboxPublicTokenKey  = "mapbox.public_token"
+	MapboxSecretTokenKey  = "mapbox.secret_token"
+	NATSEnabledKey        = "nats.enabled"
+	NATSURLKey            = "nats.url"
+	NATSTokenKey          = "nats.token"
+	ParallelLogParsersKey = "parallel_log_parsers"
 )
 
 const (
@@ -202,7 +192,7 @@ const (
 	DefaultPersistenceDatabaseDatabase = "rtz.db"
 	DefaultPersistenceUploads          = "uploads/"
 	DefaultRegistrationEnabled         = false
-	DefaultRedisEnabled                = false
+	DefaultNATSEnabled                 = false
 	DefaultAuthGitHubEnabled           = false
 	DefaultAuthGoogleEnabled           = false
 	DefaultAuthCustomEnabled           = false
@@ -248,38 +238,29 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(JWTSecretKey, "", "JWT signing secret")
 	cmd.Flags().String(MapboxPublicTokenKey, "", "Mapbox public token")
 	cmd.Flags().String(MapboxSecretTokenKey, "", "Mapbox secret token")
-	cmd.Flags().Bool(RedisEnabledKey, DefaultRedisEnabled, "Enable Redis")
-	cmd.Flags().Bool(RedisSentinelEnabledKey, false, "Enable Redis Sentinel")
-	cmd.Flags().String(RedisSentinelMasterNameKey, "", "Redis Sentinel master name")
-	cmd.Flags().StringSlice(RedisSentinelAddressesKey, []string{}, "Comma-separated list of Redis Sentinel hosts")
-	cmd.Flags().String(RedisSentinelPasswordKey, "", "Redis Sentinel password")
-	cmd.Flags().String(RedisSentinelUsernameKey, "", "Redis Sentinel username")
-	cmd.Flags().String(RedisAddressKey, "", "Redis host")
-	cmd.Flags().String(RedisUsernameKey, "", "Redis username")
-	cmd.Flags().String(RedisPasswordKey, "", "Redis password")
-	cmd.Flags().Int(RedisDatabaseKey, 0, "Redis DB")
+	cmd.Flags().Bool(NATSEnabledKey, DefaultNATSEnabled, "Enable NATS")
+	cmd.Flags().String(NATSURLKey, "", "NATS URL")
+	cmd.Flags().String(NATSTokenKey, "", "NATS token")
 	cmd.Flags().Uint(ParallelLogParsersKey, DefaultParallelLogParsers, "Number of parallel log parsers")
 }
 
 var (
-	ErrJWTSecretRequired           = errors.New("JWT secret is required")
-	ErrBackendURLRequired          = errors.New("Backend URL is required")
-	ErrFrontendURLRequired         = errors.New("Frontend URL is required")
-	ErrOTLPEndpointRequired        = errors.New("OTLP endpoint is required when tracing is enabled")
-	ErrMapboxPublicTokenRequired   = errors.New("Mapbox public token is required")
-	ErrMapboxSecretTokenRequired   = errors.New("Mapbox secret token is required")
-	ErrDBHostRequired              = errors.New("Database host is required")
-	ErrDBDatabaseRequired          = errors.New("Database name is required")
-	ErrDatabaseDriverRequired      = errors.New("Database driver is required")
-	ErrRedisHostRequired           = errors.New("Redis host is required")
-	ErrRedisSentinelMasterRequired = errors.New("Redis Sentinel master is required")
-	ErrRedisSentinelHostsRequired  = errors.New("Redis Sentinel hosts are required")
-	ErrGitHubOAuthRequired         = errors.New("GitHub OAuth client ID and secret are required")
-	ErrGoogleOAuthRequired         = errors.New("Google OAuth client ID and secret are required")
-	ErrCustomOAuthRequired         = errors.New("Custom OAuth client ID and secret are required")
-	ErrCustomTokenURLRequired      = errors.New("Custom OAuth token URL is required")
-	ErrCustomUserURLRequired       = errors.New("Custom OAuth user URL is required")
-	ErrParallelLogParsersNotZero   = errors.New("Number of parallel log parsers must be greater than zero")
+	ErrJWTSecretRequired         = errors.New("JWT secret is required")
+	ErrBackendURLRequired        = errors.New("Backend URL is required")
+	ErrFrontendURLRequired       = errors.New("Frontend URL is required")
+	ErrOTLPEndpointRequired      = errors.New("OTLP endpoint is required when tracing is enabled")
+	ErrMapboxPublicTokenRequired = errors.New("Mapbox public token is required")
+	ErrMapboxSecretTokenRequired = errors.New("Mapbox secret token is required")
+	ErrDBHostRequired            = errors.New("Database host is required")
+	ErrDBDatabaseRequired        = errors.New("Database name is required")
+	ErrDatabaseDriverRequired    = errors.New("Database driver is required")
+	ErrNATSURLRequired           = errors.New("NATS URL is required")
+	ErrGitHubOAuthRequired       = errors.New("GitHub OAuth client ID and secret are required")
+	ErrGoogleOAuthRequired       = errors.New("Google OAuth client ID and secret are required")
+	ErrCustomOAuthRequired       = errors.New("Custom OAuth client ID and secret are required")
+	ErrCustomTokenURLRequired    = errors.New("Custom OAuth token URL is required")
+	ErrCustomUserURLRequired     = errors.New("Custom OAuth user URL is required")
+	ErrParallelLogParsersNotZero = errors.New("Number of parallel log parsers must be greater than zero")
 )
 
 func (c *Config) Validate() error {
@@ -310,14 +291,8 @@ func (c *Config) Validate() error {
 	if c.Persistence.Database.Database == "" {
 		return ErrDBDatabaseRequired
 	}
-	if c.Redis.Enabled && !c.Redis.Sentinel.Enabled && c.Redis.Address == "" {
-		return ErrRedisHostRequired
-	}
-	if c.Redis.Enabled && c.Redis.Sentinel.Enabled && c.Redis.Sentinel.MasterName == "" {
-		return ErrRedisSentinelMasterRequired
-	}
-	if c.Redis.Enabled && c.Redis.Sentinel.Enabled && len(c.Redis.Sentinel.Addresses) == 0 {
-		return ErrRedisSentinelHostsRequired
+	if c.NATS.Enabled && c.NATS.URL == "" {
+		return ErrNATSURLRequired
 	}
 	if c.Auth.GitHub.Enabled && (c.Auth.GitHub.ClientID == "" || c.Auth.GitHub.ClientSecret == "") {
 		return ErrGitHubOAuthRequired
@@ -679,73 +654,24 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		}
 	}
 
-	if cmd.Flags().Changed(RedisEnabledKey) {
-		config.Redis.Enabled, err = cmd.Flags().GetBool(RedisEnabledKey)
+	if cmd.Flags().Changed(NATSEnabledKey) {
+		config.NATS.Enabled, err = cmd.Flags().GetBool(NATSEnabledKey)
 		if err != nil {
-			return fmt.Errorf("failed to get Redis enabled: %w", err)
+			return fmt.Errorf("failed to get NATS enabled: %w", err)
 		}
 	}
 
-	if cmd.Flags().Changed(RedisSentinelEnabledKey) {
-		config.Redis.Sentinel.Enabled, err = cmd.Flags().GetBool(RedisSentinelEnabledKey)
+	if cmd.Flags().Changed(NATSURLKey) {
+		config.NATS.URL, err = cmd.Flags().GetString(NATSURLKey)
 		if err != nil {
-			return fmt.Errorf("failed to get Redis Sentinel enabled: %w", err)
+			return fmt.Errorf("failed to get NATS URL: %w", err)
 		}
 	}
 
-	if cmd.Flags().Changed(RedisSentinelMasterNameKey) {
-		config.Redis.Sentinel.MasterName, err = cmd.Flags().GetString(RedisSentinelMasterNameKey)
+	if cmd.Flags().Changed(NATSTokenKey) {
+		config.NATS.Token, err = cmd.Flags().GetString(NATSTokenKey)
 		if err != nil {
-			return fmt.Errorf("failed to get Redis Sentinel master: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(RedisSentinelAddressesKey) {
-		config.Redis.Sentinel.Addresses, err = cmd.Flags().GetStringSlice(RedisSentinelAddressesKey)
-		if err != nil {
-			return fmt.Errorf("failed to get Redis Sentinel hosts: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(RedisSentinelPasswordKey) {
-		config.Redis.Sentinel.Password, err = cmd.Flags().GetString(RedisSentinelPasswordKey)
-		if err != nil {
-			return fmt.Errorf("failed to get Redis Sentinel password: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(RedisSentinelUsernameKey) {
-		config.Redis.Sentinel.Username, err = cmd.Flags().GetString(RedisSentinelUsernameKey)
-		if err != nil {
-			return fmt.Errorf("failed to get Redis Sentinel username: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(RedisAddressKey) {
-		config.Redis.Address, err = cmd.Flags().GetString(RedisAddressKey)
-		if err != nil {
-			return fmt.Errorf("failed to get Redis host: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(RedisUsernameKey) {
-		config.Redis.Username, err = cmd.Flags().GetString(RedisUsernameKey)
-		if err != nil {
-			return fmt.Errorf("failed to get Redis username: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(RedisPasswordKey) {
-		config.Redis.Password, err = cmd.Flags().GetString(RedisPasswordKey)
-		if err != nil {
-			return fmt.Errorf("failed to get Redis password: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(RedisDatabaseKey) {
-		config.Redis.Database, err = cmd.Flags().GetInt(RedisDatabaseKey)
-		if err != nil {
-			return fmt.Errorf("failed to get Redis DB: %w", err)
+			return fmt.Errorf("failed to get NATS token: %w", err)
 		}
 	}
 

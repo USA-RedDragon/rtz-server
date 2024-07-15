@@ -156,16 +156,9 @@ func TestEnvConfig(t *testing.T) {
 	t.Setenv("AUTH__CUSTOM__CLIENT_SECRET", "customsecret")
 	t.Setenv("AUTH__CUSTOM__TOKEN_URL", "http://localhost:8081")
 	t.Setenv("AUTH__CUSTOM__USER_URL", "http://localhost:8082")
-	t.Setenv("REDIS__ENABLED", "true")
-	t.Setenv("REDIS__ADDRESS", "localhost:6379")
-	t.Setenv("REDIS__USERNAME", "user123")
-	t.Setenv("REDIS__PASSWORD", "password")
-	t.Setenv("REDIS__DATABASE", "0")
-	t.Setenv("REDIS__SENTINEL__ENABLED", "true")
-	t.Setenv("REDIS__SENTINEL__ADDRESSES", "localhost:26379,localhost:26380")
-	t.Setenv("REDIS__SENTINEL__MASTER_NAME", "master")
-	t.Setenv("REDIS__SENTINEL__USERNAME", "user")
-	t.Setenv("REDIS__SENTINEL__PASSWORD", "password")
+	t.Setenv("NATS__ENABLED", "true")
+	t.Setenv("NATS__URL", "nats://localhost:4444")
+	t.Setenv("NATS__TOKEN", "nats")
 
 	config, err := config.LoadConfig(cmd)
 	if err != nil {
@@ -282,40 +275,13 @@ func TestEnvConfig(t *testing.T) {
 	if !config.Auth.Google.Enabled {
 		t.Error("unexpected Google enabled")
 	}
-	if !config.Redis.Enabled {
-		t.Error("unexpected Redis enabled")
+	if !config.NATS.Enabled {
+		t.Error("unexpected NATS enabled")
 	}
-	if config.Redis.Address != "localhost:6379" {
-		t.Errorf("unexpected Redis address: %s", config.Redis.Address)
+	if config.NATS.URL != "nats://localhost:4444" {
+		t.Errorf("unexpected NATS URL: %s", config.NATS.URL)
 	}
-	if config.Redis.Username != "user123" {
-		t.Errorf("unexpected Redis username: %s", config.Redis.Username)
-	}
-	if config.Redis.Password != "password" {
-		t.Errorf("unexpected Redis password: %s", config.Redis.Password)
-	}
-	if config.Redis.Database != 0 {
-		t.Errorf("unexpected Redis database: %d", config.Redis.Database)
-	}
-	if !config.Redis.Sentinel.Enabled {
-		t.Error("unexpected Redis sentinel enabled")
-	}
-	if len(config.Redis.Sentinel.Addresses) != 2 {
-		t.Errorf("unexpected Redis sentinel hosts: %v", config.Redis.Sentinel.Addresses)
-	}
-	if config.Redis.Sentinel.Addresses[0] != "localhost:26379" {
-		t.Errorf("unexpected Redis sentinel host: %s", config.Redis.Sentinel.Addresses[0])
-	}
-	if config.Redis.Sentinel.Addresses[1] != "localhost:26380" {
-		t.Errorf("unexpected Redis sentinel host: %s", config.Redis.Sentinel.Addresses[1])
-	}
-	if config.Redis.Sentinel.MasterName != "master" {
-		t.Errorf("unexpected Redis sentinel master: %s", config.Redis.Sentinel.MasterName)
-	}
-	if config.Redis.Sentinel.Username != "user" {
-		t.Errorf("unexpected Redis sentinel username: %s", config.Redis.Sentinel.Username)
-	}
-	if config.Redis.Sentinel.Password != "password" {
-		t.Errorf("unexpected Redis sentinel password: %s", config.Redis.Sentinel.Password)
+	if config.NATS.Token != "nats" {
+		t.Errorf("unexpected NATS token: %s", config.NATS.Token)
 	}
 }

@@ -12,15 +12,15 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"github.com/redis/go-redis/v9"
+	"github.com/nats-io/nats.go"
 	"gorm.io/gorm"
 )
 
 const bufferSize = 1024
 
 type Websocket interface {
-	OnMessage(ctx context.Context, r *http.Request, w Writer, msg []byte, t int, device *models.Device, db *gorm.DB, redis *redis.Client, metrics *metrics.Metrics)
-	OnConnect(ctx context.Context, r *http.Request, w Writer, device *models.Device, db *gorm.DB, redis *redis.Client, metrics *metrics.Metrics, conn *websocket.Conn)
+	OnMessage(ctx context.Context, r *http.Request, w Writer, msg []byte, t int, device *models.Device, db *gorm.DB, nats *nats.Conn, metrics *metrics.Metrics)
+	OnConnect(ctx context.Context, r *http.Request, w Writer, device *models.Device, db *gorm.DB, nats *nats.Conn, metrics *metrics.Metrics, conn *websocket.Conn)
 	OnDisconnect(ctx context.Context, r *http.Request, device *models.Device, db *gorm.DB, metrics *metrics.Metrics)
 }
 
@@ -69,15 +69,15 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
 			return
 		}
-		maybeRedis, ok := c.Get("redis")
-		if !ok && config.Redis.Enabled {
-			slog.Error("Failed to get redis from context")
+		maybeNats, ok := c.Get("nats")
+		if !ok && config.NATS.Enabled {
+			slog.Error("Failed to get NATS from context")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-		redis, ok := maybeRedis.(*redis.Client)
+		nats, ok := maybeNats.(*nats.Conn)
 		if !ok {
-			redis = nil
+			nats = nil
 		}
 		db, ok := c.MustGet("db").(*gorm.DB)
 		if !ok {
@@ -115,11 +115,11 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 			return nil
 		})
 
-		handler.handle(c.Request.Context(), c.Request, &device, db, redis, metrics)
+		handler.handle(c.Request.Context(), c.Request, &device, db, nats, metrics)
 	}
 }
 
-func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.Device, db *gorm.DB, redis *redis.Client, metrics *metrics.Metrics) {
+func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.Device, db *gorm.DB, nats *nats.Conn, metrics *metrics.Metrics) {
 	defer func() {
 		h.handler.OnDisconnect(c, r, device, db, metrics)
 		_ = h.conn.Close()
@@ -129,7 +129,7 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 		error:  make(chan string),
 	}
 
-	h.handler.OnConnect(c, r, writer, device, db, redis, metrics, h.conn)
+	h.handler.OnConnect(c, r, writer, device, db, nats, metrics, h.conn)
 
 	go func() {
 		for {
@@ -158,6 +158,6 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 		if err != nil {
 			break
 		}
-		go h.handler.OnMessage(c, r, writer, msg, t, device, db, redis, metrics)
+		go h.handler.OnMessage(c, r, writer, msg, t, device, db, nats, metrics)
 	}
 }

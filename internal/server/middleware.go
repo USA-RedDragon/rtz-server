@@ -19,7 +19,7 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/redis/go-redis/v9"
+	"github.com/nats-io/nats.go"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -39,7 +39,7 @@ func applyMiddleware(
 	otelComponent string,
 	db *gorm.DB,
 	rpcWebsocket *websocketControllers.RPCWebsocket,
-	redis *redis.Client,
+	nats *nats.Conn,
 	logQueue *logparser.LogQueue,
 	metrics *metrics.Metrics) {
 	r.Use(gin.Recovery())
@@ -64,7 +64,7 @@ func applyMiddleware(
 
 	r.Use(rpcSocketMiddleware(rpcWebsocket))
 	r.Use(dbMiddleware(db))
-	r.Use(redisMiddleware(redis))
+	r.Use(natsMiddleware(nats))
 	r.Use(configMiddleware(config))
 	r.Use(logQueueMiddleware(logQueue))
 	r.Use(metricsMiddleware(metrics))
@@ -119,9 +119,9 @@ func dbMiddleware(db *gorm.DB) gin.HandlerFunc {
 	}
 }
 
-func redisMiddleware(redis *redis.Client) gin.HandlerFunc {
+func natsMiddleware(nats *nats.Conn) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Set("redis", redis)
+		c.Set("nats", nats)
 		c.Next()
 	}
 }

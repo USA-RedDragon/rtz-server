@@ -18,8 +18,8 @@ import (
 	websocketControllers "github.com/USA-RedDragon/rtz-server/internal/server/websocket"
 	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/gin"
+	"github.com/nats-io/nats.go"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 )
@@ -47,7 +47,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.Engine.ServeHTTP(w, req)
 }
 
-func NewServer(ctx context.Context, config *config.Config, db *gorm.DB, redis *redis.Client, logQueue *logparser.LogQueue, metrics *metrics.Metrics) *Server {
+func NewServer(ctx context.Context, config *config.Config, db *gorm.DB, nats *nats.Conn, logQueue *logparser.LogQueue, metrics *metrics.Metrics) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	if config.HTTP.PProf.Enabled {
 		gin.SetMode(gin.DebugMode)
@@ -67,8 +67,8 @@ func NewServer(ctx context.Context, config *config.Config, db *gorm.DB, redis *r
 
 	writeTimeout := defTimeout
 
-	rpcWebsocket := websocketControllers.CreateRPCWebsocket(ctx, redis, metrics)
-	applyMiddleware(r, config, "api", db, rpcWebsocket, redis, logQueue, metrics)
+	rpcWebsocket := websocketControllers.CreateRPCWebsocket(ctx, config, nats, metrics)
+	applyMiddleware(r, config, "api", db, rpcWebsocket, nats, logQueue, metrics)
 	applyRoutes(r, config, rpcWebsocket)
 
 	var metricsIPV4Server *http.Server
@@ -76,7 +76,7 @@ func NewServer(ctx context.Context, config *config.Config, db *gorm.DB, redis *r
 
 	if config.HTTP.Metrics.Enabled {
 		metricsRouter := gin.New()
-		applyMiddleware(metricsRouter, config, "metrics", db, rpcWebsocket, redis, logQueue, metrics)
+		applyMiddleware(metricsRouter, config, "metrics", db, rpcWebsocket, nats, logQueue, metrics)
 
 		metricsRouter.GET("/metrics", gin.WrapH(promhttp.Handler()))
 		metricsIPV4Server = &http.Server{

@@ -18,7 +18,7 @@ An implementation of the Comma.ai API service for self-hosted folks. Pronounced 
 - Not paid, only self-hosting costs
 - Same frontend/PWA you're used to (Connect's frontend is open-source, thanks Comma!)
 - Doesn't store emails
-- Optional high availability (HA) setup with Redis
+- Optional high availability (HA) setup with NATS
 
 ## Emulated Services
 

@@ -9,13 +9,14 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/USA-RedDragon/rtz-server/internal/config"
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	"github.com/USA-RedDragon/rtz-server/internal/server/apimodels"
 	"github.com/USA-RedDragon/rtz-server/internal/websocket"
 	gorillaWebsocket "github.com/gorilla/websocket"
+	"github.com/nats-io/nats.go"
 	"github.com/puzpuzpuz/xsync/v3"
-	"github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 )
@@ -34,20 +35,22 @@ type dongle struct {
 	bidiChannel    *bidiChannel
 	channelWatcher *channelWatcher
 	conn           *gorillaWebsocket.Conn
+	natsSub        *nats.Subscription
 }
 
 type RPCWebsocket struct {
 	websocket.Websocket
 	dongles *xsync.MapOf[string, *dongle]
 	metrics *metrics.Metrics
+	config  *config.Config
 }
 
-func CreateRPCWebsocket(ctx context.Context, redis *redis.Client, metrics *metrics.Metrics) *RPCWebsocket {
+func CreateRPCWebsocket(ctx context.Context, config *config.Config, nats *nats.Conn, metrics *metrics.Metrics) *RPCWebsocket {
 	socket := &RPCWebsocket{
 		dongles: xsync.NewMapOf[string, *dongle](),
 		metrics: metrics,
+		config:  config,
 	}
-	go socket.watchRedis(ctx, redis, metrics)
 	return socket
 }
 
@@ -111,88 +114,32 @@ func (c *RPCWebsocket) Stop(ctx context.Context) error {
 	return errGrp.Wait()
 }
 
-func (c *RPCWebsocket) watchRedis(ctx context.Context, redis *redis.Client, metrics *metrics.Metrics) {
-	if redis == nil {
-		return
-	}
-	sub := redis.Subscribe(ctx, "rpc:call:*")
-	defer sub.Close()
-	subChan := sub.Channel()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case msg := <-subChan:
-			callChannel := msg.Channel
-			deviceID := callChannel[len("rpc:call:"):]
-			device, loaded := c.dongles.Load(deviceID)
-			if !loaded {
-				continue
-			}
-			var call apimodels.RPCCall
-			err := json.Unmarshal([]byte(msg.Payload), &call)
-			if err != nil {
-				metrics.IncrementAthenaErrors(deviceID, "unmarshal_redis_rpc_call")
-				slog.Warn("Error unmarshalling RPC call", "error", err)
-				continue
-			}
-			if device.bidiChannel.open {
-				device.bidiChannel.inbound <- call
-			}
-		}
-	}
-}
-
-func (c *RPCWebsocket) Call(ctx context.Context, redis *redis.Client, metrics *metrics.Metrics, dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
+func (c *RPCWebsocket) Call(ctx context.Context, nats *nats.Conn, metrics *metrics.Metrics, dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
 	dongle, loaded := c.dongles.Load(dongleID)
 	if !loaded {
-		// Dongle is not here, send to redis if enabled
-		if redis != nil {
+		// Dongle is not here, send to NATS if enabled
+		if nats != nil {
 			msg, err := json.Marshal(call)
 			if err != nil {
 				return apimodels.RPCResponse{}, err
 			}
-			sub := redis.Subscribe(ctx, "rpc:response:"+dongleID+":"+call.ID)
-			defer sub.Close()
-			respChannel := make(chan apimodels.RPCResponse)
-			subChan := sub.Channel()
-			tCtx, cancel := context.WithTimeout(ctx, 120*time.Second)
-			defer cancel()
-			go func() {
-				for {
-					select {
-					case <-tCtx.Done():
-						return
-					case msg := <-subChan:
-						var response apimodels.RPCResponse
-						err := json.Unmarshal([]byte(msg.Payload), &response)
-						if err != nil {
-							metrics.IncrementAthenaErrors(dongleID, "unmarshal_redis_rpc_response")
-							slog.Warn("Error unmarshalling RPC response", "error", err)
-							continue
-						}
-						respChannel <- response
-						return
-					}
-				}
-			}()
 
-			ctx, cancel = context.WithTimeout(ctx, 120*time.Second)
-			defer cancel()
-
-			err = redis.Publish(ctx, "rpc:call:"+dongleID, msg).Err()
+			resp, err := nats.Request("rpc:call:"+dongleID, msg, 5*time.Second)
 			if err != nil {
-				metrics.IncrementAthenaErrors(dongleID, "rpc_call_redis_publish")
-				slog.Warn("Error sending RPC to redis", "error", err)
+				metrics.IncrementAthenaErrors(dongleID, "rpc_call_nats_request")
+				slog.Warn("Error sending RPC to NATS", "error", err)
+				return apimodels.RPCResponse{}, err
 			}
 
-			select {
-			case <-ctx.Done():
-				metrics.IncrementAthenaErrors(dongleID, "rpc_call_redis_timeout")
-				return apimodels.RPCResponse{}, fmt.Errorf("timeout")
-			case resp := <-respChannel:
-				return resp, nil
+			var rpcResp apimodels.RPCResponse
+			err = json.Unmarshal(resp.Data, &rpcResp)
+			if err != nil {
+				metrics.IncrementAthenaErrors(dongleID, "rpc_call_nats_unmarshal")
+				slog.Warn("Error unmarshalling RPC response", "error", err)
+				return apimodels.RPCResponse{}, err
 			}
+
+			return rpcResp, nil
 		}
 		return apimodels.RPCResponse{}, ErrNotConnected
 	}
@@ -220,7 +167,7 @@ func (c *RPCWebsocket) Call(ctx context.Context, redis *redis.Client, metrics *m
 	}
 }
 
-func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websocket.Writer, msg []byte, msgType int, device *models.Device, _ *gorm.DB, redis *redis.Client, metrics *metrics.Metrics) {
+func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websocket.Writer, msg []byte, msgType int, device *models.Device, _ *gorm.DB, nats *nats.Conn, metrics *metrics.Metrics) {
 	var rawJSON map[string]interface{}
 	err := json.Unmarshal(msg, &rawJSON)
 	if err != nil {
@@ -246,7 +193,9 @@ func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websock
 		go func() {
 			switch jsonRPC.Method {
 			case "forwardLogs":
+				slog.Debug("RPC: forwardLogs", "device", device.DongleID, "logs", jsonRPC.Params)
 			case "storeStats":
+				slog.Debug("RPC: storeStats", "device", device.DongleID, "stats", jsonRPC.Params)
 			default:
 				metrics.IncrementAthenaErrors(device.DongleID, "unknown_rpc_method")
 				slog.Warn("Unknown RPC method", "method", jsonRPC.Method)
@@ -264,28 +213,6 @@ func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websock
 			}
 		}()
 	} else if _, ok := rawJSON["result"]; ok {
-		// This is a response
-		if redis != nil {
-			// This is a response
-			maybeID, ok := rawJSON["id"]
-			if !ok {
-				metrics.IncrementAthenaErrors(device.DongleID, "rpc_response_bad_id")
-				slog.Warn("Invalid response ID")
-				return
-			}
-			id, ok := maybeID.(string)
-			if !ok {
-				metrics.IncrementAthenaErrors(device.DongleID, "rpc_response_bad_id_cast")
-				slog.Warn("Invalid response ID")
-				return
-			}
-			err := redis.Publish(ctx, "rpc:response:"+device.DongleID+":"+id, msg).Err()
-			if err != nil {
-				metrics.IncrementAthenaErrors(device.DongleID, "rpc_response_redis_publish")
-				slog.Warn("Error sending RPC to redis", "error", err)
-			}
-		}
-
 		jsonRPC := apimodels.RPCResponse{}
 		err := json.Unmarshal(msg, &jsonRPC)
 		if err != nil {
@@ -306,7 +233,7 @@ func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websock
 	}
 }
 
-func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer, device *models.Device, _ *gorm.DB, redis *redis.Client, metrics *metrics.Metrics, conn *gorillaWebsocket.Conn) {
+func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer, device *models.Device, _ *gorm.DB, nc *nats.Conn, metrics *metrics.Metrics, conn *gorillaWebsocket.Conn) {
 	bidi := bidiChannel{
 		open:     true,
 		inbound:  make(chan apimodels.RPCCall),
@@ -320,6 +247,56 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 			subscribers: xsync.NewMapOf[string, func(apimodels.RPCResponse)](),
 		},
 		conn: conn,
+	}
+	if c.config.NATS.Enabled {
+		sub, err := nc.Subscribe("rpc:call:"+device.DongleID, func(msg *nats.Msg) {
+			var call apimodels.RPCCall
+			err := json.Unmarshal([]byte(msg.Data), &call)
+			if err != nil {
+				metrics.IncrementAthenaErrors(device.DongleID, "unmarshal_nats_rpc_call")
+				slog.Warn("Error unmarshalling RPC call", "error", err)
+			}
+
+			responseChan := make(chan apimodels.RPCResponse)
+			defer close(responseChan)
+			dongle.channelWatcher.Subscribe(call.ID, func(response apimodels.RPCResponse) {
+				responseChan <- response
+			})
+
+			if dongle.bidiChannel.open {
+				dongle.bidiChannel.inbound <- call
+			}
+
+			context, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+			defer cancel()
+			select {
+			case <-context.Done():
+				metrics.IncrementAthenaErrors(device.DongleID, "rpc_call_timeout")
+				err := msg.NakWithDelay(2 * time.Second)
+				if err != nil {
+					metrics.IncrementAthenaErrors(device.DongleID, "nats_rpc_nak")
+					slog.Warn("Error sending NAK to NATS", "error", err)
+				}
+			case resp := <-responseChan:
+				jsonData, err := json.Marshal(resp)
+				if err != nil {
+					metrics.IncrementAthenaErrors(device.DongleID, "marshal_rpc_response")
+					slog.Warn("Error marshalling response data:", "error", err)
+					msg.NakWithDelay(2 * time.Second)
+				}
+				err = msg.Respond(jsonData)
+				if err != nil {
+					metrics.IncrementAthenaErrors(device.DongleID, "nats_rpc_respond")
+					slog.Warn("Error responding to NATS", "error", err)
+				}
+			}
+		})
+		if err != nil {
+			metrics.IncrementAthenaErrors(device.DongleID, "nats_rpc_subscribe")
+			slog.Warn("Error subscribing to NATS", "error", err)
+			return
+		}
+		dongle.natsSub = sub
 	}
 	go dongle.channelWatcher.WatchChannel()
 	c.dongles.Store(device.DongleID, &dongle)
@@ -350,11 +327,17 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 	}()
 }
 
-func (c *RPCWebsocket) OnDisconnect(_ context.Context, _ *http.Request, device *models.Device, _ *gorm.DB, metrics *metrics.Metrics) {
+func (c *RPCWebsocket) OnDisconnect(ctx context.Context, _ *http.Request, device *models.Device, _ *gorm.DB, metrics *metrics.Metrics) {
 	metrics.DecrementAthenaConnections(device.DongleID)
 	dongle, loaded := c.dongles.LoadAndDelete(device.DongleID)
 	if !loaded {
 		return
+	}
+	if c.config.NATS.Enabled {
+		err := dongle.natsSub.Unsubscribe()
+		if err != nil {
+			slog.Warn("Error unsubscribing from NATS", "error", err)
+		}
 	}
 	dongle.bidiChannel.open = false
 	close(dongle.bidiChannel.inbound)
