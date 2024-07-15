@@ -31,6 +31,7 @@ type Server struct {
 	metricsIPV6Server *http.Server
 	stopped           atomic.Bool
 	config            *config.Config
+	rpcWebsocket      *websocketControllers.RPCWebsocket
 }
 
 const defTimeout = 120 * time.Second
@@ -46,7 +47,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.Engine.ServeHTTP(w, req)
 }
 
-func NewServer(config *config.Config, db *gorm.DB, redis *redis.Client, logQueue *logparser.LogQueue, metrics *metrics.Metrics) *Server {
+func NewServer(ctx context.Context, config *config.Config, db *gorm.DB, redis *redis.Client, logQueue *logparser.LogQueue, metrics *metrics.Metrics) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	if config.HTTP.PProf.Enabled {
 		gin.SetMode(gin.DebugMode)
@@ -66,7 +67,7 @@ func NewServer(config *config.Config, db *gorm.DB, redis *redis.Client, logQueue
 
 	writeTimeout := defTimeout
 
-	rpcWebsocket := websocketControllers.CreateRPCWebsocket()
+	rpcWebsocket := websocketControllers.CreateRPCWebsocket(ctx, redis, metrics)
 	applyMiddleware(r, config, "api", db, rpcWebsocket, redis, logQueue, metrics)
 	applyRoutes(r, config, rpcWebsocket)
 
@@ -108,6 +109,7 @@ func NewServer(config *config.Config, db *gorm.DB, redis *redis.Client, logQueue
 		metricsIPV4Server: metricsIPV4Server,
 		metricsIPV6Server: metricsIPV6Server,
 		config:            config,
+		rpcWebsocket:      rpcWebsocket,
 	}
 }
 
@@ -186,6 +188,11 @@ func (s *Server) Stop() error {
 	s.stopped.Store(true)
 
 	errGrp := errgroup.Group{}
+	if s.rpcWebsocket != nil {
+		errGrp.Go(func() error {
+			return s.rpcWebsocket.Stop(ctx)
+		})
+	}
 	if s.ipv4Server != nil {
 		errGrp.Go(func() error {
 			return s.ipv4Server.Shutdown(ctx)

@@ -16,6 +16,7 @@ import (
 	gorillaWebsocket "github.com/gorilla/websocket"
 	"github.com/puzpuzpuz/xsync/v3"
 	"github.com/redis/go-redis/v9"
+	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 )
 
@@ -32,43 +33,22 @@ type bidiChannel struct {
 type dongle struct {
 	bidiChannel    *bidiChannel
 	channelWatcher *channelWatcher
-}
-
-func (d *dongle) watchRedis(ctx context.Context, redis *redis.Client, device *models.Device, metrics *metrics.Metrics) {
-	if redis == nil {
-		return
-	}
-	sub := redis.Subscribe(ctx, "rpc:call:"+device.DongleID)
-	defer sub.Close()
-	subChan := sub.Channel()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case msg := <-subChan:
-			var call apimodels.RPCCall
-			err := json.Unmarshal([]byte(msg.Payload), &call)
-			if err != nil {
-				metrics.IncrementAthenaErrors(device.DongleID, "unmarshal_redis_rpc_call")
-				slog.Warn("Error unmarshalling RPC call", "error", err)
-				continue
-			}
-			if d.bidiChannel.open {
-				d.bidiChannel.inbound <- call
-			}
-		}
-	}
+	conn           *gorillaWebsocket.Conn
 }
 
 type RPCWebsocket struct {
 	websocket.Websocket
 	dongles *xsync.MapOf[string, *dongle]
+	metrics *metrics.Metrics
 }
 
-func CreateRPCWebsocket() *RPCWebsocket {
-	return &RPCWebsocket{
+func CreateRPCWebsocket(ctx context.Context, redis *redis.Client, metrics *metrics.Metrics) *RPCWebsocket {
+	socket := &RPCWebsocket{
 		dongles: xsync.NewMapOf[string, *dongle](),
+		metrics: metrics,
 	}
+	go socket.watchRedis(ctx, redis, metrics)
+	return socket
 }
 
 type channelWatcher struct {
@@ -93,6 +73,67 @@ func (cw *channelWatcher) WatchChannel() {
 
 func (cw *channelWatcher) Subscribe(callID string, subscriber func(apimodels.RPCResponse)) {
 	cw.subscribers.Store(callID, subscriber)
+}
+
+func (c *RPCWebsocket) Stop(ctx context.Context) error {
+	errGrp := errgroup.Group{}
+
+	c.dongles.Range(func(key string, value *dongle) bool {
+		errGrp.Go(func() error {
+			c.metrics.DecrementAthenaConnections(key)
+			// Close the socket
+			err := value.conn.WriteControl(
+				gorillaWebsocket.CloseMessage,
+				gorillaWebsocket.FormatCloseMessage(gorillaWebsocket.CloseServiceRestart, "Server is restarting"),
+				time.Now().Add(5*time.Second))
+			if err != nil {
+				slog.Warn("Error sending close message to websocket", "error", err)
+				return err
+			}
+
+			value.bidiChannel.open = false
+			close(value.bidiChannel.inbound)
+			close(value.bidiChannel.outbound)
+			return value.conn.Close()
+		})
+		return true
+	})
+
+	return errGrp.Wait()
+}
+
+func (c *RPCWebsocket) watchRedis(ctx context.Context, redis *redis.Client, metrics *metrics.Metrics) {
+	if redis == nil {
+		return
+	}
+	sub := redis.Subscribe(ctx, "rpc:call:*")
+	defer sub.Close()
+	subChan := sub.Channel()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case msg := <-subChan:
+			callChannel := msg.Channel
+			deviceID := callChannel[len("rpc:call:"):]
+			device, loaded := c.dongles.Load(deviceID)
+			if !loaded {
+				// Push it back onto the channel
+				redis.Publish(ctx, callChannel, msg.Payload)
+				continue
+			}
+			var call apimodels.RPCCall
+			err := json.Unmarshal([]byte(msg.Payload), &call)
+			if err != nil {
+				metrics.IncrementAthenaErrors(deviceID, "unmarshal_redis_rpc_call")
+				slog.Warn("Error unmarshalling RPC call", "error", err)
+				continue
+			}
+			if device.bidiChannel.open {
+				device.bidiChannel.inbound <- call
+			}
+		}
+	}
 }
 
 func (c *RPCWebsocket) Call(ctx context.Context, redis *redis.Client, metrics *metrics.Metrics, dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
@@ -258,7 +299,7 @@ func (c *RPCWebsocket) OnMessage(ctx context.Context, _ *http.Request, _ websock
 	}
 }
 
-func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer, device *models.Device, _ *gorm.DB, redis *redis.Client, metrics *metrics.Metrics) {
+func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer, device *models.Device, _ *gorm.DB, redis *redis.Client, metrics *metrics.Metrics, conn *gorillaWebsocket.Conn) {
 	bidi := bidiChannel{
 		open:     true,
 		inbound:  make(chan apimodels.RPCCall),
@@ -271,9 +312,9 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 			ch:          bidi.outbound,
 			subscribers: xsync.NewMapOf[string, func(apimodels.RPCResponse)](),
 		},
+		conn: conn,
 	}
 	go dongle.channelWatcher.WatchChannel()
-	go dongle.watchRedis(ctx, redis, device, metrics)
 	c.dongles.Store(device.DongleID, &dongle)
 	metrics.IncrementAthenaConnections(device.DongleID)
 

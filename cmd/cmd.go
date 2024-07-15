@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -71,7 +72,9 @@ func run(cmd *cobra.Command, _ []string) error {
 	go logQueue.Start()
 
 	slog.Info("Starting HTTP server")
-	server := server.NewServer(config, db, redis, logQueue, metrics)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	server := server.NewServer(ctx, config, db, redis, logQueue, metrics)
 	err = server.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start HTTP server: %w", err)

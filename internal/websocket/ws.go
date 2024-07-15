@@ -20,7 +20,7 @@ const bufferSize = 1024
 
 type Websocket interface {
 	OnMessage(ctx context.Context, r *http.Request, w Writer, msg []byte, t int, device *models.Device, db *gorm.DB, redis *redis.Client, metrics *metrics.Metrics)
-	OnConnect(ctx context.Context, r *http.Request, w Writer, device *models.Device, db *gorm.DB, redis *redis.Client, metrics *metrics.Metrics)
+	OnConnect(ctx context.Context, r *http.Request, w Writer, device *models.Device, db *gorm.DB, redis *redis.Client, metrics *metrics.Metrics, conn *websocket.Conn)
 	OnDisconnect(ctx context.Context, r *http.Request, device *models.Device, db *gorm.DB, metrics *metrics.Metrics)
 }
 
@@ -129,7 +129,7 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 		error:  make(chan string),
 	}
 
-	h.handler.OnConnect(c, r, writer, device, db, redis, metrics)
+	h.handler.OnConnect(c, r, writer, device, db, redis, metrics, h.conn)
 
 	go func() {
 		for {
