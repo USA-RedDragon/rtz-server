@@ -137,7 +137,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 			if err != nil {
 				metrics.IncrementAthenaErrors(device.DongleID, "unmarshal_nats_rpc_call")
 				slog.Warn("Error unmarshalling RPC call", "error", err)
-				err := msg.Respond(nil)
+				err := msg.Respond([]byte{})
 				if err != nil {
 					metrics.IncrementAthenaErrors(device.DongleID, "nats_rpc_nak")
 					slog.Warn("Error sending NAK to NATS", "error", err)
@@ -152,7 +152,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 			})
 
 			if !dongle.bidiChannel.open {
-				err := msg.Respond(nil)
+				err := msg.Respond([]byte{})
 				if err != nil {
 					metrics.IncrementAthenaErrors(device.DongleID, "nats_rpc_nak")
 					slog.Warn("Error sending NAK to NATS", "error", err)
@@ -167,7 +167,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 			select {
 			case <-context.Done():
 				metrics.IncrementAthenaErrors(device.DongleID, "rpc_call_timeout")
-				err := msg.Respond(nil)
+				err := msg.Respond([]byte{})
 				if err != nil {
 					metrics.IncrementAthenaErrors(device.DongleID, "nats_rpc_nak")
 					slog.Warn("Error sending NAK to NATS", "error", err)
@@ -177,11 +177,12 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 				if err != nil {
 					metrics.IncrementAthenaErrors(device.DongleID, "marshal_rpc_response")
 					slog.Warn("Error marshalling response data:", "error", err)
-					err := msg.Respond(nil)
+					err := msg.Respond([]byte{})
 					if err != nil {
 						metrics.IncrementAthenaErrors(device.DongleID, "nats_rpc_nak")
 						slog.Warn("Error sending NAK to NATS", "error", err)
 					}
+					return
 				}
 				err = msg.Respond(jsonData)
 				if err != nil {
