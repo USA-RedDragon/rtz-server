@@ -127,8 +127,6 @@ func (c *RPCWebsocket) watchRedis(ctx context.Context, redis *redis.Client, metr
 			deviceID := callChannel[len("rpc:call:"):]
 			device, loaded := c.dongles.Load(deviceID)
 			if !loaded {
-				// Push it back onto the channel
-				redis.Publish(ctx, callChannel, msg.Payload)
 				continue
 			}
 			var call apimodels.RPCCall
