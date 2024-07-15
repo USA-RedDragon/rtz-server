@@ -41,9 +41,9 @@ func HandleRPC(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
-	nats, ok := maybeNats.(*nats.Conn)
+	nc, ok := maybeNats.(*nats.Conn)
 	if !ok {
-		nats = nil
+		nc = nil
 	}
 
 	var inboundCall apimodels.InboundRPCCall
@@ -75,9 +75,13 @@ func HandleRPC(c *gin.Context) {
 		JSONRPCVersion: inboundCall.JSONRPCVersion,
 	}
 
-	resp, err := rpcCaller.Call(nats, metrics, dongleID, call)
+	resp, err := rpcCaller.Call(nc, metrics, dongleID, call)
 	if err != nil {
 		if errors.Is(err, websocket.ErrNotConnected) {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Dongle not connected"})
+			return
+		}
+		if errors.Is(err, nats.ErrNoResponders) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Dongle not connected"})
 			return
 		}

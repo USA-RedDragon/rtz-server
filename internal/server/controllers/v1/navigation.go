@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"reflect"
@@ -47,9 +48,9 @@ func POSTSetDestination(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
-	nats, ok := maybeNats.(*nats.Conn)
+	nc, ok := maybeNats.(*nats.Conn)
 	if !ok {
-		nats = nil
+		nc = nil
 	}
 
 	db, ok := c.MustGet("db").(*gorm.DB)
@@ -84,7 +85,7 @@ func POSTSetDestination(c *gin.Context) {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return
 		}
-		resp, err := rpcCaller.Call(nats, metrics, device.DongleID, apimodels.RPCCall{
+		resp, err := rpcCaller.Call(nc, metrics, device.DongleID, apimodels.RPCCall{
 			ID:     uuid.String(),
 			Method: "setNavDestination",
 			Params: map[string]any{
@@ -95,6 +96,14 @@ func POSTSetDestination(c *gin.Context) {
 			},
 		})
 		if err != nil {
+			if errors.Is(err, nats.ErrNoResponders) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Dongle not connected"})
+				return
+			}
+			if errors.Is(err, websocket.ErrNotConnected) {
+				c.JSON(http.StatusNotFound, gin.H{"error": "Dongle not connected"})
+				return
+			}
 			slog.Error("Failed to call RPC", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 			return

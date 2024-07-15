@@ -74,11 +74,11 @@ func (c *RPCWebsocket) Stop(ctx context.Context) error {
 	return errGrp.Wait()
 }
 
-func (c *RPCWebsocket) Call(nats *nats.Conn, metrics *metrics.Metrics, dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
+func (c *RPCWebsocket) Call(nc *nats.Conn, metrics *metrics.Metrics, dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
 	dongle, loaded := c.dongles.Load(dongleID)
 	if !loaded {
 		// Dongle is not here, send to NATS if enabled
-		if nats != nil {
+		if nc != nil {
 			msg, err := json.Marshal(call)
 			if err != nil {
 				return apimodels.RPCResponse{}, err
@@ -87,7 +87,7 @@ func (c *RPCWebsocket) Call(nats *nats.Conn, metrics *metrics.Metrics, dongleID 
 			retry := 0
 			for {
 				if retry > 3 {
-					return apimodels.RPCResponse{}, errors.New("failed to send RPC to NATS")
+					return apimodels.RPCResponse{}, err
 				}
 				retry++
 				timeout := 5 * time.Second
@@ -97,9 +97,14 @@ func (c *RPCWebsocket) Call(nats *nats.Conn, metrics *metrics.Metrics, dongleID 
 					timeout = 30 * time.Second
 				default:
 				}
-				resp, err := nats.Request("rpc:call:"+dongleID, msg, timeout)
+				var resp *nats.Msg
+				resp, err = nc.Request("rpc:call:"+dongleID, msg, timeout)
 				if err != nil {
-					continue
+					if errors.Is(err, nats.ErrTimeout) {
+						continue
+					} else {
+						return apimodels.RPCResponse{}, err
+					}
 				}
 
 				var rpcResp apimodels.RPCResponse
