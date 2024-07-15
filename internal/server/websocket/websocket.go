@@ -44,6 +44,13 @@ func (c *RPCWebsocket) OnMessage(_ *http.Request, _ websocket.Writer, msg []byte
 			switch jsonRPC.Method {
 			case "forwardLogs":
 				slog.Debug("RPC: forwardLogs", "device", device.DongleID, "logs", jsonRPC.Params)
+				dongle.bidiChannel.outbound <- apimodels.RPCResponse{
+					ID:             jsonRPC.ID,
+					JSONRPCVersion: jsonRPC.JSONRPCVersion,
+					Result: map[string]bool{
+						"success": true,
+					},
+				}
 			case "storeStats":
 				slog.Debug("RPC: storeStats", "device", device.DongleID, "stats", jsonRPC.Params)
 			default:
