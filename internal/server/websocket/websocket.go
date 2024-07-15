@@ -106,11 +106,6 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 				metrics.IncrementAthenaErrors(device.DongleID, "unmarshal_nats_rpc_call")
 				slog.Warn("Error unmarshalling RPC call", "error", err)
 			}
-			err = msg.InProgress()
-			if err != nil {
-				metrics.IncrementAthenaErrors(device.DongleID, "nats_rpc_in_progress")
-				slog.Warn("Error sending in progress to NATS", "error", err)
-			}
 
 			responseChan := make(chan apimodels.RPCResponse)
 			defer close(responseChan)
