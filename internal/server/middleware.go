@@ -62,12 +62,12 @@ func applyMiddleware(
 		slog.Error("Failed to set trusted proxies", "error", err.Error())
 	}
 
-	r.Use(rpcSocketMiddleware(rpcWebsocket))
-	r.Use(dbMiddleware(db))
-	r.Use(natsMiddleware(nats))
-	r.Use(configMiddleware(config))
-	r.Use(logQueueMiddleware(logQueue))
-	r.Use(metricsMiddleware(metrics))
+	r.Use(providerMiddleware("config", config))
+	r.Use(providerMiddleware("rpcWebsocket", rpcWebsocket))
+	r.Use(providerMiddleware("db", db))
+	r.Use(providerMiddleware("nats", nats))
+	r.Use(providerMiddleware("logQueue", logQueue))
+	r.Use(providerMiddleware("metrics", metrics))
 
 	if config.HTTP.Tracing.Enabled {
 		r.Use(otelgin.Middleware(otelComponent))
@@ -75,23 +75,9 @@ func applyMiddleware(
 	}
 }
 
-func configMiddleware(config *config.Config) gin.HandlerFunc {
+func providerMiddleware[T any](key string, toProvide T) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Set("config", config)
-		c.Next()
-	}
-}
-
-func metricsMiddleware(metrics *metrics.Metrics) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set("metrics", metrics)
-		c.Next()
-	}
-}
-
-func logQueueMiddleware(logQueue *logparser.LogQueue) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set("logQueue", logQueue)
+		c.Set(key, toProvide)
 		c.Next()
 	}
 }
@@ -108,27 +94,6 @@ func tracingProvider(config *config.Config) gin.HandlerFunc {
 				)
 			}
 		}
-		c.Next()
-	}
-}
-
-func dbMiddleware(db *gorm.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set("db", db)
-		c.Next()
-	}
-}
-
-func natsMiddleware(nats *nats.Conn) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set("nats", nats)
-		c.Next()
-	}
-}
-
-func rpcSocketMiddleware(rpcWebsocket *websocketControllers.RPCWebsocket) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set("rpcWebsocket", rpcWebsocket)
 		c.Next()
 	}
 }
