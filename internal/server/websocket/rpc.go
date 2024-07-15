@@ -126,14 +126,18 @@ func (c *RPCWebsocket) Call(nats *nats.Conn, metrics *metrics.Metrics, dongleID 
 
 			retry := 0
 			for {
-				if retry > 5 {
+				if retry > 3 {
 					return apimodels.RPCResponse{}, errors.New("failed to send RPC to NATS")
 				}
 				retry++
-				resp, err := nats.Request("rpc:call:"+dongleID, msg, 5*time.Second)
+				timeout := 5 * time.Second
+				// Special cases for longer RPC calls
+				switch call.Method {
+				case "takeSnapshot":
+					timeout = 30 * time.Second
+				}
+				resp, err := nats.Request("rpc:call:"+dongleID, msg, timeout)
 				if err != nil {
-					metrics.IncrementAthenaErrors(dongleID, "rpc_call_nats_request")
-					slog.Warn("Error sending RPC to NATS", "error", err)
 					continue
 				}
 
@@ -263,6 +267,11 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 			if err != nil {
 				metrics.IncrementAthenaErrors(device.DongleID, "unmarshal_nats_rpc_call")
 				slog.Warn("Error unmarshalling RPC call", "error", err)
+			}
+			err = msg.InProgress()
+			if err != nil {
+				metrics.IncrementAthenaErrors(device.DongleID, "nats_rpc_in_progress")
+				slog.Warn("Error sending in progress to NATS", "error", err)
 			}
 
 			responseChan := make(chan apimodels.RPCResponse)
