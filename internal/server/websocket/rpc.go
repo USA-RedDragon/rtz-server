@@ -100,13 +100,14 @@ func (c *RPCWebsocket) Call(ctx context.Context, nc *nats.Conn, metrics *metrics
 				var resp *nats.Msg
 				resp, err = nc.Request("rpc:call:"+dongleID, msg, timeout)
 				if err != nil {
-					if errors.Is(err, nats.ErrTimeout) {
+					switch {
+					case errors.Is(err, nats.ErrTimeout):
 						continue
-					} else if errors.Is(err, nats.ErrNoResponders) {
+					case errors.Is(err, nats.ErrNoResponders):
 						// This could be a dongle reconnecting
 						time.Sleep(1 * time.Second)
 						continue
-					} else {
+					default:
 						return apimodels.RPCResponse{}, err
 					}
 				}
