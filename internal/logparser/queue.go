@@ -188,8 +188,8 @@ func (q *LogQueue) processLog(db *gorm.DB, work work) error {
 
 	// TODO: Store gps data on route
 
-	route.SegmentStartTimes = append(route.SegmentStartTimes, route.GetWallTimeFromBootTime(segmentData.InitLogMonoTime))
-	route.SegmentEndTimes = append(route.SegmentEndTimes, route.GetWallTimeFromBootTime(segmentData.EndLogMonoTime))
+	// route.SegmentStartTimes = append(route.SegmentStartTimes, route.GetWallTimeFromBootTime(segmentData.InitLogMonoTime))
+	// route.SegmentEndTimes = append(route.SegmentEndTimes, route.GetWallTimeFromBootTime(segmentData.EndLogMonoTime))
 
 	if segmentData.EndOfRoute {
 		route.EndLat = segmentData.EndCoordinates.Latitude
