@@ -18,12 +18,13 @@ import (
 const QueueDepth = 100
 
 type LogQueue struct {
-	config     *config.Config
-	db         *gorm.DB
-	queue      chan work
-	closeChan  chan any
-	metrics    *metrics.Metrics
-	activeJobs *xsync.Counter
+	config          *config.Config
+	db              *gorm.DB
+	queue           chan work
+	closeChan       chan any
+	metrics         *metrics.Metrics
+	activeJobsCount *xsync.Counter
+	activeJobs      *xsync.MapOf[string, *work]
 }
 
 type work struct {
@@ -33,30 +34,40 @@ type work struct {
 
 func NewLogQueue(config *config.Config, db *gorm.DB, metrics *metrics.Metrics) *LogQueue {
 	return &LogQueue{
-		config:     config,
-		db:         db,
-		queue:      make(chan work, QueueDepth),
-		closeChan:  make(chan any),
-		metrics:    metrics,
-		activeJobs: xsync.NewCounter(),
+		config:          config,
+		db:              db,
+		queue:           make(chan work, QueueDepth),
+		closeChan:       make(chan any),
+		metrics:         metrics,
+		activeJobsCount: xsync.NewCounter(),
+		activeJobs:      xsync.NewMapOf[string, *work](),
 	}
 }
 
 func (q *LogQueue) Start() {
 	for work := range q.queue {
-		if uint(q.activeJobs.Value()) < q.config.ParallelLogParsers {
-			q.activeJobs.Inc()
+		_, ok := q.activeJobs.Load(work.dongleID)
+		if ok {
+			// If we already have a job for this dongle, we can't start another one
+			q.queue <- work
+			continue
+		}
+
+		if uint(q.activeJobsCount.Value()) < q.config.ParallelLogParsers {
+			q.activeJobsCount.Inc()
 			go func() {
+				q.activeJobs.Store(work.dongleID, &work)
 				err := q.processLog(work)
 				if err != nil {
 					slog.Error("Error processing log", "log", work.path, "err", err)
 				}
-				q.activeJobs.Dec()
+				q.activeJobs.Delete(work.dongleID)
+				q.activeJobsCount.Dec()
 			}()
 		} else {
 			q.queue <- work
 		}
-		q.metrics.SetLogParserActiveJobs(float64(q.activeJobs.Value()))
+		q.metrics.SetLogParserActiveJobs(float64(q.activeJobsCount.Value()))
 		q.metrics.SetLogParserQueueSize(float64(len(q.queue)))
 	}
 	q.closeChan <- struct{}{}
