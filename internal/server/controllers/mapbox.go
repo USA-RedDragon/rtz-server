@@ -211,6 +211,72 @@ func GETMapboxStyleSpriteAsset(c *gin.Context) {
 	c.JSON(http.StatusOK, jsonyResp)
 }
 
+func GETMapboxStyleSpritePNG(c *gin.Context) {
+	owner := c.Param("owner")
+	if owner == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "owner is required"})
+		return
+	}
+
+	styleID := c.Param("styleID")
+	if styleID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "styleID is required"})
+		return
+	}
+
+	version := c.Param("version")
+	if version == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "version is required"})
+		return
+	}
+
+	query := c.Request.URL.Query()
+	if owner == "commaai" {
+		token, err := base64.RawStdEncoding.DecodeString(COMMA_STYLE_TOKEN)
+		if err != nil {
+			slog.Error("GETMapboxStyleSpriteAsset", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		query.Set("access_token", string(token))
+	} else {
+		config, ok := c.MustGet("config").(*config.Config)
+		if !ok {
+			slog.Error("Failed to get config from context")
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		query.Set("access_token", config.Mapbox.PublicToken)
+	}
+	url := c.Request.URL
+	url.Host = "api.mapbox.com"
+	url.Scheme = "https"
+	url.RawQuery = query.Encode()
+
+	resp, err := utils.HTTPRequest(c, http.MethodGet, url.String(), nil, nil)
+	if err != nil {
+		slog.Error("GETMapboxStyleSpriteAsset", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		slog.Error("GETMapboxStyleSpriteAsset", "status_code", resp.StatusCode)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		slog.Error("GETMapboxStyleSpriteAsset", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	c.Data(http.StatusOK, "image/png", bodyBytes)
+}
+
 func GETMapboxTileset(c *gin.Context) {
 	tileset := c.Param("tileset")
 	if tileset == "" {
