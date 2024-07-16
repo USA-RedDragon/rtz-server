@@ -13,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const COMMA_STYLE_TOKEN = "cGsuZXlKMUlqb2lZMjl0YldGaGFTSXNJbUVpT2lKamFuZ3lZWFYwYzIwd01HVTJORGx1TVdSNGFtVXlkR2w1SW4wLjZWYjExUzZ0ZFg2QXJwajZ0clJFX2cK"
+const COMMA_STYLE_TOKEN = "cGsuZXlKMUlqb2lZMjl0YldGaGFTSXNJbUVpT2lKamFuZ3lZWFYwYzIwd01HVTJORGx1TVdSNGFtVXlkR2w1SW4wLjZWYjExUzZ0ZFg2QXJwajZ0clJFX2c"
 
 func GETMapboxDirections(c *gin.Context) {
 	config, ok := c.MustGet("config").(*config.Config)
