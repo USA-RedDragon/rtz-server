@@ -40,7 +40,7 @@ func applyRoutes(r *gin.Engine, config *config.Config, rpcWebsocket *websocketCo
 	stylesV1 := styles.Group("v1")
 	stylesV1.GET("/:owner/:styleID", requireAuth(config, AuthTypeDevice), controllers.GETMapboxStyle)
 	stylesV1.GET("/:owner/:styleID/:version/sprite.json", requireAuth(config, AuthTypeDevice), controllers.GETMapboxStyleSpriteAsset)
-	stylesV1.GET("/:owner/:styleID/:version/sprite.png", requireAuth(config, AuthTypeDevice), controllers.GETMapboxStyleSpritePNG)
+	stylesV1.GET("/:owner/:styleID/:version/sprite.png", requireAuth(config, AuthTypeDevice), controllers.GETMapboxStyleSpriteAsset)
 	// For now we are safe, but eventually this will come back to bite me if Comma ever adds a v4 API
 	apiV4 := r.Group("/v4")
 	apiV4.GET("/:tileset", requireAuth(config, AuthTypeDevice), controllers.GETMapboxTileset)
