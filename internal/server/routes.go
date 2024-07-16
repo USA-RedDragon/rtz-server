@@ -32,19 +32,30 @@ func applyRoutes(r *gin.Engine, config *config.Config, rpcWebsocket *websocketCo
 	apiV2 := r.Group("/v2")
 	v2(apiV2, config)
 
+	// Mapbox forwarding
 	directions := r.Group("/directions")
 	directionsV5 := directions.Group("/v5")
 	directionsV5.GET("/mapbox/driving-traffic/:coords", requireAuth(config, AuthTypeDevice), controllers.GETMapboxDirections)
+	styles := r.Group("/styles")
+	stylesV1 := styles.Group("v1")
+	stylesV1.GET("/:owner/:styleID", requireAuth(config, AuthTypeDevice), controllers.GETMapboxStyle)
+	stylesV1.GET("/:owner/:styleID/:version/sprite.json", requireAuth(config, AuthTypeDevice), controllers.GETMapboxStyleSpriteAsset)
+	stylesV1.GET("/:owner/:styleID/:version/sprite.png", requireAuth(config, AuthTypeDevice), controllers.GETMapboxStyleSpriteAsset)
+	// For now we are safe, but eventually this will come back to bite me if Comma ever adds a v4 API
+	apiV4 := r.Group("/v4")
+	apiV4.GET("/:tileset", requireAuth(config, AuthTypeDevice), controllers.GETMapboxTileset)
+	apiV4.GET("/:tileset/:zoom/:x/:y", requireAuth(config, AuthTypeDevice), controllers.GETMapboxTile)
+
+	// RPC Websocket
+	wsV2 := r.Group("/ws/v2")
+	wsV2.GET("/:dongle_id", requireCookieAuth(config), websocket.CreateHandler(rpcWebsocket, config))
+
+	r.POST("/:dongle_id", requireAuth(config, AuthTypeUser), requireDeviceOwnerOrShared(), controllers.HandleRPC)
 
 	r.NoRoute(func(c *gin.Context) {
 		slog.Warn("Not Found", "path", c.Request.URL.Path)
 		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
 	})
-
-	wsV2 := r.Group("/ws/v2")
-	wsV2.GET("/:dongle_id", requireCookieAuth(config), websocket.CreateHandler(rpcWebsocket, config))
-
-	r.POST("/:dongle_id", requireAuth(config, AuthTypeUser), requireDeviceOwnerOrShared(), controllers.HandleRPC)
 }
 
 func v1(group *gin.RouterGroup, config *config.Config) {
