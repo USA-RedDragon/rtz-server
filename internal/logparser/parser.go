@@ -3,7 +3,7 @@ package logparser
 import (
 	"fmt"
 	"io"
-	"time"
+	"math"
 
 	"capnproto.org/go/capnp/v3"
 	"github.com/USA-RedDragon/rtz-server/internal/cereal"
@@ -12,26 +12,54 @@ import (
 type GpsCoordinates struct {
 	Latitude             float64
 	Longitude            float64
-	Time                 time.Time
+	LogMonoTime          uint64
 	AccuracyMeters       float64
 	SpeedMetersPerSecond float64
 	Bearing              float64
+	Distance             float64
 }
 
 type SegmentData struct {
-	GPSLocations      []GpsCoordinates
-	EndCoordinates    GpsCoordinates
-	EarliestTimestamp uint64
-	LatestTimestamp   uint64
-	CANPresent        bool
-	DongleID          string
-	InitLogMonoTime   uint64
-	DeviceType        cereal.InitData_DeviceType
-	CarModel          string
-	GitRemote         string
-	GitBranch         string
-	StartOfRoute      bool
-	EndOfRoute        bool
+	GPSLocations            []GpsCoordinates
+	EndCoordinates          GpsCoordinates
+	EndLogMonoTime          uint64
+	FirstClockWallTimeNanos uint64
+	FirstClockLogMonoTime   uint64
+	CANPresent              bool
+	GitDirty                bool
+	GitCommit               string
+	Version                 string
+	DongleID                string
+	Radar                   bool
+	InitLogMonoTime         uint64
+	DeviceType              cereal.InitData_DeviceType
+	CarModel                string
+	GitRemote               string
+	GitBranch               string
+	StartOfRoute            bool
+	EndOfRoute              bool
+}
+
+const earthRadiusMeters = 6371000
+
+func degToRad(deg float64) float64 {
+	return deg * math.Pi / 180
+}
+
+// haversine returns the distance between two GPS coordinates in meters.
+func haversine(endLat, endLng, startLat, startLng float64) float64 {
+	endLatRads := degToRad(endLat)
+	endLngRads := degToRad(endLng)
+	startLatRads := degToRad(startLat)
+	startLngRads := degToRad(startLng)
+
+	deltaLat := math.Abs(endLatRads - startLatRads)
+	deltaLng := math.Abs(endLngRads - startLngRads)
+
+	a := math.Pow(math.Sin(deltaLat/2), 2) + math.Cos(startLatRads)*math.Cos(endLatRads)*math.Pow(math.Sin(deltaLng/2), 2)
+	c := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+
+	return earthRadiusMeters * c
 }
 
 func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
@@ -51,6 +79,7 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 		if err != nil {
 			return SegmentData{}, fmt.Errorf("failed to read event: %w", err)
 		}
+		segmentData.EndLogMonoTime = event.LogMonoTime()
 		// We're definitely not going to be handling every event type, so we can ignore the exhaustive linter warning
 		//nolint:golint,exhaustive
 		switch event.Which() {
@@ -61,13 +90,13 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 			if err != nil {
 				return SegmentData{}, err
 			}
-			// TODO: associate logMonoTime with a wall time
 			gps := GpsCoordinates{
 				Latitude:             gpsLocation.Latitude(),
 				Longitude:            gpsLocation.Longitude(),
 				AccuracyMeters:       float64(gpsLocation.HorizontalAccuracy()),
 				SpeedMetersPerSecond: float64(gpsLocation.Speed()),
 				Bearing:              float64(gpsLocation.BearingDeg()),
+				LogMonoTime:          event.LogMonoTime(),
 			}
 			// Sample only evert 100th GPS point
 			if gpsCnt%100 == 0 {
@@ -85,17 +114,17 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 			case cereal.Sentinel_SentinelType_endOfRoute:
 				segmentData.EndOfRoute = true
 			}
+		case cereal.Event_Which_radarState:
+			segmentData.Radar = true
 		case cereal.Event_Which_clocks:
 			clocks, err := event.Clocks()
 			if err != nil {
 				return SegmentData{}, err
 			}
 			time := clocks.WallTimeNanos()
-			if segmentData.EarliestTimestamp == 0 {
-				segmentData.EarliestTimestamp = time
-			}
-			if segmentData.LatestTimestamp < time {
-				segmentData.LatestTimestamp = time
+			if segmentData.FirstClockWallTimeNanos == 0 {
+				segmentData.FirstClockWallTimeNanos = time
+				segmentData.FirstClockLogMonoTime = event.LogMonoTime()
 			}
 		case cereal.Event_Which_initData:
 			initData, err := event.InitData()
@@ -114,6 +143,18 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 			segmentData.GitBranch = branch
 
 			segmentData.InitLogMonoTime = event.LogMonoTime()
+
+			segmentData.GitDirty = initData.Dirty()
+			commit, err := initData.GitCommit()
+			if err != nil {
+				return SegmentData{}, err
+			}
+			segmentData.GitCommit = commit
+			vers, err := initData.Version()
+			if err != nil {
+				return SegmentData{}, err
+			}
+			segmentData.Version = vers
 
 			segmentData.DeviceType = initData.DeviceType()
 

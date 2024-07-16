@@ -88,7 +88,8 @@ func MakeDB(config *configPkg.Config) (db *gorm.DB, err error) {
 		&models.Location{},
 		&models.DeviceShare{},
 		&models.BootLog{},
-		&models.CrashLog{})
+		&models.CrashLog{},
+		&models.Route{})
 	if err != nil {
 		return db, fmt.Errorf("failed to migrate database: %w", err)
 	}

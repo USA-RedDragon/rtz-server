@@ -57,7 +57,7 @@ func (q *LogQueue) Start() {
 			q.activeJobsCount.Inc()
 			go func() {
 				q.activeJobs.Store(work.dongleID, &work)
-				err := q.processLog(work)
+				err := q.processLog(q.db, work)
 				if err != nil {
 					slog.Error("Error processing log", "log", work.path, "err", err)
 				}
@@ -82,7 +82,7 @@ func (q *LogQueue) AddLog(path string, dongleID string) {
 	q.queue <- work{path: path, dongleID: dongleID}
 }
 
-func (q *LogQueue) processLog(work work) error {
+func (q *LogQueue) processLog(db *gorm.DB, work work) error {
 	rt, err := os.Open(work.path)
 	if err != nil {
 		q.metrics.IncrementLogParserErrors(work.dongleID, "open_file")
@@ -104,25 +104,100 @@ func (q *LogQueue) processLog(work work) error {
 		slog.Error("Error decoding segment data", "err", err)
 		return err
 	}
-	slog.Info("Segment data", "numGpsPoints", len(segmentData.GPSLocations), "earliestTimestamp", segmentData.EarliestTimestamp, "latestTimestamp", segmentData.LatestTimestamp, "carModel", segmentData.CarModel, "gitRemote", segmentData.GitRemote, "gitBranch", segmentData.GitBranch)
-	if (!device.LastGPSTime.Valid() || segmentData.LatestTimestamp > uint64(device.LastGPSTime.TimeValue().UnixNano())) && len(segmentData.GPSLocations) > 0 {
-		latestTimeStamp := time.Unix(0, int64(segmentData.LatestTimestamp))
-		err := q.db.Model(&device).
-			Updates(models.Device{
-				// TODO: grab from segmentData
-				LastGPSTime:     nulltype.NullTimeOf(latestTimeStamp),
-				LastGPSLat:      nulltype.NullFloat64Of(segmentData.EndCoordinates.Latitude),
-				LastGPSLng:      nulltype.NullFloat64Of(segmentData.EndCoordinates.Longitude),
-				LastGPSBearing:  nulltype.NullFloat64Of(segmentData.EndCoordinates.Bearing),
-				LastGPSSpeed:    nulltype.NullFloat64Of(segmentData.EndCoordinates.SpeedMetersPerSecond),
-				LastGPSAccuracy: nulltype.NullFloat64Of(segmentData.EndCoordinates.AccuracyMeters),
-			}).Error
+	var route models.Route
+	if segmentData.StartOfRoute {
+		route = models.Route{
+			DeviceID:        device.ID,
+			GitBranch:       segmentData.GitBranch,
+			GitRemote:       segmentData.GitRemote,
+			GitDirty:        segmentData.GitDirty,
+			GitCommit:       segmentData.GitCommit,
+			InitLogMonoTime: segmentData.InitLogMonoTime,
+			Platform:        segmentData.CarModel,
+			Radar:           segmentData.Radar,
+			Version:         segmentData.Version,
+		}
+		if segmentData.FirstClockLogMonoTime != 0 {
+			route.FirstClockLogMonoTime = segmentData.FirstClockLogMonoTime
+		}
+		if segmentData.FirstClockWallTimeNanos != 0 {
+			route.FirstClockWallTimeNanos = segmentData.FirstClockWallTimeNanos
+		}
+	} else {
+		// We need to associate a segment with a route...
+		route, err = models.FindRouteForSegment(db, device.ID, segmentData.InitLogMonoTime)
 		if err != nil {
-			q.metrics.IncrementLogParserErrors(work.dongleID, "update_device")
-			slog.Error("Error updating device", "err", err)
+			q.metrics.IncrementLogParserErrors(work.dongleID, "find_route_for_segment")
+			slog.Error("Error finding route for segment", "err", err)
 			return err
 		}
 	}
 
-	return nil
+	if route.FirstClockLogMonoTime == 0 && segmentData.FirstClockLogMonoTime != 0 {
+		route.FirstClockLogMonoTime = segmentData.FirstClockLogMonoTime
+	}
+	if route.FirstClockWallTimeNanos == 0 && segmentData.FirstClockWallTimeNanos != 0 {
+		route.FirstClockWallTimeNanos = segmentData.FirstClockWallTimeNanos
+	}
+	numGPSLocs := len(segmentData.GPSLocations)
+	if numGPSLocs > 0 {
+		if route.StartTime.IsZero() {
+			route.StartLat = segmentData.GPSLocations[0].Latitude
+			route.StartLng = segmentData.GPSLocations[0].Longitude
+			route.StartTime = time.Unix(0, int64(route.GetWallTimeFromBootTime(segmentData.GPSLocations[0].LogMonoTime)))
+		}
+
+		if !device.LastGPSTime.Valid() ||
+			route.GetWallTimeFromBootTime(segmentData.GPSLocations[numGPSLocs-1].LogMonoTime) > uint64(device.LastGPSTime.TimeValue().UnixNano()) {
+			latestTimeStamp := time.Unix(0, int64(route.GetWallTimeFromBootTime(segmentData.GPSLocations[numGPSLocs-1].LogMonoTime)))
+			err := q.db.Model(&device).
+				Updates(models.Device{
+					LastGPSTime:     nulltype.NullTimeOf(latestTimeStamp),
+					LastGPSLat:      nulltype.NullFloat64Of(segmentData.EndCoordinates.Latitude),
+					LastGPSLng:      nulltype.NullFloat64Of(segmentData.EndCoordinates.Longitude),
+					LastGPSBearing:  nulltype.NullFloat64Of(segmentData.EndCoordinates.Bearing),
+					LastGPSSpeed:    nulltype.NullFloat64Of(segmentData.EndCoordinates.SpeedMetersPerSecond),
+					LastGPSAccuracy: nulltype.NullFloat64Of(segmentData.EndCoordinates.AccuracyMeters),
+				}).Error
+			if err != nil {
+				q.metrics.IncrementLogParserErrors(work.dongleID, "update_device")
+				slog.Error("Error updating device", "err", err)
+				return err
+			}
+		}
+
+		for i := 0; i < numGPSLocs; i++ {
+			var lastGPS GpsCoordinates
+			if i == 0 {
+				if !segmentData.StartOfRoute {
+					// First entry but there are previous entries in the route
+					// TODO: Get last GPS from the route
+					lastGPS = GpsCoordinates{}
+				} else {
+					// First entry in route, distance is zero
+					continue
+				}
+			} else {
+				lastGPS = segmentData.GPSLocations[i-1]
+			}
+			gps := segmentData.GPSLocations[i]
+			segmentData.GPSLocations[i].Distance = haversine(lastGPS.Latitude, lastGPS.Longitude, gps.Latitude, gps.Longitude)
+			route.Length += segmentData.GPSLocations[i].Distance
+		}
+	}
+
+	// TODO: Store gps data on route
+
+	route.SegmentStartTimes = append(route.SegmentStartTimes, route.GetWallTimeFromBootTime(segmentData.InitLogMonoTime))
+	route.SegmentEndTimes = append(route.SegmentEndTimes, route.GetWallTimeFromBootTime(segmentData.EndLogMonoTime))
+
+	if segmentData.EndOfRoute {
+		route.EndLat = segmentData.EndCoordinates.Latitude
+		route.EndLng = segmentData.EndCoordinates.Longitude
+		route.EndTime = time.Unix(0, int64(route.GetWallTimeFromBootTime(segmentData.EndLogMonoTime)))
+		route.AllSegmentsProcessed = true
+		// TODO: URL
+	}
+
+	return db.Save(&route).Error
 }
