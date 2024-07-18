@@ -43,8 +43,6 @@ func NewStorage(cfg *config.Config) (Storage, error) {
 		return newFiles(root)
 	case config.UploadsDriverS3:
 		return nil, fmt.Errorf("S3 storage not implemented")
-	case config.UploadsDriverMemory:
-		return nil, fmt.Errorf("memory storage not implemented")
 	default:
 		return nil, fmt.Errorf("unknown storage driver: %s", cfg.Persistence.Uploads.Driver)
 	}

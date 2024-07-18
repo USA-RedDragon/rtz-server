@@ -68,13 +68,6 @@ persistence:
 
   # Storage for uploaded video and driving logs
   uploads:
-    ##### Memory Example #####
-    ##### This stores the files in memory, which is useful for testing
-    ##### but not recommended for production, as the files will be lost
-    ##### when the server is restarted. This is the default option for
-    ##### demo purposes and has no additional configuration.
-    driver: 'memory'
-
     ##### Filesystem Example #####
     ##### This stores the files on the local filesystem
     ##### The directory will be created if it does not exist

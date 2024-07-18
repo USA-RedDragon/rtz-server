@@ -94,7 +94,6 @@ type Persistence struct {
 type UploadsDriver string
 
 const (
-	UploadsDriverMemory     UploadsDriver = "memory"
 	UploadsDriverFilesystem UploadsDriver = "filesystem"
 	UploadsDriverS3         UploadsDriver = "s3"
 )
@@ -218,24 +217,24 @@ var (
 )
 
 const (
-	DefaultConfigPath                  = "config.yaml"
-	DefaultHTTPIPV4Host                = "0.0.0.0"
-	DefaultHTTPIPV6Host                = "::"
-	DefaultHTTPPort                    = 8080
-	DefaultHTTPMetricsIPV4Host         = "127.0.0.1"
-	DefaultHTTPMetricsIPV6Host         = "::1"
-	DefaultHTTPMetricsPort             = 8081
-	DefaultPersistenceDatabaseDriver   = DatabaseDriverSQLite
-	DefaultPersistenceDatabaseDatabase = "rtz.db"
-	DefaultPersistenceUploads          = "uploads/"
-	DefaultRegistrationEnabled         = false
-	DefaultNATSEnabled                 = false
-	DefaultAuthGitHubEnabled           = false
-	DefaultAuthGoogleEnabled           = false
-	DefaultAuthCustomEnabled           = false
-	DefaultLogLevel                    = LogLevelInfo
-	DefaultParallelLogParsers          = 4
-	DefaultPersistenceUploadsDriver    = UploadsDriverMemory
+	DefaultConfigPath                                   = "config.yaml"
+	DefaultHTTPIPV4Host                                 = "0.0.0.0"
+	DefaultHTTPIPV6Host                                 = "::"
+	DefaultHTTPPort                                     = 8080
+	DefaultHTTPMetricsIPV4Host                          = "127.0.0.1"
+	DefaultHTTPMetricsIPV6Host                          = "::1"
+	DefaultHTTPMetricsPort                              = 8081
+	DefaultPersistenceDatabaseDriver                    = DatabaseDriverSQLite
+	DefaultPersistenceDatabaseDatabase                  = "rtz.db"
+	DefaultRegistrationEnabled                          = false
+	DefaultNATSEnabled                                  = false
+	DefaultAuthGitHubEnabled                            = false
+	DefaultAuthGoogleEnabled                            = false
+	DefaultAuthCustomEnabled                            = false
+	DefaultLogLevel                                     = LogLevelInfo
+	DefaultParallelLogParsers                           = 4
+	DefaultPersistenceUploadsDriver                     = UploadsDriverFilesystem
+	DefaultPersistenceUploadsFilesystemOptionsDirectory = "uploads/"
 )
 
 func RegisterFlags(cmd *cobra.Command) {
@@ -262,7 +261,7 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().Uint16(PersistenceDatabasePortKey, 0, "Database port")
 	cmd.Flags().String(PersistenceDatabaseExtraParametersKey, "", "Database extra parameters")
 	cmd.Flags().String(PersistenceUploadsDriverKey, string(DefaultPersistenceUploadsDriver), "Uploads driver, one of: memory, filesystem, s3")
-	cmd.Flags().String(PersistenceUploadsFilesystemOptionsDirectoryKey, "", "Filesystem uploads directory")
+	cmd.Flags().String(PersistenceUploadsFilesystemOptionsDirectoryKey, DefaultPersistenceUploadsFilesystemOptionsDirectory, "Filesystem uploads directory")
 	cmd.Flags().String(PersistenceUploadsS3OptionsBucketKey, "", "S3 bucket")
 	cmd.Flags().String(PersistenceUploadsS3OptionsRegionKey, "", "S3 region")
 	cmd.Flags().Bool(RegistrationEnabledKey, DefaultRegistrationEnabled, "Enable registration")
@@ -445,6 +444,9 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 	}
 	if config.Persistence.Uploads.Driver == "" {
 		config.Persistence.Uploads.Driver = DefaultPersistenceUploadsDriver
+	}
+	if config.Persistence.Uploads.FilesystemOptions.Directory == "" {
+		config.Persistence.Uploads.FilesystemOptions.Directory = DefaultPersistenceUploadsFilesystemOptionsDirectory
 	}
 	if config.ParallelLogParsers == 0 {
 		config.ParallelLogParsers = DefaultParallelLogParsers
