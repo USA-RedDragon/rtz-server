@@ -7,23 +7,21 @@ import (
 	"os"
 
 	"github.com/USA-RedDragon/rtz-server/internal/config"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 type StorageManager interface {
 	Open(name string) (File, error)
-	OpenFile(name string, flag int, perm fs.FileMode) (File, error)
 	Create(name string) (File, error)
 	Mkdir(name string, perm fs.FileMode) error
 	MkdirAll(name string, perm fs.FileMode) error
-	ReadDir(name string) ([]fs.DirEntry, error)
-	ReadFile(name string) ([]byte, error)
 	Remove(name string) error
-	WriteFile(name string, data []byte, perm fs.FileMode) error
 	Sub(dir string) (Storage, error)
 }
 
 type File interface {
-	fs.File
+	io.ReadCloser
 	io.Writer
 }
 
@@ -42,7 +40,18 @@ func NewStorage(cfg *config.Config) (Storage, error) {
 		}
 		return newFiles(root)
 	case config.UploadsDriverS3:
-		return nil, fmt.Errorf("S3 storage not implemented")
+		s3Options := s3.Options{
+			Region:       cfg.Persistence.Uploads.S3Options.Region,
+			UsePathStyle: true,
+		}
+		if cfg.Persistence.Uploads.S3Options.Endpoint != "" {
+			s3Options.BaseEndpoint = aws.String(cfg.Persistence.Uploads.S3Options.Endpoint)
+		}
+		return newS3(
+			cfg.Persistence.Uploads.S3Options.Region,
+			cfg.Persistence.Uploads.S3Options.Bucket,
+			"",
+			s3.New(s3Options))
 	default:
 		return nil, fmt.Errorf("unknown storage driver: %s", cfg.Persistence.Uploads.Driver)
 	}

@@ -87,6 +87,7 @@ persistence:
     # s3_options:
     #  region: 'us-east-1'
     #  bucket: 'connect'
+    #  endpoint: ''
 
 # NATS MUST BE configured if you are going to run multiple instances of the server
 # or use blue/green deployments, otherwise websockets will only work for users

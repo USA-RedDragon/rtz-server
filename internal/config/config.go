@@ -109,8 +109,9 @@ type FilesystemOptions struct {
 }
 
 type S3Options struct {
-	Region string `json:"region"`
-	Bucket string `json:"bucket"`
+	Region   string `json:"region"`
+	Bucket   string `json:"bucket"`
+	Endpoint string `json:"endpoint"`
 }
 
 type DatabaseDriver string
@@ -190,6 +191,7 @@ var (
 	PersistenceUploadsFilesystemOptionsDirectoryKey = "persistence.uploads.filesystem_options.directory"
 	PersistenceUploadsS3OptionsBucketKey            = "persistence.uploads.s3_options.bucket"
 	PersistenceUploadsS3OptionsRegionKey            = "persistence.uploads.s3_options.region"
+	PersistenceUploadsS3OptionsEndpointKey          = "persistence.uploads.s3_options.endpoint"
 	RegistrationEnabledKey                          = "registration.enabled"
 	AuthGoogleEnabledKey                            = "auth.google.enabled"
 	AuthGoogleClientIDKey                           = "auth.google.client_id"
@@ -264,6 +266,7 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().String(PersistenceUploadsFilesystemOptionsDirectoryKey, DefaultPersistenceUploadsFilesystemOptionsDirectory, "Filesystem uploads directory")
 	cmd.Flags().String(PersistenceUploadsS3OptionsBucketKey, "", "S3 bucket")
 	cmd.Flags().String(PersistenceUploadsS3OptionsRegionKey, "", "S3 region")
+	cmd.Flags().String(PersistenceUploadsS3OptionsEndpointKey, "", "S3 endpoint")
 	cmd.Flags().Bool(RegistrationEnabledKey, DefaultRegistrationEnabled, "Enable registration")
 	cmd.Flags().Bool(AuthGoogleEnabledKey, DefaultAuthGoogleEnabled, "Enable Google OAuth")
 	cmd.Flags().String(AuthGoogleClientIDKey, "", "Google OAuth client ID")
@@ -634,6 +637,13 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		config.Persistence.Uploads.S3Options.Region, err = cmd.Flags().GetString(PersistenceUploadsS3OptionsRegionKey)
 		if err != nil {
 			return fmt.Errorf("failed to get S3 region: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(PersistenceUploadsS3OptionsEndpointKey) {
+		config.Persistence.Uploads.S3Options.Endpoint, err = cmd.Flags().GetString(PersistenceUploadsS3OptionsEndpointKey)
+		if err != nil {
+			return fmt.Errorf("failed to get S3 endpoint: %w", err)
 		}
 	}
 

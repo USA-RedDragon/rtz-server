@@ -3,7 +3,6 @@ package storage
 import (
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -11,7 +10,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type Files struct {
+type Filesystem struct {
 	Storage
 	StorageManager
 
@@ -19,32 +18,32 @@ type Files struct {
 	dfd  int
 }
 
-func newFiles(root string) (Files, error) {
+func newFiles(root string) (Filesystem, error) {
 	dfd, err := unix.Open(root, unix.O_DIRECTORY|unix.O_PATH|unix.O_CLOEXEC, 0)
 	if err != nil {
-		return Files{}, err
+		return Filesystem{}, err
 	}
-	return Files{
+	return Filesystem{
 		root: root,
 		dfd:  dfd,
 	}, nil
 }
 
-func (f Files) Close() error {
+func (f Filesystem) Close() error {
 	return unix.Close(f.dfd)
 }
 
-func (f Files) Open(name string) (File, error) {
-	return f.OpenFile(name, os.O_RDONLY, 0)
+func (f Filesystem) Open(name string) (File, error) {
+	return f.openFile(name, os.O_RDONLY, 0)
 }
 
-func (f Files) Create(name string) (File, error) {
-	return f.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+func (f Filesystem) Create(name string) (File, error) {
+	return f.openFile(name, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 }
 
-func (f Files) openParentOf(name string) (*os.File, error) {
+func (f Filesystem) openParentOf(name string) (*os.File, error) {
 	parentPath := filepath.Dir(name)
-	hackpadFile, err := f.OpenFile(parentPath, unix.O_DIRECTORY|unix.O_PATH, 0)
+	hackpadFile, err := f.openFile(parentPath, unix.O_DIRECTORY|unix.O_PATH, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +54,7 @@ func (f Files) openParentOf(name string) (*os.File, error) {
 	return file, nil
 }
 
-func (f Files) Mkdir(name string, perm fs.FileMode) error {
+func (f Filesystem) Mkdir(name string, perm fs.FileMode) error {
 	// same as above: open the new parent
 	parentDfile, err := f.openParentOf(name)
 	if err != nil {
@@ -71,7 +70,7 @@ func (f Files) Mkdir(name string, perm fs.FileMode) error {
 	return nil
 }
 
-func (f Files) MkdirAll(path string, perm fs.FileMode) error {
+func (f Filesystem) MkdirAll(path string, perm fs.FileMode) error {
 	// end of recursion
 	if path == "" || path == "." || path == "/" {
 		return nil
@@ -101,7 +100,7 @@ func (f Files) MkdirAll(path string, perm fs.FileMode) error {
 	return nil
 }
 
-func (f Files) OpenFile(name string, flag int, perm fs.FileMode) (File, error) {
+func (f Filesystem) openFile(name string, flag int, perm fs.FileMode) (File, error) {
 	// openat2 RESOLVE_IN_ROOT - so symlinks still work
 	for {
 		how := unix.OpenHow{
@@ -124,32 +123,7 @@ func (f Files) OpenFile(name string, flag int, perm fs.FileMode) (File, error) {
 	}
 }
 
-func (f Files) ReadDir(name string) ([]fs.DirEntry, error) {
-	hackpadFile, err := f.OpenFile(name, unix.O_DIRECTORY|unix.O_RDONLY, 0)
-	if err != nil {
-		return nil, err
-	}
-	defer hackpadFile.Close()
-
-	file, ok := hackpadFile.(*os.File)
-	if !ok {
-		return nil, fmt.Errorf("unexpected file type: %T", hackpadFile)
-	}
-
-	return file.ReadDir(0)
-}
-
-func (f Files) ReadFile(name string) ([]byte, error) {
-	file, err := f.OpenFile(name, os.O_RDONLY, 0)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	return io.ReadAll(file)
-}
-
-func (f Files) Remove(name string) error {
+func (f Filesystem) Remove(name string) error {
 	// tricky: we have to open the *parent*, then unlinkat
 	// unlinkat has no RESOLVE_IN_ROOT, AT_EMPTY_PATH, or AT_SYMLINK_NOFOLLOW
 	parentDfile, err := f.openParentOf(name)
@@ -167,28 +141,6 @@ func (f Files) Remove(name string) error {
 	return nil
 }
 
-func (f Files) Sub(dir string) (Storage, error) {
+func (f Filesystem) Sub(dir string) (Storage, error) {
 	return newFiles(filepath.Join(f.root, dir))
-}
-
-func (f Files) WriteFile(name string, data []byte, perm fs.FileMode) error {
-	hackpadFile, err := f.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, perm)
-	if err != nil {
-		return err
-	}
-	defer hackpadFile.Close()
-
-	file, ok := hackpadFile.(*os.File)
-	if !ok {
-		return fmt.Errorf("unexpected file type: %T", hackpadFile)
-	}
-
-	written, err := file.Write(data)
-	if err != nil {
-		return err
-	}
-	if written != len(data) {
-		return io.ErrShortWrite
-	}
-	return err
 }
