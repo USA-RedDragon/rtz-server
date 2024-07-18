@@ -143,7 +143,10 @@ func TestEnvConfig(t *testing.T) {
 	t.Setenv("PERSISTENCE__DATABASE__USERNAME", "user")
 	t.Setenv("PERSISTENCE__DATABASE__PASSWORD", "password")
 	t.Setenv("PERSISTENCE__DATABASE__EXTRA_PARAMETERS", "sslmode=require")
-	t.Setenv("PERSISTENCE__UPLOADS", "notuploads")
+	t.Setenv("PERSISTENCE__UPLOADS__DRIVER", "filesystem")
+	t.Setenv("PERSISTENCE__UPLOADS__FILESYSTEM_OPTIONS__DIRECTORY", "uploads")
+	t.Setenv("PERSISTENCE__UPLOADS__S3_OPTIONS__BUCKET", "test-uploads")
+	t.Setenv("PERSISTENCE__UPLOADS__S3_OPTIONS__REGION", "us-east-1")
 	t.Setenv("REGISTRATION__ENABLED", "true")
 	t.Setenv("AUTH__GOOGLE__ENABLED", "true")
 	t.Setenv("AUTH__GOOGLE__CLIENT_ID", "googleid")
@@ -236,8 +239,17 @@ func TestEnvConfig(t *testing.T) {
 	if config.Persistence.Database.ExtraParameters != "sslmode=require" {
 		t.Errorf("unexpected persistence extra parameters: %s", config.Persistence.Database.ExtraParameters)
 	}
-	if config.Persistence.Uploads != "notuploads" {
-		t.Errorf("unexpected persistence uploads: %s", config.Persistence.Uploads)
+	if config.Persistence.Uploads.Driver != "filesystem" {
+		t.Errorf("unexpected persistence uploads driver: %s", config.Persistence.Uploads.Driver)
+	}
+	if config.Persistence.Uploads.FilesystemOptions.Directory != "uploads" {
+		t.Errorf("unexpected persistence uploads directory: %s", config.Persistence.Uploads.FilesystemOptions.Directory)
+	}
+	if config.Persistence.Uploads.S3Options.Bucket != "test-uploads" {
+		t.Errorf("unexpected persistence uploads bucket: %s", config.Persistence.Uploads.S3Options.Bucket)
+	}
+	if config.Persistence.Uploads.S3Options.Region != "us-east-1" {
+		t.Errorf("unexpected persistence uploads region: %s", config.Persistence.Uploads.S3Options.Region)
 	}
 	if !config.Registration.Enabled {
 		t.Error("unexpected registration enabled")

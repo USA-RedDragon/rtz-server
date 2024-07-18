@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"compress/bzip2"
 	"log/slog"
-	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/USA-RedDragon/rtz-server/internal/config"
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	"github.com/USA-RedDragon/rtz-server/internal/metrics"
+	"github.com/USA-RedDragon/rtz-server/internal/storage"
 	"github.com/mattn/go-nulltype"
 	"github.com/puzpuzpuz/xsync/v3"
 	"gorm.io/gorm"
@@ -20,6 +21,7 @@ const QueueDepth = 100
 type LogQueue struct {
 	config          *config.Config
 	db              *gorm.DB
+	storage         storage.Storage
 	queue           chan work
 	closeChan       chan any
 	metrics         *metrics.Metrics
@@ -32,7 +34,7 @@ type work struct {
 	dongleID string
 }
 
-func NewLogQueue(config *config.Config, db *gorm.DB, metrics *metrics.Metrics) *LogQueue {
+func NewLogQueue(config *config.Config, db *gorm.DB, storage storage.Storage, metrics *metrics.Metrics) *LogQueue {
 	return &LogQueue{
 		config:          config,
 		db:              db,
@@ -41,6 +43,7 @@ func NewLogQueue(config *config.Config, db *gorm.DB, metrics *metrics.Metrics) *
 		metrics:         metrics,
 		activeJobsCount: xsync.NewCounter(),
 		activeJobs:      xsync.NewMapOf[string, *work](),
+		storage:         storage,
 	}
 }
 
@@ -57,7 +60,7 @@ func (q *LogQueue) Start() {
 			q.activeJobsCount.Inc()
 			go func() {
 				q.activeJobs.Store(work.dongleID, &work)
-				err := q.processLog(q.db, work)
+				err := q.processLog(q.db, q.storage, work)
 				if err != nil {
 					slog.Error("Error processing log", "log", work.path, "err", err)
 				}
@@ -82,8 +85,8 @@ func (q *LogQueue) AddLog(path string, dongleID string) {
 	q.queue <- work{path: path, dongleID: dongleID}
 }
 
-func (q *LogQueue) processLog(db *gorm.DB, work work) error {
-	rt, err := os.Open(work.path)
+func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) error {
+	rt, err := storage.Open(filepath.Join(work.dongleID, work.path))
 	if err != nil {
 		q.metrics.IncrementLogParserErrors(work.dongleID, "open_file")
 		slog.Error("Error opening file", "err", err)

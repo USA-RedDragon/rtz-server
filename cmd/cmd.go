@@ -12,6 +12,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/logparser"
 	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	"github.com/USA-RedDragon/rtz-server/internal/server"
+	"github.com/USA-RedDragon/rtz-server/internal/storage"
 	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
 	"github.com/ztrue/shutdown"
@@ -58,10 +59,9 @@ func run(cmd *cobra.Command, _ []string) error {
 		return fmt.Errorf("config validation failed: %w", err)
 	}
 
-	// Check access to the upload directory
-	err = os.MkdirAll(cfg.Persistence.Uploads, 0755)
+	storage, err := storage.NewStorage(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create uploads directory: %w", err)
+		return fmt.Errorf("failed to create storage: %w", err)
 	}
 
 	var nc *nats.Conn
@@ -80,11 +80,11 @@ func run(cmd *cobra.Command, _ []string) error {
 	}
 	slog.Info("Database connection established")
 
-	logQueue := logparser.NewLogQueue(cfg, db, metrics)
+	logQueue := logparser.NewLogQueue(cfg, db, storage, metrics)
 	go logQueue.Start()
 
 	slog.Info("Starting HTTP server")
-	server := server.NewServer(cfg, db, nc, logQueue, metrics)
+	server := server.NewServer(cfg, db, nc, logQueue, metrics, storage)
 	err = server.Start()
 	if err != nil {
 		return fmt.Errorf("failed to start HTTP server: %w", err)
@@ -94,7 +94,6 @@ func run(cmd *cobra.Command, _ []string) error {
 		slog.Info("Shutting down")
 
 		errGrp := errgroup.Group{}
-		errGrp.SetLimit(2)
 
 		errGrp.Go(func() error {
 			return server.Stop()
@@ -103,6 +102,10 @@ func run(cmd *cobra.Command, _ []string) error {
 		errGrp.Go(func() error {
 			logQueue.Stop()
 			return nil
+		})
+
+		errGrp.Go(func() error {
+			return storage.Close()
 		})
 
 		if cfg.NATS.Enabled {

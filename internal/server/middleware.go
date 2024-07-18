@@ -15,6 +15,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/logparser"
 	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	websocketControllers "github.com/USA-RedDragon/rtz-server/internal/server/websocket"
+	"github.com/USA-RedDragon/rtz-server/internal/storage"
 	"github.com/USA-RedDragon/rtz-server/internal/utils"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -41,7 +42,8 @@ func applyMiddleware(
 	rpcWebsocket *websocketControllers.RPCWebsocket,
 	nats *nats.Conn,
 	logQueue *logparser.LogQueue,
-	metrics *metrics.Metrics) {
+	metrics *metrics.Metrics,
+	storage storage.Storage) {
 	r.Use(gin.Recovery())
 	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{SkipPaths: []string{"/health", "/metrics"}}))
 	r.TrustedPlatform = "X-Real-IP"
@@ -68,6 +70,7 @@ func applyMiddleware(
 	r.Use(providerMiddleware("nats", nats))
 	r.Use(providerMiddleware("logQueue", logQueue))
 	r.Use(providerMiddleware("metrics", metrics))
+	r.Use(providerMiddleware("storage", storage))
 
 	if config.HTTP.Tracing.Enabled {
 		r.Use(otelgin.Middleware(otelComponent))

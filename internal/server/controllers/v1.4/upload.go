@@ -3,10 +3,10 @@ package v1dot4
 import (
 	"bufio"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -15,6 +15,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	"github.com/USA-RedDragon/rtz-server/internal/logparser"
 	v1dot4 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1.4"
+	"github.com/USA-RedDragon/rtz-server/internal/storage"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -64,15 +65,14 @@ func PUTUpload(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
-	device, err := models.FindDeviceByDongleID(db, dongleID)
-	if err != nil {
+	storage, ok := c.MustGet("storage").(storage.Storage)
+	if !ok {
+		slog.Error("Failed to get storage from context")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
-
-	config, ok := c.MustGet("config").(*config.Config)
-	if !ok {
-		slog.Error("Failed to get config from context")
+	device, err := models.FindDeviceByDongleID(db, dongleID)
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
@@ -83,28 +83,27 @@ func PUTUpload(c *gin.Context) {
 		return
 	}
 
-	basePath, err := filepath.Abs(filepath.Join(config.Persistence.Uploads, dongleID))
-	if err != nil {
-		slog.Error("Failed to get base path", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-		return
-	}
-
-	// SAFETY! We must place these files under `config.Persistence.Uploads`+dongleID+path
-	// There can be NO upwards traversal in the path
-	cleanedAbsolutePath, err := filepath.Abs(filepath.Join(config.Persistence.Uploads, dongleID, path))
-	if err != nil {
-		slog.Error("Failed to get absolute path", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-		return
-	}
-
-	if !strings.HasPrefix(cleanedAbsolutePath, basePath) {
+	if !fs.ValidPath(path) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid path"})
 		return
 	}
 
-	err = os.MkdirAll(filepath.Dir(cleanedAbsolutePath), 0755)
+	err = storage.Mkdir(dongleID, 0755)
+	if err != nil {
+		slog.Error("Failed to create dongle directory", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	base, err := storage.Sub(dongleID)
+	if err != nil {
+		slog.Error("Failed to get base storage", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+	defer base.Close()
+
+	err = base.MkdirAll(filepath.Dir(path), 0755)
 	if err != nil {
 		slog.Error("Failed to create directories", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
@@ -112,8 +111,7 @@ func PUTUpload(c *gin.Context) {
 	}
 
 	fileReader := bufio.NewReader(c.Request.Body)
-	tmpFile := cleanedAbsolutePath + ".tmp"
-	f, err := os.Create(tmpFile)
+	f, err := base.Create(path)
 	if err != nil {
 		slog.Error("Failed to create file", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
@@ -141,19 +139,12 @@ func PUTUpload(c *gin.Context) {
 		return
 	}
 
-	err = os.Rename(tmpFile, cleanedAbsolutePath)
-	if err != nil {
-		slog.Error("Failed to rename file", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-		return
-	}
-
 	switch {
 	case strings.Contains(path, "boot/"):
 		// Boot log
 		err = db.Create(&models.BootLog{
 			DeviceID: device.ID,
-			FileName: filepath.Base(cleanedAbsolutePath),
+			FileName: filepath.Base(path),
 		}).Error
 		if err != nil {
 			slog.Error("Failed to create boot log", "error", err)
@@ -164,7 +155,7 @@ func PUTUpload(c *gin.Context) {
 		// Crash log
 		err = db.Create(&models.CrashLog{
 			DeviceID: device.ID,
-			FileName: filepath.Base(cleanedAbsolutePath),
+			FileName: filepath.Base(path),
 		}).Error
 		if err != nil {
 			slog.Error("Failed to create crash log", "error", err)
@@ -174,14 +165,14 @@ func PUTUpload(c *gin.Context) {
 	case newRouteRegex.Match([]byte(path)):
 		slog.Warn("New route upload", "path", path)
 		if strings.Contains(path, "qlog.bz2") {
-			file, err := os.Open(cleanedAbsolutePath)
+			file, err := base.Open(path)
 			if err != nil {
 				slog.Error("Failed to open file", "error", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 				return
 			}
 			header := make([]byte, 3)
-			read, err := file.ReadAt(header, 0)
+			read, err := file.Read(header)
 			if err != nil {
 				slog.Error("Failed to read header", "error", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
@@ -199,7 +190,7 @@ func PUTUpload(c *gin.Context) {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 				return
 			}
-			go logQueue.AddLog(cleanedAbsolutePath, dongleID)
+			go logQueue.AddLog(path, dongleID)
 		}
 	case oldRouteRegex.Match([]byte(path)):
 		slog.Warn("Old route upload", "path", path)

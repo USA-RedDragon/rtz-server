@@ -88,7 +88,30 @@ type Registration struct {
 
 type Persistence struct {
 	Database Database `json:"database"`
-	Uploads  string   `json:"uploads"`
+	Uploads  Uploads  `json:"uploads"`
+}
+
+type UploadsDriver string
+
+const (
+	UploadsDriverMemory     UploadsDriver = "memory"
+	UploadsDriverFilesystem UploadsDriver = "filesystem"
+	UploadsDriverS3         UploadsDriver = "s3"
+)
+
+type Uploads struct {
+	Driver            UploadsDriver     `json:"driver"`
+	FilesystemOptions FilesystemOptions `json:"filesystem_options" yaml:"filesystem_options"`
+	S3Options         S3Options         `json:"s3_options" yaml:"s3_options"`
+}
+
+type FilesystemOptions struct {
+	Directory string `json:"directory"`
+}
+
+type S3Options struct {
+	Region string `json:"region"`
+	Bucket string `json:"bucket"`
 }
 
 type DatabaseDriver string
@@ -142,32 +165,35 @@ type HTTP struct {
 
 //nolint:golint,gochecknoglobals
 var (
-	ConfigFileKey                         = "config"
-	HTTPIPV4HostKey                       = "http.ipv4_host"
-	HTTPIPV6HostKey                       = "http.ipv6_host"
-	HTTPPortKey                           = "http.port"
-	HTTPTracingEnabledKey                 = "http.tracing.enabled"
-	HTTPTracingOTLPEndKey                 = "http.tracing.otlp_endpoint"
-	HTTPPProfEnabledKey                   = "http.pprof.enabled"
-	HTTPTrustedProxiesKey                 = "http.trusted_proxies"
-	HTTPMetricsEnabledKey                 = "http.metrics.enabled"
-	HTTPMetricsIPV4HostKey                = "http.metrics.ipv4_host"
-	HTTPMetricsIPV6HostKey                = "http.metrics.ipv6_host"
-	HTTPMetricsPortKey                    = "http.metrics.port"
-	HTTPCORSHostsKey                      = "http.cors_hosts"
-	HTTPFrontendURLKey                    = "http.frontend_url"
-	HTTPBackendURLKey                     = "http.backend_url"
-	PersistenceDatabaseDriverKey          = "persistence.database.driver"
-	PersistenceDatabaseDatabaseKey        = "persistence.database.database"
-	PersistenceDatabaseUsernameKey        = "persistence.database.username"
-	PersistenceDatabasePasswordKey        = "persistence.database.password"
-	PersistenceDatabaseHostKey            = "persistence.database.host"
-	PersistenceDatabasePortKey            = "persistence.database.port"
-	PersistenceDatabaseExtraParametersKey = "persistence.database.extra_parameters"
-	PersistenceUploadsKey                 = "persistence.uploads"
-	RegistrationEnabledKey                = "registration.enabled"
-	AuthGoogleEnabledKey                  = "auth.google.enabled"
-	AuthGoogleClientIDKey                 = "auth.google.client_id"
+	ConfigFileKey                                   = "config"
+	HTTPIPV4HostKey                                 = "http.ipv4_host"
+	HTTPIPV6HostKey                                 = "http.ipv6_host"
+	HTTPPortKey                                     = "http.port"
+	HTTPTracingEnabledKey                           = "http.tracing.enabled"
+	HTTPTracingOTLPEndKey                           = "http.tracing.otlp_endpoint"
+	HTTPPProfEnabledKey                             = "http.pprof.enabled"
+	HTTPTrustedProxiesKey                           = "http.trusted_proxies"
+	HTTPMetricsEnabledKey                           = "http.metrics.enabled"
+	HTTPMetricsIPV4HostKey                          = "http.metrics.ipv4_host"
+	HTTPMetricsIPV6HostKey                          = "http.metrics.ipv6_host"
+	HTTPMetricsPortKey                              = "http.metrics.port"
+	HTTPCORSHostsKey                                = "http.cors_hosts"
+	HTTPFrontendURLKey                              = "http.frontend_url"
+	HTTPBackendURLKey                               = "http.backend_url"
+	PersistenceDatabaseDriverKey                    = "persistence.database.driver"
+	PersistenceDatabaseDatabaseKey                  = "persistence.database.database"
+	PersistenceDatabaseUsernameKey                  = "persistence.database.username"
+	PersistenceDatabasePasswordKey                  = "persistence.database.password"
+	PersistenceDatabaseHostKey                      = "persistence.database.host"
+	PersistenceDatabasePortKey                      = "persistence.database.port"
+	PersistenceDatabaseExtraParametersKey           = "persistence.database.extra_parameters"
+	PersistenceUploadsDriverKey                     = "persistence.uploads.driver"
+	PersistenceUploadsFilesystemOptionsDirectoryKey = "persistence.uploads.filesystem_options.directory"
+	PersistenceUploadsS3OptionsBucketKey            = "persistence.uploads.s3_options.bucket"
+	PersistenceUploadsS3OptionsRegionKey            = "persistence.uploads.s3_options.region"
+	RegistrationEnabledKey                          = "registration.enabled"
+	AuthGoogleEnabledKey                            = "auth.google.enabled"
+	AuthGoogleClientIDKey                           = "auth.google.client_id"
 	//nolint:golint,gosec
 	AuthGoogleClientSecretKey = "auth.google.client_secret"
 	AuthGitHubEnabledKey      = "auth.github.enabled"
@@ -209,6 +235,7 @@ const (
 	DefaultAuthCustomEnabled           = false
 	DefaultLogLevel                    = LogLevelInfo
 	DefaultParallelLogParsers          = 4
+	DefaultPersistenceUploadsDriver    = UploadsDriverMemory
 )
 
 func RegisterFlags(cmd *cobra.Command) {
@@ -227,14 +254,17 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSlice(HTTPCORSHostsKey, []string{}, "Comma-separated list of CORS hosts")
 	cmd.Flags().String(HTTPBackendURLKey, "", "Backend URL")
 	cmd.Flags().String(HTTPFrontendURLKey, "", "Frontend URL")
-	cmd.Flags().String(PersistenceDatabaseDriverKey, string(DefaultPersistenceDatabaseDriver), "Database driver")
+	cmd.Flags().String(PersistenceDatabaseDriverKey, string(DefaultPersistenceDatabaseDriver), "Database driver, one of: sqlite, mysql, postgres")
 	cmd.Flags().String(PersistenceDatabaseDatabaseKey, DefaultPersistenceDatabaseDatabase, "Database path")
 	cmd.Flags().String(PersistenceDatabaseUsernameKey, "", "Database username")
 	cmd.Flags().String(PersistenceDatabasePasswordKey, "", "Database password")
 	cmd.Flags().String(PersistenceDatabaseHostKey, "", "Database host")
 	cmd.Flags().Uint16(PersistenceDatabasePortKey, 0, "Database port")
 	cmd.Flags().String(PersistenceDatabaseExtraParametersKey, "", "Database extra parameters")
-	cmd.Flags().String(PersistenceUploadsKey, DefaultPersistenceUploads, "Uploads directory")
+	cmd.Flags().String(PersistenceUploadsDriverKey, string(DefaultPersistenceUploadsDriver), "Uploads driver, one of: memory, filesystem, s3")
+	cmd.Flags().String(PersistenceUploadsFilesystemOptionsDirectoryKey, "", "Filesystem uploads directory")
+	cmd.Flags().String(PersistenceUploadsS3OptionsBucketKey, "", "S3 bucket")
+	cmd.Flags().String(PersistenceUploadsS3OptionsRegionKey, "", "S3 region")
 	cmd.Flags().Bool(RegistrationEnabledKey, DefaultRegistrationEnabled, "Enable registration")
 	cmd.Flags().Bool(AuthGoogleEnabledKey, DefaultAuthGoogleEnabled, "Enable Google OAuth")
 	cmd.Flags().String(AuthGoogleClientIDKey, "", "Google OAuth client ID")
@@ -258,23 +288,26 @@ func RegisterFlags(cmd *cobra.Command) {
 }
 
 var (
-	ErrJWTSecretRequired         = errors.New("JWT secret is required")
-	ErrBackendURLRequired        = errors.New("Backend URL is required")
-	ErrFrontendURLRequired       = errors.New("Frontend URL is required")
-	ErrOTLPEndpointRequired      = errors.New("OTLP endpoint is required when tracing is enabled")
-	ErrMapboxPublicTokenRequired = errors.New("Mapbox public token is required")
-	ErrMapboxSecretTokenRequired = errors.New("Mapbox secret token is required")
-	ErrDBHostRequired            = errors.New("Database host is required")
-	ErrDBDatabaseRequired        = errors.New("Database name is required")
-	ErrDatabaseDriverRequired    = errors.New("Database driver is required")
-	ErrNATSURLRequired           = errors.New("NATS URL is required")
-	ErrGitHubOAuthRequired       = errors.New("GitHub OAuth client ID and secret are required")
-	ErrGoogleOAuthRequired       = errors.New("Google OAuth client ID and secret are required")
-	ErrCustomOAuthRequired       = errors.New("Custom OAuth client ID and secret are required")
-	ErrCustomTokenURLRequired    = errors.New("Custom OAuth token URL is required")
-	ErrCustomUserURLRequired     = errors.New("Custom OAuth user URL is required")
-	ErrParallelLogParsersNotZero = errors.New("Number of parallel log parsers must be greater than zero")
-	ErrInvalidLogLevel           = errors.New("Invalid log level")
+	ErrJWTSecretRequired          = errors.New("JWT secret is required")
+	ErrBackendURLRequired         = errors.New("Backend URL is required")
+	ErrFrontendURLRequired        = errors.New("Frontend URL is required")
+	ErrOTLPEndpointRequired       = errors.New("OTLP endpoint is required when tracing is enabled")
+	ErrMapboxPublicTokenRequired  = errors.New("Mapbox public token is required")
+	ErrMapboxSecretTokenRequired  = errors.New("Mapbox secret token is required")
+	ErrDBHostRequired             = errors.New("Database host is required")
+	ErrDBDatabaseRequired         = errors.New("Database name is required")
+	ErrDatabaseDriverRequired     = errors.New("Database driver is required")
+	ErrNATSURLRequired            = errors.New("NATS URL is required")
+	ErrGitHubOAuthRequired        = errors.New("GitHub OAuth client ID and secret are required")
+	ErrGoogleOAuthRequired        = errors.New("Google OAuth client ID and secret are required")
+	ErrCustomOAuthRequired        = errors.New("Custom OAuth client ID and secret are required")
+	ErrCustomTokenURLRequired     = errors.New("Custom OAuth token URL is required")
+	ErrCustomUserURLRequired      = errors.New("Custom OAuth user URL is required")
+	ErrParallelLogParsersNotZero  = errors.New("Number of parallel log parsers must be greater than zero")
+	ErrInvalidLogLevel            = errors.New("Invalid log level")
+	ErrUploadsFSDirectoryRequired = errors.New("Filesystem uploads directory is required")
+	ErrUploadsS3BucketRequired    = errors.New("S3 bucket is required")
+	ErrUploadsS3RegionRequired    = errors.New("S3 region is required")
 )
 
 func (c *Config) Validate() error {
@@ -304,6 +337,15 @@ func (c *Config) Validate() error {
 	}
 	if c.Persistence.Database.Database == "" {
 		return ErrDBDatabaseRequired
+	}
+	if c.Persistence.Uploads.Driver == UploadsDriverFilesystem && c.Persistence.Uploads.FilesystemOptions.Directory == "" {
+		return ErrUploadsFSDirectoryRequired
+	}
+	if c.Persistence.Uploads.Driver == UploadsDriverS3 && c.Persistence.Uploads.S3Options.Bucket == "" {
+		return ErrUploadsS3BucketRequired
+	}
+	if c.Persistence.Uploads.Driver == UploadsDriverS3 && c.Persistence.Uploads.S3Options.Region == "" {
+		return ErrUploadsS3RegionRequired
 	}
 	if c.NATS.Enabled && c.NATS.URL == "" {
 		return ErrNATSURLRequired
@@ -401,8 +443,8 @@ func LoadConfig(cmd *cobra.Command) (*Config, error) {
 	if config.Persistence.Database.Database == "" {
 		config.Persistence.Database.Database = DefaultPersistenceDatabaseDatabase
 	}
-	if config.Persistence.Uploads == "" {
-		config.Persistence.Uploads = DefaultPersistenceUploads
+	if config.Persistence.Uploads.Driver == "" {
+		config.Persistence.Uploads.Driver = DefaultPersistenceUploadsDriver
 	}
 	if config.ParallelLogParsers == 0 {
 		config.ParallelLogParsers = DefaultParallelLogParsers
@@ -564,10 +606,32 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		}
 	}
 
-	if cmd.Flags().Changed(PersistenceUploadsKey) {
-		config.Persistence.Uploads, err = cmd.Flags().GetString(PersistenceUploadsKey)
+	if cmd.Flags().Changed(PersistenceUploadsDriverKey) {
+		drvr, err := cmd.Flags().GetString(PersistenceUploadsDriverKey)
 		if err != nil {
-			return fmt.Errorf("failed to get uploads directory: %w", err)
+			return fmt.Errorf("failed to get uploads driver: %w", err)
+		}
+		config.Persistence.Uploads.Driver = UploadsDriver(strings.ToLower(drvr))
+	}
+
+	if cmd.Flags().Changed(PersistenceUploadsFilesystemOptionsDirectoryKey) {
+		config.Persistence.Uploads.FilesystemOptions.Directory, err = cmd.Flags().GetString(PersistenceUploadsFilesystemOptionsDirectoryKey)
+		if err != nil {
+			return fmt.Errorf("failed to get filesystem uploads directory: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(PersistenceUploadsS3OptionsBucketKey) {
+		config.Persistence.Uploads.S3Options.Bucket, err = cmd.Flags().GetString(PersistenceUploadsS3OptionsBucketKey)
+		if err != nil {
+			return fmt.Errorf("failed to get S3 bucket: %w", err)
+		}
+	}
+
+	if cmd.Flags().Changed(PersistenceUploadsS3OptionsRegionKey) {
+		config.Persistence.Uploads.S3Options.Region, err = cmd.Flags().GetString(PersistenceUploadsS3OptionsRegionKey)
+		if err != nil {
+			return fmt.Errorf("failed to get S3 region: %w", err)
 		}
 	}
 

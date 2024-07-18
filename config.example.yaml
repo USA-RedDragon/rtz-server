@@ -65,8 +65,35 @@ persistence:
     # username: 'root' # Username to connect to the database server
     # password: '' # Password to connect to the database server
     # extra_parameters: '' # Extra parameters to pass to the database driver
-  # Path where upload files are stored
-  uploads: 'uploads/'
+
+  # Storage for uploaded video and driving logs
+  uploads:
+    ##### Memory Example #####
+    ##### This stores the files in memory, which is useful for testing
+    ##### but not recommended for production, as the files will be lost
+    ##### when the server is restarted. This is the default option for
+    ##### demo purposes and has no additional configuration.
+    driver: 'memory'
+
+    ##### Filesystem Example #####
+    ##### This stores the files on the local filesystem
+    ##### The directory will be created if it does not exist
+    # driver: 'filesystem'
+    # filesystem_options:
+    #   directory: 'uploads/'
+
+    ##### S3 Example #####
+    ##### Authentication shall be done via the standard AWS environment variables
+    ##### AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN
+    ####
+    ##### Alternatively, you can use the AWS CLI to configure the credentials
+    ##### aws configure
+    ####
+    ##### Or you can provide the credentials via IAM roles if running on AWS
+    # driver: 's3'
+    # s3_options:
+    #  region: 'us-east-1'
+    #  bucket: 'connect'
 
 # NATS MUST BE configured if you are going to run multiple instances of the server
 # or use blue/green deployments, otherwise websockets will only work for users
