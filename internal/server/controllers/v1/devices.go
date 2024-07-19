@@ -220,5 +220,10 @@ func GETDeviceLocation(c *gin.Context) {
 }
 
 func GETDeviceRoutesSegments(c *gin.Context) {
+	_, ok := c.Get("demo")
+	if ok {
+		c.Data(http.StatusOK, "application/json", []byte(v1.DemoRoutes))
+		return
+	}
 	c.JSON(http.StatusOK, []int{})
 }
