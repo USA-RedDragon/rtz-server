@@ -13,6 +13,18 @@ import (
 )
 
 func GETMe(c *gin.Context) {
+	_, ok := c.Get("demo")
+	if ok {
+		c.JSON(http.StatusOK, v1.GETMeResponse{
+			Email:          "comma.connect.user@gmail.com",
+			ID:             "0decddcfdf241a60",
+			Prime:          false,
+			RegisteredDate: 1716959966,
+			Superuser:      false,
+			UserID:         "google_115606701206535685614",
+		})
+		return
+	}
 	user, ok := c.MustGet("user").(*models.User)
 	if !ok {
 		slog.Error("Failed to get user from context")
@@ -41,6 +53,31 @@ func GETMe(c *gin.Context) {
 }
 
 func GETMyDevices(c *gin.Context) {
+	_, ok := c.Get("demo")
+	if ok {
+		c.JSON(http.StatusOK, []v1.GETMyDevicesResponse{{
+			Device: models.Device{
+				DeviceType:     "threex",
+				DongleID:       "1d3dc3e03047b0c7",
+				IsPaired:       true,
+				LastAthenaPing: 0,
+				Prime:          false,
+				PrimeType:      0,
+				PublicKey:      "-----BEGIN PUBLIC KEY-----MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvd6w9111wPVAgzrZyIhrX/mQm5uoSD9rDQxlWJemaYqKoREBwO6Hvs12PtWa0eXMa/1ZJugblXMG4oWqoswyLQ5QOqVNNWTcdE8avLtcW5QP+DzbCzUW7nVLUF9UgDUvsCjd95E5o/qEpsTV7NIisjJr+xhO7HXBdqVwmee5fUmgWI3/yHMMptT5kD1ZpmgTjDJqLZP7g78dpSZ8uc7NSLoI5fkaTrJU6HiY1vbVcQLe1IEOMEqW0QdxaRhA2Jr5OV3Hd9zYdGMvh/wYFX14ZYG2dYSKHXj9hlTbiMxiBuLq2hjrEC+Bfv1lHploFxmr3fGz7Sup0fqCQSjwpQI9qQIDAQAB-----END PUBLIC KEY-----",
+				Serial:         "c0ffee0",
+				TrialClaimed:   false,
+			},
+			Alias:   "demo 3x",
+			IsOwner: false,
+			EligibleFeatures: v1.EligibleFeatures{
+				Navigation: true,
+				Prime:      true,
+				PrimeData:  true,
+			},
+		}})
+		return
+	}
+
 	user, ok := c.MustGet("user").(*models.User)
 	if !ok {
 		slog.Error("Failed to get user from context")
