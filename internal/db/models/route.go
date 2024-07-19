@@ -9,8 +9,8 @@ import (
 type Route struct {
 	ID                      uint      `json:"id" gorm:"primaryKey" binding:"required"`
 	DeviceID                uint      `json:"device_id" binding:"required" gorm:"uniqueIndex,OnUpdate:CASCADE,OnDelete:SET NULL"`
-	FirstClockWallTimeNanos uint64    `json:"-" binding:"required" gorm:"type:BIGINT UNSIGNED"`
-	FirstClockLogMonoTime   uint64    `json:"-" binding:"required" gorm:"type:BIGINT UNSIGNED"`
+	FirstClockWallTimeNanos uint64    `json:"-" binding:"required" gorm:"type:numeric"`
+	FirstClockLogMonoTime   uint64    `json:"-" binding:"required" gorm:"type:numeric"`
 	AllSegmentsProcessed    bool      `json:"-"`
 	EndLat                  float64   `json:"end_lat"`
 	EndLng                  float64   `json:"end_lng"`
@@ -19,7 +19,7 @@ type Route struct {
 	GitCommit               string    `json:"git_commit" binding:"required"`
 	GitDirty                bool      `json:"git_dirty" binding:"required"`
 	GitRemote               string    `json:"git_remote" binding:"required"`
-	InitLogMonoTime         uint64    `json:"init_log_mono_time" binding:"required" gorm:"type:BIGINT UNSIGNED"`
+	InitLogMonoTime         uint64    `json:"init_log_mono_time" binding:"required" gorm:"type:numeric"`
 	IsPreserved             bool      `json:"is_preserved"`
 	IsPublic                bool      `json:"is_public"`
 	Length                  float64   `json:"length"`
