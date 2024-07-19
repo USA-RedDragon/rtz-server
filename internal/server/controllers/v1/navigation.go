@@ -132,9 +132,7 @@ func POSTSetDestination(c *gin.Context) {
 			return
 		}
 		if successFloat == 1 {
-			err = db.Model(&device).Updates(models.Device{
-				DestinationSet: false,
-			}).Error
+			err = db.Model(&device).Update("destination_set", false).Error
 			if err != nil {
 				slog.Error("Failed to update device", "error", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
@@ -184,9 +182,7 @@ func GETNavigationNext(c *gin.Context) {
 		return
 	}
 	if device.DestinationSet {
-		err = db.Model(&device).Updates(models.Device{
-			DestinationSet: false,
-		}).Error
+		err = db.Model(&device).Update("destination_set", false).Error
 		if err != nil {
 			slog.Error("Failed to update device", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
@@ -221,9 +217,7 @@ func DELETENavigationNext(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
-	err = db.Model(&device).Updates(models.Device{
-		DestinationSet: false,
-	}).Error
+	err = db.Model(&device).Update("destination_set", false).Error
 	if err != nil {
 		slog.Error("Failed to update device", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})

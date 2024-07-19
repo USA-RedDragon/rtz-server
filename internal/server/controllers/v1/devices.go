@@ -171,9 +171,7 @@ func POSTDeviceUnpair(c *gin.Context) {
 		return
 	}
 
-	err = db.Model(&device).Updates(models.Device{
-		IsPaired: false,
-	}).Error
+	err = db.Model(&device).Update("is_paired", false).Error
 	if err != nil {
 		slog.Error("Failed to unpair device", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
