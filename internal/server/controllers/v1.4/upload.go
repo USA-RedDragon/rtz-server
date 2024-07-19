@@ -2,6 +2,7 @@ package v1dot4
 
 import (
 	"bufio"
+	"errors"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -89,7 +90,7 @@ func PUTUpload(c *gin.Context) {
 	}
 
 	err = storage.Mkdir(dongleID, 0755)
-	if err != nil {
+	if err != nil && !errors.Is(err, fs.ErrExist) {
 		slog.Error("Failed to create dongle directory", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
