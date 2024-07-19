@@ -59,13 +59,13 @@ func applyRoutes(r *gin.Engine, config *config.Config, rpcWebsocket *websocketCo
 }
 
 func v1(group *gin.RouterGroup, config *config.Config) {
-	group.GET("/me", requireAuth(config, AuthTypeUser), controllersV1.GETMe)
+	group.GET("/me", requireAuth(config, AuthTypeUser|AuthTypeDemo), controllersV1.GETMe)
 	group.PATCH("/devices/:dongle_id", requireAuth(config, AuthTypeUser), requireDeviceOwner(), controllersV1.PATCHDevice)
 	group.POST("/devices/:dongle_id/unpair", requireAuth(config, AuthTypeUser), requireDeviceOwner(), controllersV1.POSTDeviceUnpair)
 	group.POST("/devices/:dongle_id/add_user", requireAuth(config, AuthTypeUser), requireDeviceOwner(), controllersV1.POSTDeviceAddUser)
 	group.GET("/devices/:dongle_id/location", requireAuth(config, AuthTypeUser), requireDeviceOwnerOrShared(), controllersV1.GETDeviceLocation)
 	group.GET("/devices/:dongle_id/routes_segments", requireAuth(config, AuthTypeUser), requireDeviceOwnerOrShared(), controllersV1.GETDeviceRoutesSegments)
-	group.GET("/me/devices", requireAuth(config, AuthTypeUser), controllersV1.GETMyDevices)
+	group.GET("/me/devices", requireAuth(config, AuthTypeUser|AuthTypeDemo), controllersV1.GETMyDevices)
 	group.POST("/navigation/:dongle_id/set_destination", requireAuth(config, AuthTypeUser|AuthTypeDevice), requireDeviceOwnerOrShared(), controllersV1.POSTSetDestination)
 	group.GET("/navigation/:dongle_id/next", requireAuth(config, AuthTypeUser|AuthTypeDevice), requireDeviceOwnerOrShared(), controllersV1.GETNavigationNext)
 	group.PUT("/navigation/:dongle_id/locations", requireAuth(config, AuthTypeUser|AuthTypeDevice), requireDeviceOwnerOrShared(), controllersV1.PUTNavigationLocations)

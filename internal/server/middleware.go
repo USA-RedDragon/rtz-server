@@ -32,6 +32,7 @@ type AuthType uint8
 const (
 	AuthTypeUser AuthType = 1 << iota
 	AuthTypeDevice
+	AuthTypeDemo
 )
 
 func applyMiddleware(
@@ -172,6 +173,8 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 	}
 }
 
+const demoToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDg1ODI0NjUsIm5iZiI6MTcxNzA0NjQ2NSwiaWF0IjoxNzE3MDQ2NDY1LCJpZGVudGl0eSI6IjBkZWNkZGNmZGYyNDFhNjAifQ.g3khyJgOkNvZny6Vh579cuQj1HLLGSDeauZbfZri9jw"
+
 func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
@@ -195,6 +198,13 @@ func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {
 		if !ok {
 			slog.Error("Failed to get db from context")
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		if authType&AuthTypeDemo == AuthTypeDemo && jwtString == demoToken {
+			// Special case for demo token
+			c.Set("demo", true)
+			c.Next()
 			return
 		}
 
