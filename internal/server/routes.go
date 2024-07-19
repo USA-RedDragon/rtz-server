@@ -77,7 +77,7 @@ func v1(group *gin.RouterGroup, config *config.Config) {
 
 func v1dot1(group *gin.RouterGroup, config *config.Config) {
 	group.GET("/devices/:dongle_id", requireAuth(config, AuthTypeUser|AuthTypeDevice), requireDeviceOwnerOrShared(), controllersV1dot1.GETDevice)
-	group.GET("/devices/:dongle_id/stats", requireAuth(config, AuthTypeUser|AuthTypeDevice), requireDeviceOwnerOrShared(), controllersV1dot1.GETDeviceStats)
+	group.GET("/devices/:dongle_id/stats", requireAuth(config, AuthTypeUser|AuthTypeDevice|AuthTypeDemo), requireDeviceOwnerOrShared(), controllersV1dot1.GETDeviceStats)
 }
 
 func v1dot4(group *gin.RouterGroup, config *config.Config) {

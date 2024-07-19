@@ -32,6 +32,21 @@ func GETDevice(c *gin.Context) {
 }
 
 func GETDeviceStats(c *gin.Context) {
+	_, ok := c.Get("demo")
+	if ok {
+		c.JSON(http.StatusOK, v1dot1.StatsResponse{
+			All: v1dot1.Stats{
+				Distance: 77.92072987556458,
+				Minutes:  174,
+				Routes:   12,
+			},
+			Week: v1dot1.Stats{
+				Distance: 0,
+				Minutes:  0,
+				Routes:   0,
+			},
+		})
+	}
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
