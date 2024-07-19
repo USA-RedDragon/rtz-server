@@ -80,12 +80,7 @@ sudo reboot
 - [ ] Add more documentation
 - [ ] Add more tests
 - [ ] Document deployment
-- [ ] Demo mode
 - [ ] SSH forwarding
-
-## Frotend TODOs
-
-- [ ] Demo mode
 
 ## Wants
 
