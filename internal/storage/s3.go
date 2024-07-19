@@ -25,10 +25,12 @@ type S3 struct {
 
 type bufferWriter struct {
 	io.Writer
-	buffer []byte
+	hasWritten bool
+	buffer     []byte
 }
 
 func (w *bufferWriter) Write(p []byte) (n int, err error) {
+	w.hasWritten = true
 	w.buffer = append(w.buffer, p...)
 	return len(p), nil
 }
@@ -38,12 +40,10 @@ type S3File struct {
 	key        string
 	body       io.ReadCloser
 	writer     bufferWriter
-	hasWritten bool
 	filesystem *S3
 }
 
 func (f S3File) Write(p []byte) (n int, err error) {
-	f.hasWritten = true
 	return f.writer.Write(p)
 }
 
@@ -53,7 +53,7 @@ func (f S3File) Close() error {
 		return f.body.Close()
 	})
 	// Write the buffer to S3
-	if f.hasWritten {
+	if f.writer.hasWritten {
 		errGrp.Go(func() error {
 			_, err := f.filesystem.s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
 				Bucket: aws.String(f.filesystem.bucket),
