@@ -188,6 +188,11 @@ func POSTDeviceUnpair(c *gin.Context) {
 }
 
 func GETDeviceLocation(c *gin.Context) {
+	_, ok := c.Get("demo")
+	if ok {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": 1, "status_code": 403, "description": "You don't have the permission to access the requested resource. It is either read-protected or not readable by the server."})
+		return
+	}
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
