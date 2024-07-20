@@ -3,14 +3,48 @@ package v1
 import (
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	v1 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1"
+	"github.com/USA-RedDragon/rtz-server/internal/utils"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+func GETRouteQCameraM3U8(c *gin.Context) {
+	_, ok := c.Get("demo")
+	if ok {
+		url := c.Request.URL
+		url.Host = "api.comma.ai"
+		url.Scheme = "https"
+		resp, err := utils.HTTPRequest(c, http.MethodGet, url.String(), nil, nil)
+		if err != nil {
+			slog.Error("GETRouteQCameraM3U8", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			slog.Error("GETRouteQCameraM3U8", "status_code", resp.StatusCode)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			slog.Error("GETRouteQCameraM3U8", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		c.Data(http.StatusOK, "application/x-mpegURL", bodyBytes)
+		return
+	}
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented"})
+}
 
 func GETMe(c *gin.Context) {
 	_, ok := c.Get("demo")
