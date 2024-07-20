@@ -305,6 +305,12 @@ func requireDeviceOwner() gin.HandlerFunc {
 	// User should be present from requireAuth
 	// All these routes have a dongle_id param
 	return func(c *gin.Context) {
+		_, ok := c.Get("demo")
+		if ok {
+			c.Next()
+			return
+		}
+
 		dongleID, ok := c.Params.Get("dongle_id")
 		if !ok {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
