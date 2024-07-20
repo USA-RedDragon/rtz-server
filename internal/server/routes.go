@@ -61,6 +61,8 @@ func applyRoutes(r *gin.Engine, config *config.Config, rpcWebsocket *websocketCo
 func v1(group *gin.RouterGroup, config *config.Config) {
 	group.GET("/me", requireAuth(config, AuthTypeUser|AuthTypeDemo), controllersV1.GETMe)
 	group.GET("/route/:id/qcamera.m3u8", controllersV1.GETRouteQCameraM3U8)
+	group.GET("/route/:id/files", controllersV1.GETRouteFiles)
+	group.GET("/devices/:dongle_id/athena_offline_queue", requireAuth(config, AuthTypeUser|AuthTypeDemo), requireDeviceOwner(), controllersV1.GETAthenaOfflineQueue)
 	group.PATCH("/devices/:dongle_id", requireAuth(config, AuthTypeUser), requireDeviceOwner(), controllersV1.PATCHDevice)
 	group.POST("/devices/:dongle_id/unpair", requireAuth(config, AuthTypeUser), requireDeviceOwner(), controllersV1.POSTDeviceUnpair)
 	group.POST("/devices/:dongle_id/add_user", requireAuth(config, AuthTypeUser), requireDeviceOwner(), controllersV1.POSTDeviceAddUser)

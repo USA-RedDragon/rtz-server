@@ -15,6 +15,57 @@ import (
 	"gorm.io/gorm"
 )
 
+func GETRouteFiles(c *gin.Context) {
+	id, ok := c.Params.Get("id")
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		return
+	}
+	idParts := strings.Split(id, "|")
+	if len(idParts) != 2 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id must be in the format of <device_id>|<route>"})
+		return
+	}
+	deviceID := idParts[0]
+	if deviceID == "1d3dc3e03047b0c7" {
+		url := c.Request.URL
+		url.Host = "api.comma.ai"
+		url.Scheme = "https"
+		resp, err := utils.HTTPRequest(c, http.MethodGet, url.String(), nil, nil)
+		if err != nil {
+			slog.Error("GETRouteFiles", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			slog.Error("GETRouteFiles", "status_code", resp.StatusCode)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			slog.Error("GETRouteFiles", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		c.Data(http.StatusOK, "application/json", bodyBytes)
+		return
+	}
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented"})
+}
+
+func GETAthenaOfflineQueue(c *gin.Context) {
+	_, ok := c.Get("demo")
+	if ok {
+		c.Data(http.StatusOK, "application/json", []byte("[]"))
+		return
+	}
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented"})
+}
+
 func GETRouteQCameraM3U8(c *gin.Context) {
 	id, ok := c.Params.Get("id")
 	if !ok {
