@@ -15,6 +15,11 @@ import (
 )
 
 func HandleRPC(c *gin.Context) {
+	_, ok := c.Get("demo")
+	if ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Demo users cannot make RPC calls"})
+		return
+	}
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})

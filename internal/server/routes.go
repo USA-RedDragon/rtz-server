@@ -50,7 +50,7 @@ func applyRoutes(r *gin.Engine, config *config.Config, rpcWebsocket *websocketCo
 	wsV2 := r.Group("/ws/v2")
 	wsV2.GET("/:dongle_id", requireCookieAuth(config), websocket.CreateHandler(rpcWebsocket, config))
 
-	r.POST("/:dongle_id", requireAuth(config, AuthTypeUser), requireDeviceOwnerOrShared(), controllers.HandleRPC)
+	r.POST("/:dongle_id", requireAuth(config, AuthTypeUser|AuthTypeDemo), requireDeviceOwnerOrShared(), controllers.HandleRPC)
 
 	r.NoRoute(func(c *gin.Context) {
 		slog.Warn("Not Found", "path", c.Request.URL.Path)
