@@ -13,7 +13,7 @@ An implementation of the Comma.ai API service for self-hosted folks. Pronounced 
 - Doesn't track you
 - Keeps your video data to yourself
 - Simple to install
-- Small binary (less than 10MB), self-contained
+- Small binary (less than 15MB), self-contained
 - Store data long-term
 - Not paid, only self-hosting costs
 - Same frontend/PWA you're used to (Connect's frontend is open-source, thanks Comma!)
