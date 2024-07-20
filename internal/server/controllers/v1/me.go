@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	v1 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1"
@@ -15,8 +16,18 @@ import (
 )
 
 func GETRouteQCameraM3U8(c *gin.Context) {
-	_, ok := c.Get("demo")
-	if ok {
+	id, ok := c.Params.Get("id")
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		return
+	}
+	idParts := strings.Split(id, "|")
+	if len(idParts) != 2 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id must be in the format of <device_id>|<route>"})
+		return
+	}
+	deviceID := idParts[0]
+	if deviceID == "1d3dc3e03047b0c7" {
 		url := c.Request.URL
 		url.Host = "api.comma.ai"
 		url.Scheme = "https"
