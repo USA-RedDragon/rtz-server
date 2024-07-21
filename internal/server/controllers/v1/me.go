@@ -163,7 +163,7 @@ func GETMyDevices(c *gin.Context) {
 				LastAthenaPing: 0,
 				Prime:          false,
 				PrimeType:      0,
-				PublicKey:      "-----BEGIN PUBLIC KEY-----MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvd6w9111wPVAgzrZyIhrX/mQm5uoSD9rDQxlWJemaYqKoREBwO6Hvs12PtWa0eXMa/1ZJugblXMG4oWqoswyLQ5QOqVNNWTcdE8avLtcW5QP+DzbCzUW7nVLUF9UgDUvsCjd95E5o/qEpsTV7NIisjJr+xhO7HXBdqVwmee5fUmgWI3/yHMMptT5kD1ZpmgTjDJqLZP7g78dpSZ8uc7NSLoI5fkaTrJU6HiY1vbVcQLe1IEOMEqW0QdxaRhA2Jr5OV3Hd9zYdGMvh/wYFX14ZYG2dYSKHXj9hlTbiMxiBuLq2hjrEC+Bfv1lHploFxmr3fGz7Sup0fqCQSjwpQI9qQIDAQAB-----END PUBLIC KEY-----",
+				PublicKey:      "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvd6w9111wPVAgzrZyIhr\nX/mQm5uoSD9rDQxlWJemaYqKoREBwO6Hvs12PtWa0eXMa/1ZJugblXMG4oWqoswy\nLQ5QOqVNNWTcdE8avLtcW5QP+DzbCzUW7nVLUF9UgDUvsCjd95E5o/qEpsTV7NIi\nsjJr+xhO7HXBdqVwmee5fUmgWI3/yHMMptT5kD1ZpmgTjDJqLZP7g78dpSZ8uc7N\nSLoI5fkaTrJU6HiY1vbVcQLe1IEOMEqW0QdxaRhA2Jr5OV3Hd9zYdGMvh/wYFX14\nZYG2dYSKHXj9hlTbiMxiBuLq2hjrEC+Bfv1lHploFxmr3fGz7Sup0fqCQSjwpQI9\nqQIDAQAB\n-----END PUBLIC KEY-----\n",
 				Serial:         "c0ffee0",
 				TrialClaimed:   false,
 			},
