@@ -2,6 +2,7 @@ package v1
 
 import (
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	v1 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1"
+	"github.com/USA-RedDragon/rtz-server/internal/utils"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -227,7 +229,30 @@ func GETDeviceLocation(c *gin.Context) {
 func GETDeviceRoutesSegments(c *gin.Context) {
 	_, ok := c.Get("demo")
 	if ok {
-		c.Data(http.StatusOK, "application/json", []byte(v1.DemoRoutes))
+		url := c.Request.URL
+		url.Host = "api.comma.ai"
+		url.Scheme = "https"
+		resp, err := utils.HTTPRequest(c, http.MethodGet, url.String(), nil, nil)
+		if err != nil {
+			slog.Error("GETDeviceRoutesSegments", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			slog.Error("GETDeviceRoutesSegments", "status_code", resp.StatusCode)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			slog.Error("GETDeviceRoutesSegments", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+
+		c.Data(http.StatusOK, "application/json", bodyBytes)
 		return
 	}
 	c.JSON(http.StatusOK, []int{})
