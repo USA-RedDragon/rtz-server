@@ -3,7 +3,7 @@ module github.com/USA-RedDragon/rtz-server
 go 1.22.5
 
 require (
-	capnproto.org/go/capnp/v3 v3.0.1-alpha.1
+	capnproto.org/go/capnp/v3 v3.0.1-alpha.2
 	github.com/aws/aws-sdk-go-v2 v1.30.3
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.58.2
 	github.com/gin-contrib/cors v1.7.2
