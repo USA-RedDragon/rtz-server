@@ -64,6 +64,7 @@ func GETDeviceStats(c *gin.Context) {
 				Routes:   0,
 			},
 		})
+		return
 	}
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
