@@ -74,12 +74,13 @@ sudo reboot
 
 ## TODOs (in order of priority)
 
-- [ ] Parsing uploaded segments and routes
+- [ ] Parsing uploaded segments and routes (partially done)
 - [ ] Stat tracking
 - [ ] Useradmin
 - [ ] Add more documentation
 - [ ] Add more tests
 - [ ] Document deployment
+- [ ] Tool to copy data from Comma's servers
 - [ ] SSH forwarding
 
 ## Wants
