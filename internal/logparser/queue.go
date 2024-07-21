@@ -11,6 +11,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	"github.com/USA-RedDragon/rtz-server/internal/storage"
+	"github.com/USA-RedDragon/rtz-server/internal/utils"
 	"github.com/mattn/go-nulltype"
 	"github.com/puzpuzpuz/xsync/v3"
 	"gorm.io/gorm"
@@ -184,7 +185,7 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 				lastGPS = segmentData.GPSLocations[i-1]
 			}
 			gps := segmentData.GPSLocations[i]
-			segmentData.GPSLocations[i].Distance = haversine(lastGPS.Latitude, lastGPS.Longitude, gps.Latitude, gps.Longitude)
+			segmentData.GPSLocations[i].Distance = utils.Haversine(lastGPS.Latitude, lastGPS.Longitude, gps.Latitude, gps.Longitude)
 			route.Length += segmentData.GPSLocations[i].Distance
 		}
 	}
