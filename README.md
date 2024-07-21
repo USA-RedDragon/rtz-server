@@ -2,6 +2,8 @@
 
 [![Release](https://github.com/USA-RedDragon/rtz-server/actions/workflows/release.yaml/badge.svg)](https://github.com/USA-RedDragon/rtz-server/actions/workflows/release.yaml) [![License](https://badgen.net/github/license/USA-RedDragon/rtz-server)](https://github.com/USA-RedDragon/rtz-server/blob/master/LICENSE) [![go.mod version](https://img.shields.io/github/go-mod/go-version/USA-RedDragon/rtz-server.svg)](https://github.com/USA-RedDragon/rtz-server) [![GoReportCard](https://goreportcard.com/badge/github.com/USA-RedDragon/rtz-server)](https://goreportcard.com/report/github.com/USA-RedDragon/rtz-server) [![codecov](https://codecov.io/gh/USA-RedDragon/rtz-server/graph/badge.svg?token=6ASKMAKOZE)](https://codecov.io/gh/USA-RedDragon/rtz-server)
 
+![RTZ logo](./hack/hero.png)
+
 An implementation of the Comma.ai API service for self-hosted folks. Pronounced like "Routes".
 
 > [!WARNING]
