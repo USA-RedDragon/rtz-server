@@ -232,7 +232,9 @@ func GETDeviceRoutesSegments(c *gin.Context) {
 		url := c.Request.URL
 		url.Host = "api.comma.ai"
 		url.Scheme = "https"
-		resp, err := utils.HTTPRequest(c, http.MethodGet, url.String(), nil, nil)
+		resp, err := utils.HTTPRequest(c, http.MethodGet, url.String(), nil, map[string]string{
+			"Authorization": c.GetHeader("Authorization"),
+		})
 		if err != nil {
 			slog.Error("GETDeviceRoutesSegments", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
