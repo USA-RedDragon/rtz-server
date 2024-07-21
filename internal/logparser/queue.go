@@ -174,9 +174,10 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 			var lastGPS GpsCoordinates
 			if i == 0 {
 				if !segmentData.StartOfRoute {
-					// First entry but there are previous entries in the route
-					// TODO: Get last GPS from the route
-					lastGPS = GpsCoordinates{}
+					lastGPS = GpsCoordinates{
+						Latitude:  device.LastGPSLat.Float64Value(),
+						Longitude: device.LastGPSLng.Float64Value(),
+					}
 				} else {
 					// First entry in route, distance is zero
 					continue
