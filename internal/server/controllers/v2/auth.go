@@ -284,6 +284,25 @@ func GETAuthRedirect(c *gin.Context) {
 		return
 	}
 
+	queryState := c.Query("state")
+	if queryState == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "state is required"})
+		return
+	}
+	// We expect state to be `service,$frontend_host`
+	stateParts := strings.Split(queryState, ",")
+	if len(stateParts) != 2 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "state is invalid"})
+		return
+	}
+
+	if stateParts[0] != "service" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "state is invalid"})
+		return
+	}
+
+	returnHostname := stateParts[1]
+
 	code := c.Query("code")
 	if code == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
@@ -297,7 +316,7 @@ func GETAuthRedirect(c *gin.Context) {
 		return
 	}
 
-	referer, err := url.Parse(config.HTTP.FrontendURL)
+	referer, err := url.Parse("https://" + returnHostname)
 	if err != nil {
 		slog.Error("Failed to parse referer", "error", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is invalid"})

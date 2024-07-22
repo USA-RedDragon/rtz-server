@@ -178,7 +178,6 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 					lastGPS = GpsCoordinates{
 						Latitude:             device.LastGPSLat.Float64Value(),
 						Longitude:            device.LastGPSLng.Float64Value(),
-						AccuracyMeters:       device.LastGPSAccuracy.Float64Value(),
 						SpeedMetersPerSecond: device.LastGPSSpeed.Float64Value(),
 					}
 				} else {
@@ -189,13 +188,12 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 				lastGPS = segmentData.GPSLocations[i-1]
 			}
 			gps := segmentData.GPSLocations[i]
-			slog.Info("Last GPS", "lat", lastGPS.Latitude, "lng", lastGPS.Longitude, "accuracy", lastGPS.AccuracyMeters, "speed", lastGPS.SpeedMetersPerSecond)
-			slog.Info("Current GPS", "lat", gps.Latitude, "lng", gps.Longitude, "accuracy", gps.AccuracyMeters, "speed", gps.SpeedMetersPerSecond)
+			slog.Info("Last GPS", "lat", lastGPS.Latitude, "lng", lastGPS.Longitude, "speed", lastGPS.SpeedMetersPerSecond)
+			slog.Info("Current GPS", "lat", gps.Latitude, "lng", gps.Longitude, "speed", gps.SpeedMetersPerSecond)
 			dist := utils.Haversine(lastGPS.Latitude, lastGPS.Longitude, gps.Latitude, gps.Longitude)
 			slog.Info("Distance", "distance", dist)
-			// Check if the accuracy of the previous GPS location extends to contain the current gps coords
-			// If it does, we don't want to add the distance to the total length because there likely was no movement
-			if lastGPS.AccuracyMeters <= dist && dist > 2 {
+			// How do we know if the distance is accurate and should be added?
+			if dist > 2 {
 				slog.Info("Distance is outside accuracy zone, adding to total length")
 				segmentData.GPSLocations[i].Distance = dist
 				route.Length += segmentData.GPSLocations[i].Distance
