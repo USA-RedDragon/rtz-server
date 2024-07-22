@@ -176,9 +176,10 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 			if i == 0 {
 				if !segmentData.StartOfRoute {
 					lastGPS = GpsCoordinates{
-						Latitude:       device.LastGPSLat.Float64Value(),
-						Longitude:      device.LastGPSLng.Float64Value(),
-						AccuracyMeters: device.LastGPSAccuracy.Float64Value(),
+						Latitude:             device.LastGPSLat.Float64Value(),
+						Longitude:            device.LastGPSLng.Float64Value(),
+						AccuracyMeters:       device.LastGPSAccuracy.Float64Value(),
+						SpeedMetersPerSecond: device.LastGPSSpeed.Float64Value(),
 					}
 				} else {
 					// First entry in route, distance is zero
@@ -188,20 +189,20 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 				lastGPS = segmentData.GPSLocations[i-1]
 			}
 			gps := segmentData.GPSLocations[i]
-			slog.Debug("Last GPS", "lat", lastGPS.Latitude, "lng", lastGPS.Longitude)
-			slog.Debug("Current GPS", "lat", gps.Latitude, "lng", gps.Longitude)
+			slog.Info("Last GPS", "lat", lastGPS.Latitude, "lng", lastGPS.Longitude, "accuracy", lastGPS.AccuracyMeters, "speed", lastGPS.SpeedMetersPerSecond)
+			slog.Info("Current GPS", "lat", gps.Latitude, "lng", gps.Longitude, "accuracy", gps.AccuracyMeters, "speed", gps.SpeedMetersPerSecond)
 			dist := utils.Haversine(lastGPS.Latitude, lastGPS.Longitude, gps.Latitude, gps.Longitude)
-			slog.Debug("Distance", "distance", dist)
+			slog.Info("Distance", "distance", dist)
 			// Check if the accuracy of the previous GPS location extends to contain the current gps coords
 			// If it does, we don't want to add the distance to the total length because there likely was no movement
-			if lastGPS.AccuracyMeters <= dist {
-				slog.Debug("Distance is outside accuracy zone, adding to total length")
+			if lastGPS.AccuracyMeters <= dist && dist > 2 {
+				slog.Info("Distance is outside accuracy zone, adding to total length")
 				segmentData.GPSLocations[i].Distance = dist
 				route.Length += segmentData.GPSLocations[i].Distance
 			} else {
-				slog.Debug("Distance is inside accuracy zone, not adding to total length", "accuracy", lastGPS.AccuracyMeters, "distance", dist)
+				slog.Info("Distance is inside accuracy zone, not adding to total length", "accuracy", lastGPS.AccuracyMeters, "distance", dist)
 			}
-			slog.Debug("Total length", "length", route.Length)
+			slog.Info("Total length", "length", route.Length)
 		}
 	}
 
