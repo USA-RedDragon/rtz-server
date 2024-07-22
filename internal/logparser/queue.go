@@ -171,6 +171,7 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 		}
 
 		for i := 0; i < numGPSLocs; i++ {
+			slog.Debug("Processing GPS location", "i", i)
 			var lastGPS GpsCoordinates
 			if i == 0 {
 				if !segmentData.StartOfRoute {
@@ -186,8 +187,12 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 				lastGPS = segmentData.GPSLocations[i-1]
 			}
 			gps := segmentData.GPSLocations[i]
+			slog.Debug("Last GPS", "lat", lastGPS.Latitude, "lng", lastGPS.Longitude)
+			slog.Debug("Current GPS", "lat", gps.Latitude, "lng", gps.Longitude)
+			slog.Debug("Distance", "distance", utils.Haversine(lastGPS.Latitude, lastGPS.Longitude, gps.Latitude, gps.Longitude))
 			segmentData.GPSLocations[i].Distance = utils.Haversine(lastGPS.Latitude, lastGPS.Longitude, gps.Latitude, gps.Longitude)
 			route.Length += segmentData.GPSLocations[i].Distance
+			slog.Debug("Total length", "length", route.Length)
 		}
 	}
 
