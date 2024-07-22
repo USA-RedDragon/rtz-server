@@ -9,7 +9,6 @@ import (
 //nolint:golint,gochecknoglobals
 var requiredFlags = []string{
 	"--jwt.secret", "changeme",
-	"--http.frontend_url", "http://localhost:8083",
 	"--http.backend_url", "http://localhost:8081",
 	"--mapbox.secret_token", "dummy",
 	"--mapbox.public_token", "dummy",

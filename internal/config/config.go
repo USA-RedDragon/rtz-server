@@ -155,7 +155,6 @@ type Metrics struct {
 type HTTP struct {
 	HTTPListener
 	Tracing
-	FrontendURL    string   `json:"frontend_url" yaml:"frontend_url"`
 	BackendURL     string   `json:"backend_url" yaml:"backend_url"`
 	PProf          PProf    `json:"pprof"`
 	TrustedProxies []string `json:"trusted_proxies" yaml:"trusted_proxies"`
@@ -178,7 +177,6 @@ var (
 	HTTPMetricsIPV6HostKey                          = "http.metrics.ipv6_host"
 	HTTPMetricsPortKey                              = "http.metrics.port"
 	HTTPCORSHostsKey                                = "http.cors_hosts"
-	HTTPFrontendURLKey                              = "http.frontend_url"
 	HTTPBackendURLKey                               = "http.backend_url"
 	PersistenceDatabaseDriverKey                    = "persistence.database.driver"
 	PersistenceDatabaseDatabaseKey                  = "persistence.database.database"
@@ -254,7 +252,6 @@ func RegisterFlags(cmd *cobra.Command) {
 	cmd.Flags().Uint16(HTTPMetricsPortKey, DefaultHTTPMetricsPort, "Metrics server port")
 	cmd.Flags().StringSlice(HTTPCORSHostsKey, []string{}, "Comma-separated list of CORS hosts")
 	cmd.Flags().String(HTTPBackendURLKey, "", "Backend URL")
-	cmd.Flags().String(HTTPFrontendURLKey, "", "Frontend URL")
 	cmd.Flags().String(PersistenceDatabaseDriverKey, string(DefaultPersistenceDatabaseDriver), "Database driver, one of: sqlite, mysql, postgres")
 	cmd.Flags().String(PersistenceDatabaseDatabaseKey, DefaultPersistenceDatabaseDatabase, "Database path")
 	cmd.Flags().String(PersistenceDatabaseUsernameKey, "", "Database username")
@@ -292,7 +289,6 @@ func RegisterFlags(cmd *cobra.Command) {
 var (
 	ErrJWTSecretRequired          = errors.New("JWT secret is required")
 	ErrBackendURLRequired         = errors.New("Backend URL is required")
-	ErrFrontendURLRequired        = errors.New("Frontend URL is required")
 	ErrOTLPEndpointRequired       = errors.New("OTLP endpoint is required when tracing is enabled")
 	ErrMapboxPublicTokenRequired  = errors.New("Mapbox public token is required")
 	ErrMapboxSecretTokenRequired  = errors.New("Mapbox secret token is required")
@@ -318,9 +314,6 @@ func (c *Config) Validate() error {
 	}
 	if c.HTTP.BackendURL == "" {
 		return ErrBackendURLRequired
-	}
-	if c.HTTP.FrontendURL == "" {
-		return ErrFrontendURLRequired
 	}
 	if c.HTTP.Tracing.Enabled && c.HTTP.Tracing.OTLPEndpoint == "" {
 		return ErrOTLPEndpointRequired
@@ -544,13 +537,6 @@ func overrideFlags(config *Config, cmd *cobra.Command) error {
 		config.HTTP.CORSHosts, err = cmd.Flags().GetStringSlice(HTTPCORSHostsKey)
 		if err != nil {
 			return fmt.Errorf("failed to get CORS hosts: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPFrontendURLKey) {
-		config.HTTP.FrontendURL, err = cmd.Flags().GetString(HTTPFrontendURLKey)
-		if err != nil {
-			return fmt.Errorf("failed to get frontend URL: %w", err)
 		}
 	}
 
