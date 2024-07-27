@@ -207,6 +207,7 @@ func PUTUpload(c *gin.Context) {
 				return
 			}
 			file.Close()
+			go logQueue.AddLog(path, dongleID, result)
 		case strings.Contains(path, "qlog.zst"):
 			file, err := base.Open(path)
 			if err != nil {
@@ -229,12 +230,8 @@ func PUTUpload(c *gin.Context) {
 				return
 			}
 			file.Close()
-		default:
-			slog.Error("Invalid file type", "path", path)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file"})
-			return
+			go logQueue.AddLog(path, dongleID, result)
 		}
-		go logQueue.AddLog(path, dongleID, result)
 	case oldRouteRegex.Match([]byte(path)):
 		slog.Warn("Old route upload", "path", path)
 	default:
