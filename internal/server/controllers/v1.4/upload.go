@@ -165,6 +165,18 @@ func PUTUpload(c *gin.Context) {
 		}
 	case newRouteRegex.Match([]byte(path)):
 		slog.Warn("New route upload", "path", path)
+		match := newRouteRegex.FindStringSubmatch(path)
+		var result v1dot4.RouteInfo
+		for i, name := range newRouteRegex.SubexpNames() {
+			switch name {
+			case "motonic":
+				result.Motonic = match[i]
+			case "route":
+				result.Route = match[i]
+			case "segment":
+				result.Segment = match[i]
+			}
+		}
 		if strings.Contains(path, "qlog.bz2") {
 			file, err := base.Open(path)
 			if err != nil {
@@ -191,7 +203,7 @@ func PUTUpload(c *gin.Context) {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 				return
 			}
-			go logQueue.AddLog(path, dongleID)
+			go logQueue.AddLog(path, dongleID, result)
 		}
 	case oldRouteRegex.Match([]byte(path)):
 		slog.Warn("Old route upload", "path", path)

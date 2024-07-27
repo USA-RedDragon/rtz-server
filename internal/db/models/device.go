@@ -36,7 +36,6 @@ type Device struct {
 	LastGPSTime             nulltype.NullTime    `json:"last_gps_time,omitempty"`
 	LastGPSLat              nulltype.NullFloat64 `json:"last_gps_lat,omitempty"`
 	LastGPSLng              nulltype.NullFloat64 `json:"last_gps_lng,omitempty"`
-	LastGPSAccuracy         nulltype.NullFloat64 `json:"last_gps_accuracy,omitempty"`
 	LastGPSSpeed            nulltype.NullFloat64 `json:"last_gps_speed,omitempty"`
 	LastGPSBearing          nulltype.NullFloat64 `json:"last_gps_bearing,omitempty"`
 	OpenPilotVersion        string               `json:"openpilot_version"`

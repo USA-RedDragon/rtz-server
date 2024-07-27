@@ -12,7 +12,6 @@ type GpsCoordinates struct {
 	Latitude             float64
 	Longitude            float64
 	LogMonoTime          uint64
-	AccuracyMeters       float64
 	SpeedMetersPerSecond float64
 	Bearing              float64
 	Distance             float64
@@ -70,7 +69,6 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 			gps := GpsCoordinates{
 				Latitude:             gpsLocation.Latitude(),
 				Longitude:            gpsLocation.Longitude(),
-				AccuracyMeters:       float64(gpsLocation.HorizontalAccuracy()),
 				SpeedMetersPerSecond: float64(gpsLocation.Speed()),
 				Bearing:              float64(gpsLocation.BearingDeg()),
 				LogMonoTime:          event.LogMonoTime(),

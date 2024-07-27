@@ -3,6 +3,7 @@ package logparser
 import (
 	"bufio"
 	"compress/bzip2"
+	"errors"
 	"log/slog"
 	"path/filepath"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/config"
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	"github.com/USA-RedDragon/rtz-server/internal/metrics"
+	v1dot4 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1.4"
 	"github.com/USA-RedDragon/rtz-server/internal/storage"
 	"github.com/USA-RedDragon/rtz-server/internal/utils"
 	"github.com/mattn/go-nulltype"
@@ -31,8 +33,9 @@ type LogQueue struct {
 }
 
 type work struct {
-	path     string
-	dongleID string
+	path      string
+	dongleID  string
+	routeInfo v1dot4.RouteInfo
 }
 
 func NewLogQueue(config *config.Config, db *gorm.DB, storage storage.Storage, metrics *metrics.Metrics) *LogQueue {
@@ -82,8 +85,8 @@ func (q *LogQueue) Stop() {
 	<-q.closeChan
 }
 
-func (q *LogQueue) AddLog(path string, dongleID string) {
-	q.queue <- work{path: path, dongleID: dongleID}
+func (q *LogQueue) AddLog(path string, dongleID string, routeInfo v1dot4.RouteInfo) {
+	q.queue <- work{path: path, dongleID: dongleID, routeInfo: routeInfo}
 }
 
 func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) error {
@@ -108,29 +111,24 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 		slog.Error("Error decoding segment data", "err", err)
 		return err
 	}
-	var route models.Route
-	if segmentData.StartOfRoute {
-		route = models.Route{
-			DeviceID:        device.ID,
-			GitBranch:       segmentData.GitBranch,
-			GitRemote:       segmentData.GitRemote,
-			GitDirty:        segmentData.GitDirty,
-			GitCommit:       segmentData.GitCommit,
-			InitLogMonoTime: segmentData.InitLogMonoTime,
-			Platform:        segmentData.CarModel,
-			Radar:           segmentData.Radar,
-			Version:         segmentData.Version,
-		}
-		if segmentData.FirstClockLogMonoTime != 0 {
-			route.FirstClockLogMonoTime = segmentData.FirstClockLogMonoTime
-		}
-		if segmentData.FirstClockWallTimeNanos != 0 {
-			route.FirstClockWallTimeNanos = segmentData.FirstClockWallTimeNanos
-		}
-	} else {
-		// We need to associate a segment with a route...
-		route, err = models.FindRouteForSegment(db, device.ID, segmentData.InitLogMonoTime)
-		if err != nil {
+
+	// We need to associate a segment with a route...
+	route, err := models.FindRouteForSegment(db, device.ID, work.routeInfo)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			route = models.Route{
+				DeviceID:        device.ID,
+				RouteID:         work.routeInfo.Route,
+				GitBranch:       segmentData.GitBranch,
+				GitRemote:       segmentData.GitRemote,
+				GitDirty:        segmentData.GitDirty,
+				GitCommit:       segmentData.GitCommit,
+				InitLogMonoTime: segmentData.InitLogMonoTime,
+				Platform:        segmentData.CarModel,
+				Radar:           segmentData.Radar,
+				Version:         segmentData.Version,
+			}
+		} else {
 			q.metrics.IncrementLogParserErrors(work.dongleID, "find_route_for_segment")
 			slog.Error("Error finding route for segment", "err", err)
 			return err
@@ -156,12 +154,11 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 			latestTimeStamp := time.Unix(0, int64(route.GetWallTimeFromBootTime(segmentData.GPSLocations[numGPSLocs-1].LogMonoTime)))
 			err := q.db.Model(&device).
 				Updates(models.Device{
-					LastGPSTime:     nulltype.NullTimeOf(latestTimeStamp),
-					LastGPSLat:      nulltype.NullFloat64Of(segmentData.EndCoordinates.Latitude),
-					LastGPSLng:      nulltype.NullFloat64Of(segmentData.EndCoordinates.Longitude),
-					LastGPSBearing:  nulltype.NullFloat64Of(segmentData.EndCoordinates.Bearing),
-					LastGPSSpeed:    nulltype.NullFloat64Of(segmentData.EndCoordinates.SpeedMetersPerSecond),
-					LastGPSAccuracy: nulltype.NullFloat64Of(segmentData.EndCoordinates.AccuracyMeters),
+					LastGPSTime:    nulltype.NullTimeOf(latestTimeStamp),
+					LastGPSLat:     nulltype.NullFloat64Of(segmentData.EndCoordinates.Latitude),
+					LastGPSLng:     nulltype.NullFloat64Of(segmentData.EndCoordinates.Longitude),
+					LastGPSBearing: nulltype.NullFloat64Of(segmentData.EndCoordinates.Bearing),
+					LastGPSSpeed:   nulltype.NullFloat64Of(segmentData.EndCoordinates.SpeedMetersPerSecond),
 				}).Error
 			if err != nil {
 				q.metrics.IncrementLogParserErrors(work.dongleID, "update_device")
@@ -178,7 +175,6 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 					lastGPS = GpsCoordinates{
 						Latitude:             device.LastGPSLat.Float64Value(),
 						Longitude:            device.LastGPSLng.Float64Value(),
-						AccuracyMeters:       device.LastGPSAccuracy.Float64Value(),
 						SpeedMetersPerSecond: device.LastGPSSpeed.Float64Value(),
 					}
 				} else {
@@ -189,18 +185,17 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 				lastGPS = segmentData.GPSLocations[i-1]
 			}
 			gps := segmentData.GPSLocations[i]
-			slog.Info("Last GPS", "lat", lastGPS.Latitude, "lng", lastGPS.Longitude, "accuracy", lastGPS.AccuracyMeters, "speed", lastGPS.SpeedMetersPerSecond)
-			slog.Info("Current GPS", "lat", gps.Latitude, "lng", gps.Longitude, "accuracy", gps.AccuracyMeters, "speed", gps.SpeedMetersPerSecond)
+			slog.Info("Last GPS", "lat", lastGPS.Latitude, "lng", lastGPS.Longitude, "speed", lastGPS.SpeedMetersPerSecond)
+			slog.Info("Current GPS", "lat", gps.Latitude, "lng", gps.Longitude, "speed", gps.SpeedMetersPerSecond)
 			dist := utils.Haversine(lastGPS.Latitude, lastGPS.Longitude, gps.Latitude, gps.Longitude)
 			slog.Info("Distance", "distance", dist)
-			// Check if the accuracy of the previous GPS location extends to contain the current gps coords
-			// If it does, we don't want to add the distance to the total length because there likely was no movement
-			if lastGPS.AccuracyMeters <= dist && dist > 2 {
+			// How do we know if the distance is accurate and should be added?
+			if dist > 2 {
 				slog.Info("Distance is outside accuracy zone, adding to total length")
 				segmentData.GPSLocations[i].Distance = dist
 				route.Length += segmentData.GPSLocations[i].Distance
 			} else {
-				slog.Info("Distance is inside accuracy zone, not adding to total length", "accuracy", lastGPS.AccuracyMeters, "distance", dist)
+				slog.Info("Distance is inside accuracy zone, not adding to total length", "distance", dist)
 			}
 			slog.Info("Total length", "length", route.Length)
 		}

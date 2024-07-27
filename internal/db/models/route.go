@@ -3,15 +3,17 @@ package models
 import (
 	"time"
 
+	v1dot4 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1.4"
 	"gorm.io/gorm"
 )
 
 type Route struct {
-	ID                      uint      `json:"id" gorm:"primaryKey" binding:"required"`
+	ID                      uint      `json:"-" gorm:"primaryKey" binding:"required"`
 	DeviceID                uint      `json:"device_id" binding:"required" gorm:"uniqueIndex,OnUpdate:CASCADE,OnDelete:SET NULL"`
 	FirstClockWallTimeNanos uint64    `json:"-" binding:"required" gorm:"type:numeric"`
 	FirstClockLogMonoTime   uint64    `json:"-" binding:"required" gorm:"type:numeric"`
 	AllSegmentsProcessed    bool      `json:"-"`
+	RouteID                 string    `json:"id" binding:"required" gorm:"uniqueIndex"`
 	EndLat                  float64   `json:"end_lat"`
 	EndLng                  float64   `json:"end_lng"`
 	EndTime                 time.Time `json:"end_time"`
@@ -51,9 +53,8 @@ func FindRoutesByDeviceID(db *gorm.DB, deviceID uint) ([]Route, error) {
 	return routes, err
 }
 
-func FindRouteForSegment(db *gorm.DB, deviceID uint, initLogMonoTime uint64) (Route, error) {
+func FindRouteForSegment(db *gorm.DB, deviceID uint, routeInfo v1dot4.RouteInfo) (Route, error) {
 	var route Route
-	twoMinsNanoseconds := uint64(1000) * 1000 * 1000 * 60 * 2
-	err := db.Order("init_log_mono_time desc").Where("device_id = ? AND all_segments_processed = ? AND init_log_mono_time > ?", deviceID, false, initLogMonoTime-twoMinsNanoseconds).First(&route).Error
+	err := db.Order("init_log_mono_time desc").Where("route_id = ? AND all_segments_processed = ?", deviceID, routeInfo.Route).First(&route).Error
 	return route, err
 }
