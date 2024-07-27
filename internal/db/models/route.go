@@ -55,6 +55,6 @@ func FindRoutesByDeviceID(db *gorm.DB, deviceID uint) ([]Route, error) {
 
 func FindRouteForSegment(db *gorm.DB, deviceID uint, routeInfo v1dot4.RouteInfo) (Route, error) {
 	var route Route
-	err := db.Order("init_log_mono_time desc").Where("route_id = ? AND all_segments_processed = ?", deviceID, routeInfo.Route).First(&route).Error
+	err := db.Order("init_log_mono_time desc").Where("device_id = ? AND route_id = ?", deviceID, routeInfo.Route).First(&route).Error
 	return route, err
 }
