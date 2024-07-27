@@ -15,7 +15,7 @@ import (
 
 //nolint:golint,gosec
 const commaStyleToken = "cGsuZXlKMUlqb2lZMjl0YldGaGFTSXNJbUVpT2lKamFuZ3lZWFYwYzIwd01HVTJORGx1TVdSNGFtVXlkR2w1SW4wLjZWYjExUzZ0ZFg2QXJwajZ0clJFX2c"
-const mapboxAPIHost = "api.mapbox.ai"
+const mapboxAPIHost = "api.mapbox.com"
 const schemeHTTPS = "https"
 
 func GETMapboxDirections(c *gin.Context) {
