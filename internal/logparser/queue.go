@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"compress/bzip2"
 	"errors"
+	"io"
 	"log/slog"
 	"path/filepath"
 	"time"
@@ -14,6 +15,7 @@ import (
 	v1dot4 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1.4"
 	"github.com/USA-RedDragon/rtz-server/internal/storage"
 	"github.com/USA-RedDragon/rtz-server/internal/utils"
+	"github.com/klauspost/compress/zstd"
 	"github.com/mattn/go-nulltype"
 	"github.com/puzpuzpuz/xsync/v3"
 	"gorm.io/gorm"
@@ -105,7 +107,26 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 		return err
 	}
 
-	segmentData, err := DecodeSegmentData(bzip2.NewReader(bufio.NewReader(rt)))
+	bufReader := bufio.NewReader(rt)
+	var decompressedReader io.Reader
+
+	switch filepath.Ext(work.path) {
+	case ".zst":
+		decompressedReader, err = zstd.NewReader(bufReader)
+		if err != nil {
+			q.metrics.IncrementLogParserErrors(work.dongleID, "new_zstd_reader")
+			slog.Error("Error creating new zstd reader", "err", err)
+			return err
+		}
+	case ".bz2":
+		decompressedReader = bzip2.NewReader(bufReader)
+	default:
+		q.metrics.IncrementLogParserErrors(work.dongleID, "unsupported_file_extension")
+		slog.Error("Unsupported file extension", "ext", filepath.Ext(work.path))
+		return errors.New("unsupported file extension")
+	}
+
+	segmentData, err := DecodeSegmentData(decompressedReader)
 	if err != nil {
 		q.metrics.IncrementLogParserErrors(work.dongleID, "decode_segment_data")
 		slog.Error("Error decoding segment data", "err", err)

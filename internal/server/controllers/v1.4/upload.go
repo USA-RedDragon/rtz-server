@@ -2,6 +2,7 @@ package v1dot4
 
 import (
 	"bufio"
+	"encoding/binary"
 	"errors"
 	"io"
 	"io/fs"
@@ -69,6 +70,12 @@ func PUTUpload(c *gin.Context) {
 	storage, ok := c.MustGet("storage").(storage.Storage)
 	if !ok {
 		slog.Error("Failed to get storage from context")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+	logQueue, ok := c.MustGet("logQueue").(*logparser.LogQueue)
+	if !ok {
+		slog.Error("Failed to get log queue from context")
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
@@ -177,7 +184,10 @@ func PUTUpload(c *gin.Context) {
 				result.Segment = match[i]
 			}
 		}
-		if strings.Contains(path, "qlog.bz2") {
+
+		// Verify file type
+		switch {
+		case strings.Contains(path, "qlog.bz2"):
 			file, err := base.Open(path)
 			if err != nil {
 				slog.Error("Failed to open file", "error", err)
@@ -197,14 +207,34 @@ func PUTUpload(c *gin.Context) {
 				return
 			}
 			file.Close()
-			logQueue, ok := c.MustGet("logQueue").(*logparser.LogQueue)
-			if !ok {
-				slog.Error("Failed to get log queue from context")
+		case strings.Contains(path, "qlog.zst"):
+			file, err := base.Open(path)
+			if err != nil {
+				slog.Error("Failed to open file", "error", err)
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 				return
 			}
-			go logQueue.AddLog(path, dongleID, result)
+			var magic uint32
+			err = binary.Read(file, binary.LittleEndian, &magic)
+			if err != nil {
+				slog.Error("Failed to read magic", "error", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+				return
+			}
+			// 0xFD2FB528 is the magic number for zstd
+			// https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames
+			if magic != 0xFD2FB528 {
+				slog.Error("Invalid magic", "magic", magic)
+				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file"})
+				return
+			}
+			file.Close()
+		default:
+			slog.Error("Invalid file type", "path", path)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file"})
+			return
 		}
+		go logQueue.AddLog(path, dongleID, result)
 	case oldRouteRegex.Match([]byte(path)):
 		slog.Warn("Old route upload", "path", path)
 	default:
