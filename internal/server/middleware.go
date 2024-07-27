@@ -173,6 +173,7 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 	}
 }
 
+//nolint:golint,gosec
 const demoToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDg1ODI0NjUsIm5iZiI6MTcxNzA0NjQ2NSwiaWF0IjoxNzE3MDQ2NDY1LCJpZGVudGl0eSI6IjBkZWNkZGNmZGYyNDFhNjAifQ.g3khyJgOkNvZny6Vh579cuQj1HLLGSDeauZbfZri9jw"
 
 func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {

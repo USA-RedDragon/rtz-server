@@ -15,6 +15,9 @@ import (
 	"gorm.io/gorm"
 )
 
+const commaAPIHost = "api.comma.ai"
+const schemeHTTPS = "https"
+
 func PATCHDevice(c *gin.Context) {
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
@@ -230,8 +233,8 @@ func GETDeviceRoutesSegments(c *gin.Context) {
 	_, ok := c.Get("demo")
 	if ok {
 		url := c.Request.URL
-		url.Host = "api.comma.ai"
-		url.Scheme = "https"
+		url.Host = commaAPIHost
+		url.Scheme = schemeHTTPS
 		resp, err := utils.HTTPRequest(c, http.MethodGet, url.String(), nil, map[string]string{
 			"Authorization": c.GetHeader("Authorization"),
 		})

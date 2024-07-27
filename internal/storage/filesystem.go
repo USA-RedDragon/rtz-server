@@ -12,7 +12,7 @@ import (
 
 type Filesystem struct {
 	Storage
-	StorageManager
+	Manager
 
 	root string
 	dfd  int
@@ -112,11 +112,10 @@ func (f Filesystem) openFile(name string, flag int, perm fs.FileMode) (File, err
 		if err != nil {
 			// need to check for EINTR - Go issues 11180, 39237
 			// also EAGAIN in case of unsafe race
-			if err == unix.EINTR || err == unix.EAGAIN {
+			if errors.Is(err, unix.EINTR) || errors.Is(err, unix.EAGAIN) {
 				continue
-			} else {
-				return nil, err
 			}
+			return nil, err
 		}
 
 		return os.NewFile(uintptr(fd), name), nil
@@ -125,6 +124,7 @@ func (f Filesystem) openFile(name string, flag int, perm fs.FileMode) (File, err
 
 func (f Filesystem) Remove(name string) error {
 	// tricky: we have to open the *parent*, then unlinkat
+	//
 	// unlinkat has no RESOLVE_IN_ROOT, AT_EMPTY_PATH, or AT_SYMLINK_NOFOLLOW
 	parentDfile, err := f.openParentOf(name)
 	if err != nil {

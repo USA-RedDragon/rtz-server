@@ -13,7 +13,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const COMMA_STYLE_TOKEN = "cGsuZXlKMUlqb2lZMjl0YldGaGFTSXNJbUVpT2lKamFuZ3lZWFYwYzIwd01HVTJORGx1TVdSNGFtVXlkR2w1SW4wLjZWYjExUzZ0ZFg2QXJwajZ0clJFX2c"
+//nolint:golint,gosec
+const commaStyleToken = "cGsuZXlKMUlqb2lZMjl0YldGaGFTSXNJbUVpT2lKamFuZ3lZWFYwYzIwd01HVTJORGx1TVdSNGFtVXlkR2w1SW4wLjZWYjExUzZ0ZFg2QXJwajZ0clJFX2c"
+const mapboxAPIHost = "api.mapbox.ai"
+const schemeHTTPS = "https"
 
 func GETMapboxDirections(c *gin.Context) {
 	config, ok := c.MustGet("config").(*config.Config)
@@ -37,8 +40,8 @@ func GETMapboxDirections(c *gin.Context) {
 	query := c.Request.URL.Query()
 	query.Set("access_token", config.Mapbox.PublicToken)
 	url := c.Request.URL
-	url.Host = "api.mapbox.com"
-	url.Scheme = "https"
+	url.Host = mapboxAPIHost
+	url.Scheme = schemeHTTPS
 	url.RawQuery = query.Encode()
 
 	resp, err := utils.HTTPRequest(c, http.MethodGet, url.String(), nil, nil)
@@ -86,7 +89,7 @@ func GETMapboxStyle(c *gin.Context) {
 
 	query := c.Request.URL.Query()
 	if owner == "commaai" {
-		token, err := base64.RawStdEncoding.DecodeString(COMMA_STYLE_TOKEN)
+		token, err := base64.RawStdEncoding.DecodeString(commaStyleToken)
 		if err != nil {
 			slog.Error("GETMapboxStyle", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
@@ -104,8 +107,8 @@ func GETMapboxStyle(c *gin.Context) {
 		query.Set("access_token", config.Mapbox.PublicToken)
 	}
 	url := c.Request.URL
-	url.Host = "api.mapbox.com"
-	url.Scheme = "https"
+	url.Host = mapboxAPIHost
+	url.Scheme = schemeHTTPS
 	url.RawQuery = query.Encode()
 
 	resp, err := utils.HTTPRequest(c, http.MethodGet, url.String(), nil, nil)
@@ -159,7 +162,7 @@ func GETMapboxStyleSpriteAsset(c *gin.Context) {
 
 	query := c.Request.URL.Query()
 	if owner == "commaai" {
-		token, err := base64.RawStdEncoding.DecodeString(COMMA_STYLE_TOKEN)
+		token, err := base64.RawStdEncoding.DecodeString(commaStyleToken)
 		if err != nil {
 			slog.Error("GETMapboxStyleSpriteAsset", "error", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
@@ -177,8 +180,8 @@ func GETMapboxStyleSpriteAsset(c *gin.Context) {
 		query.Set("access_token", config.Mapbox.PublicToken)
 	}
 	url := c.Request.URL
-	url.Host = "api.mapbox.com"
-	url.Scheme = "https"
+	url.Host = mapboxAPIHost
+	url.Scheme = schemeHTTPS
 	url.RawQuery = query.Encode()
 
 	resp, err := utils.HTTPRequest(c, http.MethodGet, url.String(), nil, nil)
@@ -231,8 +234,8 @@ func GETMapboxTileset(c *gin.Context) {
 	query := c.Request.URL.Query()
 	query.Set("access_token", config.Mapbox.PublicToken)
 	url := c.Request.URL
-	url.Host = "api.mapbox.com"
-	url.Scheme = "https"
+	url.Host = mapboxAPIHost
+	url.Scheme = schemeHTTPS
 	url.RawQuery = query.Encode()
 
 	resp, err := utils.HTTPRequest(c, http.MethodGet, url.String(), nil, nil)
@@ -306,8 +309,8 @@ func GETMapboxTile(c *gin.Context) {
 	query := c.Request.URL.Query()
 	query.Set("access_token", config.Mapbox.PublicToken)
 	url := c.Request.URL
-	url.Host = "api.mapbox.com"
-	url.Scheme = "https"
+	url.Host = mapboxAPIHost
+	url.Scheme = schemeHTTPS
 	url.RawQuery = query.Encode()
 
 	resp, err := utils.HTTPRequest(c, http.MethodGet, url.String(), nil, nil)

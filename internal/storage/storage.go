@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-type StorageManager interface {
+type Manager interface {
 	Open(name string) (File, error)
 	Create(name string) (File, error)
 	Mkdir(name string, perm fs.FileMode) error
@@ -26,7 +26,7 @@ type File interface {
 }
 
 type Storage interface {
-	StorageManager
+	Manager
 	Close() error
 }
 

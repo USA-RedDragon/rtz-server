@@ -20,7 +20,7 @@ var (
 	rocklahoma      = coords{36.3638353, -95.2886689}
 	gatewayArch     = coords{38.6251432, -90.1970501}
 	statueOfLiberty = coords{40.6892494, -74.0445004}
-	reykjavík       = coords{64.1334904, -21.8524423}
+	reykjavik       = coords{64.1334904, -21.8524423}
 	tokyo           = coords{35.5092405, 139.7698121}
 )
 
@@ -76,25 +76,25 @@ func TestHaversine(t *testing.T) {
 	}
 
 	// Very long distance: reykjavík to tokyo
-	dist = math.Round(utils.Haversine(reykjavík.lat, reykjavík.lng, tokyo.lat, tokyo.lng))
+	dist = math.Round(utils.Haversine(reykjavik.lat, reykjavik.lng, tokyo.lat, tokyo.lng))
 	if dist != 8818082 {
 		t.Errorf("expected 8818082 meters between Reykjavík and Tokyo, got %f", dist)
 	}
 
 	// Reverse very long distance: tokyo to reykjavík
-	dist = math.Round(utils.Haversine(tokyo.lat, tokyo.lng, reykjavík.lat, reykjavík.lng))
+	dist = math.Round(utils.Haversine(tokyo.lat, tokyo.lng, reykjavik.lat, reykjavik.lng))
 	if dist != 8818082 {
 		t.Errorf("expected 8818082 meters between Tokyo and Reykjavík, got %f", dist)
 	}
 
 	// Very long distance: reykjavík to gatewayArch
-	dist = math.Round(utils.Haversine(reykjavík.lat, reykjavík.lng, gatewayArch.lat, gatewayArch.lng))
+	dist = math.Round(utils.Haversine(reykjavik.lat, reykjavik.lng, gatewayArch.lat, gatewayArch.lng))
 	if dist != 5178408 {
 		t.Errorf("expected 5178408 meters between Reykjavík and Gateway Arch, got %f", dist)
 	}
 
 	// Reverse very long distance: gatewayArch to reykjavík
-	dist = math.Round(utils.Haversine(gatewayArch.lat, gatewayArch.lng, reykjavík.lat, reykjavík.lng))
+	dist = math.Round(utils.Haversine(gatewayArch.lat, gatewayArch.lng, reykjavik.lat, reykjavik.lng))
 	if dist != 5178408 {
 		t.Errorf("expected 5178408 meters between Gateway Arch and Reykjavík, got %f", dist)
 	}

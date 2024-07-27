@@ -2,6 +2,12 @@ run:
   timeout: 30m
 
 issues:
+  exclude-rules:
+    - path: ".*\\_test\\.go$"
+      linters:
+        - gochecknoglobals
+        - goconst
+        - gocyclo
   exclude-files:
     - ".*\\_capnp\\.go$"
 

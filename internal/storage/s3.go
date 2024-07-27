@@ -15,7 +15,7 @@ import (
 
 type S3 struct {
 	Storage
-	StorageManager
+	Manager
 
 	root     string
 	region   string
@@ -67,6 +67,7 @@ func (f S3File) Close() error {
 	return errGrp.Wait()
 }
 
+//nolint:golint,unparam
 func newS3(region, bucket, root string, s3Client *s3.Client) (S3, error) {
 	return S3{
 		region:   region,
@@ -98,12 +99,12 @@ func (s S3) Open(name string) (File, error) {
 	}, nil
 }
 
-func (s S3) Mkdir(name string, perm fs.FileMode) error {
+func (s S3) Mkdir(_ string, _ fs.FileMode) error {
 	// No-op: S3 doesn't have directories
 	return nil
 }
 
-func (s S3) MkdirAll(path string, perm fs.FileMode) error {
+func (s S3) MkdirAll(_ string, _ fs.FileMode) error {
 	// No-op: S3 doesn't have directories
 	return nil
 }
