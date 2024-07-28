@@ -55,6 +55,7 @@ func NewServer(config *config.Config, db *gorm.DB, nats *nats.Conn, logQueue *lo
 	}
 
 	r := gin.New()
+	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{SkipQueryString: true}))
 	r.RedirectTrailingSlash = false
 	r.RedirectFixedPath = false
 
