@@ -211,7 +211,7 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 			dist := utils.Haversine(lastGPS.Latitude, lastGPS.Longitude, gps.Latitude, gps.Longitude)
 			slog.Info("Distance", "distance", dist)
 			// How do we know if the distance is accurate and should be added?
-			if dist > 2 {
+			if dist > 2 && gps.SpeedMetersPerSecond > 1 {
 				slog.Info("Distance is outside accuracy zone, adding to total length")
 				segmentData.GPSLocations[i].Distance = dist
 				route.Length += segmentData.GPSLocations[i].Distance
