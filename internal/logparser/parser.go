@@ -43,7 +43,6 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 	var segmentData SegmentData
 
 	decoder := capnp.NewDecoder(reader)
-	gpsCnt := 0
 	for {
 		msg, err := decoder.Decode()
 		if err != nil {
@@ -74,10 +73,7 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 				Bearing:              float64(gpsLocation.BearingDeg()),
 				LogMonoTime:          event.LogMonoTime(),
 			}
-			// Sample only evert 100th GPS point
-			if gpsCnt%100 == 0 {
-				segmentData.GPSLocations = append(segmentData.GPSLocations, gps)
-			}
+			segmentData.GPSLocations = append(segmentData.GPSLocations, gps)
 			segmentData.EndCoordinates = gps
 		case cereal.Event_Which_sentinel:
 			sentinel, err := event.Sentinel()
