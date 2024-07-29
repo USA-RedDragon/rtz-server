@@ -78,6 +78,7 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 			if gpsCnt%100 == 0 {
 				segmentData.GPSLocations = append(segmentData.GPSLocations, gps)
 			}
+			gpsCnt++
 			segmentData.EndCoordinates = gps
 		case cereal.Event_Which_sentinel:
 			sentinel, err := event.Sentinel()
