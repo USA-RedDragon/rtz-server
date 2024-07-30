@@ -76,8 +76,10 @@ func (q *LogQueue) Start() {
 		} else {
 			q.queue <- work
 		}
-		q.metrics.SetLogParserActiveJobs(float64(q.activeJobsCount.Value()))
-		q.metrics.SetLogParserQueueSize(float64(len(q.queue)))
+		if q.metrics != nil {
+			q.metrics.SetLogParserActiveJobs(float64(q.activeJobsCount.Value()))
+			q.metrics.SetLogParserQueueSize(float64(len(q.queue)))
+		}
 	}
 	q.closeChan <- struct{}{}
 }
@@ -94,7 +96,9 @@ func (q *LogQueue) AddLog(path string, dongleID string, routeInfo v1dot4.RouteIn
 func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) error {
 	rt, err := storage.Open(filepath.Join(work.dongleID, work.path))
 	if err != nil {
-		q.metrics.IncrementLogParserErrors(work.dongleID, "open_file")
+		if q.metrics != nil {
+			q.metrics.IncrementLogParserErrors(work.dongleID, "open_file")
+		}
 		slog.Error("Error opening file", "err", err)
 		return err
 	}
@@ -102,7 +106,9 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 
 	device, err := models.FindDeviceByDongleID(q.db, work.dongleID)
 	if err != nil {
-		q.metrics.IncrementLogParserErrors(work.dongleID, "find_device")
+		if q.metrics != nil {
+			q.metrics.IncrementLogParserErrors(work.dongleID, "find_device")
+		}
 		slog.Error("Error finding device by dongle ID", "dongleID", work.dongleID, "err", err)
 		return err
 	}
@@ -114,21 +120,27 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 	case ".zst":
 		decompressedReader, err = zstd.NewReader(bufReader)
 		if err != nil {
-			q.metrics.IncrementLogParserErrors(work.dongleID, "new_zstd_reader")
+			if q.metrics != nil {
+				q.metrics.IncrementLogParserErrors(work.dongleID, "new_zstd_reader")
+			}
 			slog.Error("Error creating new zstd reader", "err", err)
 			return err
 		}
 	case ".bz2":
 		decompressedReader = bzip2.NewReader(bufReader)
 	default:
-		q.metrics.IncrementLogParserErrors(work.dongleID, "unsupported_file_extension")
+		if q.metrics != nil {
+			q.metrics.IncrementLogParserErrors(work.dongleID, "unsupported_file_extension")
+		}
 		slog.Error("Unsupported file extension", "ext", filepath.Ext(work.path))
 		return errors.New("unsupported file extension")
 	}
 
 	segmentData, err := DecodeSegmentData(decompressedReader)
 	if err != nil {
-		q.metrics.IncrementLogParserErrors(work.dongleID, "decode_segment_data")
+		if q.metrics != nil {
+			q.metrics.IncrementLogParserErrors(work.dongleID, "decode_segment_data")
+		}
 		slog.Error("Error decoding segment data", "err", err)
 		return err
 	}
@@ -150,7 +162,9 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 				Version:         segmentData.Version,
 			}
 		} else {
-			q.metrics.IncrementLogParserErrors(work.dongleID, "find_route_for_segment")
+			if q.metrics != nil {
+				q.metrics.IncrementLogParserErrors(work.dongleID, "find_route_for_segment")
+			}
 			slog.Error("Error finding route for segment", "err", err)
 			return err
 		}
@@ -182,7 +196,9 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 					LastGPSSpeed:   nulltype.NullFloat64Of(segmentData.EndCoordinates.SpeedMetersPerSecond),
 				}).Error
 			if err != nil {
-				q.metrics.IncrementLogParserErrors(work.dongleID, "update_device")
+				if q.metrics != nil {
+					q.metrics.IncrementLogParserErrors(work.dongleID, "update_device")
+				}
 				slog.Error("Error updating device", "err", err)
 				return err
 			}
