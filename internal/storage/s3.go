@@ -57,12 +57,14 @@ func (f S3File) Close() error {
 	})
 	// Write the buffer to S3
 	if f.writer.hasWritten {
+		slog.Info("writing to s3", "key", f.key)
 		errGrp.Go(func() error {
 			_, err := f.filesystem.s3Client.PutObject(context.TODO(), &s3.PutObjectInput{
 				Bucket: aws.String(f.filesystem.bucket),
 				Key:    aws.String(f.key),
 				Body:   bytes.NewReader(f.writer.buffer),
 			})
+			slog.Info("done writing to s3", "key", f.key)
 			return err
 		})
 	}
@@ -90,7 +92,7 @@ func (s S3) Open(name string) (File, error) {
 		Key:    aws.String(filepath.Join(s.root, name)),
 	})
 	if err != nil {
-		slog.Error("failed to open file", "error", err)
+		slog.Error("failed to open file", "bucket", s.bucket, "file", filepath.Join(s.root, name), "error", err)
 		return nil, err
 	}
 
