@@ -50,7 +50,10 @@ func (f S3File) Write(p []byte) (n int, err error) {
 func (f S3File) Close() error {
 	errGrp := errgroup.Group{}
 	errGrp.Go(func() error {
-		return f.body.Close()
+		if f.body != nil {
+			return f.body.Close()
+		}
+		return nil
 	})
 	// Write the buffer to S3
 	if f.writer.hasWritten {
