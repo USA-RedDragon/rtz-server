@@ -5,7 +5,7 @@ go 1.23.1
 require (
 	capnproto.org/go/capnp/v3 v3.0.1-alpha.2
 	github.com/aws/aws-sdk-go-v2 v1.31.0
-	github.com/aws/aws-sdk-go-v2/service/s3 v1.63.1
+	github.com/aws/aws-sdk-go-v2/service/s3 v1.63.3
 	github.com/gin-contrib/cors v1.7.2
 	github.com/gin-contrib/pprof v1.5.0
 	github.com/gin-gonic/gin v1.10.0
