@@ -55,6 +55,8 @@ func (f S3File) Close() error {
 		}
 		return nil
 	})
+	slog.Info("closing file", "key", f.key)
+	slog.Info("hasWritten", "written", f.writer.hasWritten)
 	// Write the buffer to S3
 	if f.writer.hasWritten {
 		slog.Info("writing to s3", "key", f.key)
