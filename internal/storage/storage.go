@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"os"
 
 	"github.com/USA-RedDragon/rtz-server/internal/config"
@@ -45,6 +46,7 @@ func NewStorage(cfg *config.Config) (Storage, error) {
 			UsePathStyle: true,
 		}
 		if cfg.Persistence.Uploads.S3Options.Endpoint != "" {
+			slog.Warn("using custom S3 endpoint", "endpoint", cfg.Persistence.Uploads.S3Options.Endpoint)
 			s3Options.BaseEndpoint = aws.String(cfg.Persistence.Uploads.S3Options.Endpoint)
 		}
 		return newS3(
