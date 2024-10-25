@@ -43,11 +43,11 @@ type S3File struct {
 	filesystem *S3
 }
 
-func (f S3File) Write(p []byte) (n int, err error) {
+func (f *S3File) Write(p []byte) (n int, err error) {
 	return f.writer.Write(p)
 }
 
-func (f S3File) Close() error {
+func (f *S3File) Close() error {
 	errGrp := errgroup.Group{}
 	errGrp.Go(func() error {
 		if f.body != nil {
