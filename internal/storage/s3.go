@@ -98,7 +98,7 @@ func (s S3) Open(name string) (File, error) {
 		return nil, err
 	}
 
-	return S3File{
+	return &S3File{
 		body:       res.Body,
 		filesystem: &s,
 		key:        filepath.Join(s.root, name),
@@ -121,7 +121,7 @@ func (s S3) Sub(dir string) (Storage, error) {
 }
 
 func (s S3) Create(name string) (File, error) {
-	return S3File{
+	return &S3File{
 		filesystem: &s,
 		key:        filepath.Join(s.root, name),
 		writer:     bufferWriter{buffer: make([]byte, 0)},
