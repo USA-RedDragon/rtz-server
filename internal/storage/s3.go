@@ -47,6 +47,10 @@ func (f *S3File) Write(p []byte) (n int, err error) {
 	return f.writer.Write(p)
 }
 
+func (f *S3File) Read(p []byte) (n int, err error) {
+	return f.body.Read(p)
+}
+
 func (f *S3File) Close() error {
 	errGrp := errgroup.Group{}
 	errGrp.Go(func() error {
