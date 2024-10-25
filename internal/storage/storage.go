@@ -42,18 +42,20 @@ func NewStorage(cfg *config.Config) (Storage, error) {
 		return newFiles(root)
 	case config.UploadsDriverS3:
 		s3Options := s3.Options{
-			Region:       cfg.Persistence.Uploads.S3Options.Region,
-			UsePathStyle: true,
+			Region: cfg.Persistence.Uploads.S3Options.Region,
 		}
-		if cfg.Persistence.Uploads.S3Options.Endpoint != "" {
-			slog.Warn("using custom S3 endpoint", "endpoint", cfg.Persistence.Uploads.S3Options.Endpoint)
-			s3Options.BaseEndpoint = aws.String(cfg.Persistence.Uploads.S3Options.Endpoint)
-		}
+
 		return newS3(
 			cfg.Persistence.Uploads.S3Options.Region,
 			cfg.Persistence.Uploads.S3Options.Bucket,
 			"",
-			s3.New(s3Options))
+			s3.New(s3Options, func(o *s3.Options) {
+				if cfg.Persistence.Uploads.S3Options.Endpoint != "" {
+					slog.Warn("using custom S3 endpoint", "endpoint", cfg.Persistence.Uploads.S3Options.Endpoint)
+					o.BaseEndpoint = aws.String(cfg.Persistence.Uploads.S3Options.Endpoint)
+					o.UsePathStyle = true
+				}
+			}))
 	default:
 		return nil, fmt.Errorf("unknown storage driver: %s", cfg.Persistence.Uploads.Driver)
 	}
