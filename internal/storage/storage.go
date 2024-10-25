@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/fs"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/USA-RedDragon/rtz-server/internal/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awsConfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
@@ -41,15 +43,17 @@ func NewStorage(cfg *config.Config) (Storage, error) {
 		}
 		return newFiles(root)
 	case config.UploadsDriverS3:
-		s3Options := s3.Options{
-			Region: cfg.Persistence.Uploads.S3Options.Region,
+		awsCfg, err := awsConfig.LoadDefaultConfig(context.TODO())
+		if err != nil {
+			return nil, fmt.Errorf("failed to load AWS config: %w", err)
 		}
 
 		return newS3(
 			cfg.Persistence.Uploads.S3Options.Region,
 			cfg.Persistence.Uploads.S3Options.Bucket,
 			"",
-			s3.New(s3Options, func(o *s3.Options) {
+			s3.NewFromConfig(awsCfg, func(o *s3.Options) {
+				o.Region = cfg.Persistence.Uploads.S3Options.Region
 				if cfg.Persistence.Uploads.S3Options.Endpoint != "" {
 					slog.Warn("using custom S3 endpoint", "endpoint", cfg.Persistence.Uploads.S3Options.Endpoint)
 					o.BaseEndpoint = aws.String(cfg.Persistence.Uploads.S3Options.Endpoint)
