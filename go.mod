@@ -1,6 +1,6 @@
 module github.com/USA-RedDragon/rtz-server
 
-go 1.23.3
+go 1.23.4
 
 require (
 	capnproto.org/go/capnp/v3 v3.0.1-alpha.2
