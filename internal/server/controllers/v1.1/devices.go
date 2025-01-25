@@ -3,6 +3,7 @@ package v1dot1
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	v1dot1 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1.1"
@@ -85,7 +86,30 @@ func GETDeviceStats(c *gin.Context) {
 
 	slog.Info("Get Stats", "url", c.Request.URL.String(), "device", device.DongleID)
 
-	// TODO: Implement stats
+	allTrips, err := models.CountRoutesSince(db, device.ID, device.CreatedAt)
+	if err != nil {
+		slog.Error("Failed to count routes", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
 
-	c.JSON(http.StatusOK, v1dot1.StatsResponse{})
+	weekTrips, err := models.CountRoutesSince(db, device.ID, time.Now().AddDate(0, 0, -7))
+	if err != nil {
+		slog.Error("Failed to count routes", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	c.JSON(http.StatusOK, v1dot1.StatsResponse{
+		All: v1dot1.Stats{
+			Distance: 0, // TODO: Implement
+			Minutes:  0, // TODO: Implement
+			Routes:   allTrips,
+		},
+		Week: v1dot1.Stats{
+			Distance: 0, // TODO: Implement
+			Minutes:  0, // TODO: Implement
+			Routes:   weekTrips,
+		},
+	})
 }

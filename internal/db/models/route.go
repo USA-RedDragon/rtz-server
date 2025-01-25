@@ -58,3 +58,9 @@ func FindRouteForSegment(db *gorm.DB, deviceID uint, routeInfo v1dot4.RouteInfo)
 	err := db.Order("init_log_mono_time desc").Where("device_id = ? AND route_id = ?", deviceID, routeInfo.Route).First(&route).Error
 	return route, err
 }
+
+func CountRoutesSince(db *gorm.DB, deviceID uint, since time.Time) (int64, error) {
+	var count int64
+	err := db.Model(&Route{}).Where("device_id = ? AND start_time > ?", deviceID, since).Count(&count).Error
+	return count, err
+}
