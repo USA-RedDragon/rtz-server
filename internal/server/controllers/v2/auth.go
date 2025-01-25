@@ -203,7 +203,7 @@ func POSTAuth(c *gin.Context) {
 		urldata.Set("client_secret", config.Auth.Custom.ClientSecret)
 		urldata.Set("grant_type", "authorization_code")
 		urldata.Set("scope", "user:email")
-		urldata.Set("redirect_uri", fmt.Sprintf(config.HTTP.BackendURL+"/v2/auth/c/redirect/"))
+		urldata.Set("redirect_uri", config.HTTP.BackendURL+"/v2/auth/c/redirect/")
 
 		resp, err := utils.HTTPRequest(c, http.MethodPost, config.Auth.Custom.TokenURL, strings.NewReader(urldata.Encode()), map[string]string{
 			"Accept":       "application/json",
