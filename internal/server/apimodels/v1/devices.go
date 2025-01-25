@@ -35,7 +35,7 @@ type RouteSegmentsResponse struct {
 	GitDirty           bool              `json:"git_dirty"`
 	GitRemote          string            `json:"git_remote"`
 	HPGPS              bool              `json:"hpgps"`
-	InitLogMonoTime    int64             `json:"init_logmonotime"`
+	InitLogMonoTime    uint64            `json:"init_logmonotime"`
 	IsPreserved        bool              `json:"is_preserved"`
 	IsPublic           bool              `json:"is_public"`
 	Length             float64           `json:"length"`
