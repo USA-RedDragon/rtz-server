@@ -329,7 +329,7 @@ func GETDeviceRoutesSegments(c *gin.Context) {
 			GitCommit:          route.GitCommit,
 			GitDirty:           route.GitDirty,
 			GitRemote:          route.GitRemote,
-			FullName:           device.DongleID + "|" + route.RouteID + ":" + strconv.Itoa(int(route.ID)),
+			FullName:           device.DongleID + "|" + route.RouteID + ":" + strconv.FormatInt(int64(route.ID), 10),
 			HPGPS:              false, // TODO: Implement
 			InitLogMonoTime:    route.InitLogMonoTime,
 			IsPreserved:        route.IsPreserved,
