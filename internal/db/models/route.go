@@ -64,3 +64,9 @@ func CountRoutesSince(db *gorm.DB, deviceID uint, since time.Time) (int64, error
 	err := db.Model(&Route{}).Where("device_id = ? AND start_time > ?", deviceID, since).Count(&count).Error
 	return count, err
 }
+
+func FindRoutesByDeviceIDAndTimeRange(db *gorm.DB, deviceID uint, start, end time.Time, limit int) ([]Route, error) {
+	var routes []Route
+	err := db.Where("device_id = ? AND start_time >= ? AND end_time <= ?", deviceID, start, end).Limit(limit).Find(&routes).Error
+	return routes, err
+}
