@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/USA-RedDragon/rtz-server/internal/db/models"
 	v1 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1"
@@ -260,5 +261,108 @@ func GETDeviceRoutesSegments(c *gin.Context) {
 		c.Data(http.StatusOK, "application/json", bodyBytes)
 		return
 	}
-	c.JSON(http.StatusOK, []int{})
+	end := c.Query("end")
+	start := c.Query("start")
+	if end == "" || start == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "start and end are required"})
+		return
+	}
+	limit := c.DefaultQuery("limit", "5")
+
+	startInt, err := strconv.Atoi(start)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "start must be an integer"})
+		return
+	}
+	startTime := time.Unix(int64(startInt/1000), 0)
+	endInt, err := strconv.Atoi(end)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "end must be an integer"})
+		return
+	}
+	endTime := time.Unix(int64(endInt/1000), 0)
+	limitInt, err := strconv.Atoi(limit)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "limit must be an integer"})
+		return
+	}
+
+	dongleID, ok := c.Params.Get("dongle_id")
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+		return
+	}
+
+	db, ok := c.MustGet("db").(*gorm.DB)
+	if !ok {
+		slog.Error("Failed to get db from context")
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	device, err := models.FindDeviceByDongleID(db, dongleID)
+	if err != nil {
+		slog.Error("Failed to find device by dongle ID", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	routes, err := models.FindRoutesByDeviceIDAndTimeRange(db, device.ID, startTime, endTime, limitInt)
+	if err != nil {
+		slog.Error("Failed to find routes by device ID and time range", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return
+	}
+
+	routeSegmentsResponse := []v1.RouteSegmentsResponse{}
+	for _, route := range routes {
+		routeSegmentsResponse = append(routeSegmentsResponse, v1.RouteSegmentsResponse{
+			CAN:                true, // TODO: Implement
+			CreationTime:       route.CreatedAt.Unix(),
+			DeviceType:         device.DeviceType,
+			DongleID:           device.DongleID,
+			EndLat:             route.EndLat,
+			EndLng:             route.EndLng,
+			EndTime:            route.EndTime.Format("2006-01-02T15:04:05"),
+			EndTimeUTCMillis:   route.EndTime.UnixMilli(),
+			GitBranch:          route.GitBranch,
+			GitCommit:          route.GitCommit,
+			GitDirty:           route.GitDirty,
+			GitRemote:          route.GitRemote,
+			FullName:           device.DongleID + "|" + route.RouteID + ":" + strconv.Itoa(int(route.ID)),
+			HPGPS:              false, // TODO: Implement
+			InitLogMonoTime:    int64(route.InitLogMonoTime),
+			IsPreserved:        route.IsPreserved,
+			IsPublic:           route.IsPublic,
+			Length:             route.Length,
+			MaxCamera:          -1,    // TODO: Implement
+			MaxDCamera:         -1,    // TODO: Implement
+			MaxECamera:         -1,    // TODO: Implement
+			MaxLog:             -1,    // TODO: Implement
+			MaxQCamera:         -1,    // TODO: Implement
+			MaxQLog:            -1,    // TODO: Implement
+			Passive:            false, // TODO: Implement
+			Platform:           route.Platform,
+			ProcCamera:         -1, // TODO: Implement
+			ProcLog:            -1, // TODO: Implement
+			ProcQCamera:        -1, // TODO: Implement
+			ProcQLog:           -1, // TODO: Implement
+			Radar:              route.Radar,
+			SegmentEndTimes:    []int64{}, // TODO: Implement
+			SegmentStartTimes:  []int64{}, // TODO: Implement
+			SegmentNumbers:     []int{},   // TODO: Implement
+			ShareExp:           "",        // TODO: Implement
+			ShareSig:           "",        // TODO: Implement
+			StartLat:           route.StartLat,
+			StartLng:           route.StartLng,
+			StartTime:          route.StartTime.Format("2006-01-02T15:04:05"),
+			StartTimeUTCMillis: route.StartTime.UnixMilli(),
+			URL:                route.URL,
+			UserID:             device.OwnerID,
+			Version:            route.Version,
+			VIN:                "", // TODO: Implement
+		})
+	}
+
+	c.JSON(http.StatusOK, routeSegmentsResponse)
 }
