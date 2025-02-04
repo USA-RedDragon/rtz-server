@@ -62,7 +62,7 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 		switch event.Which() {
 		case cereal.Event_Which_can:
 			segmentData.CANPresent = true
-		case cereal.Event_Which_gpsLocation:
+		case cereal.Event_Which_gpsLocation, cereal.Event_Which_gpsLocationExternal:
 			gpsLocation, err := event.GpsLocation()
 			if err != nil {
 				return SegmentData{}, err
