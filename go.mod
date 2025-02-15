@@ -19,7 +19,7 @@ require (
 	github.com/mattn/go-nulltype v0.0.0-20230117041332-6715e831ac05
 	github.com/nats-io/nats.go v1.39.0
 	github.com/prometheus/client_golang v1.20.5
-	github.com/puzpuzpuz/xsync/v3 v3.5.0
+	github.com/puzpuzpuz/xsync/v3 v3.5.1
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.6
 	github.com/uptrace/opentelemetry-go-extra/otelgorm v0.3.2
