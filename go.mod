@@ -18,7 +18,7 @@ require (
 	github.com/klauspost/compress v1.17.11
 	github.com/mattn/go-nulltype v0.0.0-20230117041332-6715e831ac05
 	github.com/nats-io/nats.go v1.39.0
-	github.com/prometheus/client_golang v1.20.5
+	github.com/prometheus/client_golang v1.21.1
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/pflag v1.0.6
@@ -88,7 +88,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
-	github.com/prometheus/common v0.55.0 // indirect
+	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/quic-go v0.43.1 // indirect
