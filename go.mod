@@ -15,7 +15,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/klauspost/compress v1.17.11
+	github.com/klauspost/compress v1.18.2
 	github.com/mattn/go-nulltype v0.0.0-20230117041332-6715e831ac05
 	github.com/nats-io/nats.go v1.39.0
 	github.com/prometheus/client_golang v1.20.5
