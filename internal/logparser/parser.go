@@ -15,11 +15,26 @@ type GpsCoordinates struct {
 	LogMonoTime          uint64
 	SpeedMetersPerSecond float64
 	Bearing              float64
-	Distance             float64
+}
+
+type AccelerometerData struct {
+	X           float64
+	Y           float64
+	Z           float64
+	LogMonoTime uint64
+}
+
+type GyroscopeData struct {
+	X           float64
+	Y           float64
+	Z           float64
+	LogMonoTime uint64
 }
 
 type SegmentData struct {
 	GPSLocations            []GpsCoordinates
+	AccelData               []AccelerometerData
+	GyroData                []GyroscopeData
 	EndCoordinates          GpsCoordinates
 	EndLogMonoTime          uint64
 	FirstClockWallTimeNanos uint64
@@ -43,7 +58,6 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 	var segmentData SegmentData
 
 	decoder := capnp.NewDecoder(reader)
-	gpsCnt := 0
 	for {
 		msg, err := decoder.Decode()
 		if err != nil {
@@ -62,6 +76,68 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 		switch event.Which() {
 		case cereal.Event_Which_can:
 			segmentData.CANPresent = true
+		case cereal.Event_Which_accelerometer, cereal.Event_Which_accelerometer2:
+			var sensorData cereal.SensorEventData
+			var err error
+			switch event.Which() {
+			case cereal.Event_Which_accelerometer:
+				sensorData, err = event.Accelerometer()
+			case cereal.Event_Which_accelerometer2:
+				sensorData, err = event.Accelerometer2()
+			}
+			if err != nil {
+				return SegmentData{}, err
+			}
+			accel, err := sensorData.Acceleration()
+			if err != nil {
+				return SegmentData{}, err
+			}
+			v, err := accel.V()
+			if err != nil {
+				return SegmentData{}, err
+			}
+			if v.Len() == 3 {
+				x := float64(v.At(0))
+				y := float64(v.At(1))
+				z := float64(v.At(2))
+				segmentData.AccelData = append(segmentData.AccelData, AccelerometerData{
+					X:           x,
+					Y:           y,
+					Z:           z,
+					LogMonoTime: event.LogMonoTime(),
+				})
+			}
+		case cereal.Event_Which_gyroscope, cereal.Event_Which_gyroscope2:
+			var sensorData cereal.SensorEventData
+			var err error
+			switch event.Which() {
+			case cereal.Event_Which_gyroscope:
+				sensorData, err = event.Gyroscope()
+			case cereal.Event_Which_gyroscope2:
+				sensorData, err = event.Gyroscope2()
+			}
+			if err != nil {
+				return SegmentData{}, err
+			}
+			gyro, err := sensorData.Gyro()
+			if err != nil {
+				return SegmentData{}, err
+			}
+			v, err := gyro.V()
+			if err != nil {
+				return SegmentData{}, err
+			}
+			if v.Len() == 3 {
+				x := float64(v.At(0))
+				y := float64(v.At(1))
+				z := float64(v.At(2))
+				segmentData.GyroData = append(segmentData.GyroData, GyroscopeData{
+					X:           x,
+					Y:           y,
+					Z:           z,
+					LogMonoTime: event.LogMonoTime(),
+				})
+			}
 		case cereal.Event_Which_gpsLocation, cereal.Event_Which_gpsLocationExternal:
 			var gpsLocation cereal.GpsLocationData
 			var err error
@@ -81,11 +157,7 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 				Bearing:              float64(gpsLocation.BearingDeg()),
 				LogMonoTime:          event.LogMonoTime(),
 			}
-			// Sample only evert 100th GPS point
-			if gpsCnt%100 == 0 {
-				segmentData.GPSLocations = append(segmentData.GPSLocations, gps)
-			}
-			gpsCnt++
+			segmentData.GPSLocations = append(segmentData.GPSLocations, gps)
 			segmentData.EndCoordinates = gps
 		case cereal.Event_Which_sentinel:
 			sentinel, err := event.Sentinel()
