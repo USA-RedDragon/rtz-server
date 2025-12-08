@@ -17,7 +17,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/klauspost/compress v1.18.2
 	github.com/mattn/go-nulltype v0.0.0-20230117041332-6715e831ac05
-	github.com/nats-io/nats.go v1.39.0
+	github.com/nats-io/nats.go v1.47.0
 	github.com/prometheus/client_golang v1.20.5
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
 	github.com/spf13/cobra v1.10.2
@@ -84,7 +84,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/nats-io/nkeys v0.4.9 // indirect
+	github.com/nats-io/nkeys v0.4.11 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/onsi/ginkgo/v2 v2.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.3 // indirect
