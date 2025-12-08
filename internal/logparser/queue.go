@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"math"
 	"path/filepath"
 	"time"
 
@@ -175,7 +176,10 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 		route.FirstClockWallTimeNanos = segmentData.FirstClockWallTimeNanos
 	}
 	if route.StartTime.IsZero() && segmentData.InitLogMonoTime != 0 {
-		route.StartTime = time.Unix(0, int64(route.GetWallTimeFromBootTime(segmentData.InitLogMonoTime)))
+		wallTime := route.GetWallTimeFromBootTime(segmentData.InitLogMonoTime)
+		if wallTime > 0 && wallTime <= math.MaxInt64 {
+			route.StartTime = time.Unix(0, int64(wallTime))
+		}
 	}
 
 	if route.StartLat == 0 && route.StartLng == 0 && len(segmentData.KalmanPositions) > 0 {
@@ -185,7 +189,10 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 
 	route.SegmentStartTimes = append(route.SegmentStartTimes, route.GetWallTimeFromBootTime(segmentData.InitLogMonoTime))
 	route.SegmentEndTimes = append(route.SegmentEndTimes, route.GetWallTimeFromBootTime(segmentData.EndLogMonoTime))
-	route.SegmentNumbers = append(route.SegmentNumbers, uint64(len(route.SegmentNumbers)+1))
+	nextSegmentNum := len(route.SegmentNumbers) + 1
+	if nextSegmentNum >= 0 {
+		route.SegmentNumbers = append(route.SegmentNumbers, uint64(nextSegmentNum))
+	}
 
 	// Accumulate distance from this segment using Kalman-filtered positions
 	// This provides accurate distance tracking using IMU-fused GPS data
