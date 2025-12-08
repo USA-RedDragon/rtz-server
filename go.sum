@@ -1,5 +1,5 @@
-capnproto.org/go/capnp/v3 v3.0.1-alpha.2 h1:W/cf+XEArUSwcBBE/9wS2NpWDkM5NLQOjmzEiHZpYi0=
-capnproto.org/go/capnp/v3 v3.0.1-alpha.2/go.mod h1:2vT5D2dtG8sJGEoEKU17e+j7shdaYp1Myl8X03B3hmc=
+capnproto.org/go/capnp/v3 v3.1.0-alpha.2 h1:93ISpqHf2/3WQlfrBP0tT8Dg/RQc3uq6DV36vN0ePWk=
+capnproto.org/go/capnp/v3 v3.1.0-alpha.2/go.mod h1:2vT5D2dtG8sJGEoEKU17e+j7shdaYp1Myl8X03B3hmc=
 github.com/USA-RedDragon/gin v1.10.1-0.20240728192152-87d4db66086b h1:US0Fpzv75y5Sxq46pj6b+ayW7rMhf2WIlFY42eKTcnM=
 github.com/USA-RedDragon/gin v1.10.1-0.20240728192152-87d4db66086b/go.mod h1:ZUIt/F/ldB4YZdvXfazUdT/55dVM/EyZTGnscOFwYW4=
 github.com/aws/aws-sdk-go-v2 v1.36.1 h1:iTDl5U6oAhkNPba0e1t1hrwAo02ZMqbrGq4k5JBWM5E=
