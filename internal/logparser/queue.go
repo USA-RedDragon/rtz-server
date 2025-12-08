@@ -14,9 +14,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	v1dot4 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1.4"
 	"github.com/USA-RedDragon/rtz-server/internal/storage"
-	"github.com/USA-RedDragon/rtz-server/internal/utils"
 	"github.com/klauspost/compress/zstd"
-	"github.com/mattn/go-nulltype"
 	"github.com/puzpuzpuz/xsync/v3"
 	"gorm.io/gorm"
 )
@@ -158,7 +156,7 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 				GitCommit:       segmentData.GitCommit,
 				InitLogMonoTime: segmentData.InitLogMonoTime,
 				Platform:        segmentData.CarModel,
-				Radar:           segmentData.Radar,
+				Radar:           true,
 				Version:         segmentData.Version,
 			}
 		} else {
@@ -176,76 +174,28 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 	if route.FirstClockWallTimeNanos == 0 && segmentData.FirstClockWallTimeNanos != 0 {
 		route.FirstClockWallTimeNanos = segmentData.FirstClockWallTimeNanos
 	}
-	numGPSLocs := len(segmentData.GPSLocations)
-	if numGPSLocs > 0 {
-		if route.StartTime.IsZero() {
-			route.StartLat = segmentData.GPSLocations[0].Latitude
-			route.StartLng = segmentData.GPSLocations[0].Longitude
-			route.StartTime = time.Unix(0, int64(route.GetWallTimeFromBootTime(segmentData.GPSLocations[0].LogMonoTime)))
-		}
-
-		if !device.LastGPSTime.Valid() ||
-			route.GetWallTimeFromBootTime(segmentData.GPSLocations[numGPSLocs-1].LogMonoTime) > uint64(device.LastGPSTime.TimeValue().UnixNano()) {
-			latestTimeStamp := time.Unix(0, int64(route.GetWallTimeFromBootTime(segmentData.GPSLocations[numGPSLocs-1].LogMonoTime)))
-			err := q.db.Model(&device).
-				Updates(models.Device{
-					LastGPSTime:    nulltype.NullTimeOf(latestTimeStamp),
-					LastGPSLat:     nulltype.NullFloat64Of(segmentData.EndCoordinates.Latitude),
-					LastGPSLng:     nulltype.NullFloat64Of(segmentData.EndCoordinates.Longitude),
-					LastGPSBearing: nulltype.NullFloat64Of(segmentData.EndCoordinates.Bearing),
-					LastGPSSpeed:   nulltype.NullFloat64Of(segmentData.EndCoordinates.SpeedMetersPerSecond),
-				}).Error
-			if err != nil {
-				if q.metrics != nil {
-					q.metrics.IncrementLogParserErrors(work.dongleID, "update_device")
-				}
-				slog.Error("Error updating device", "err", err)
-				return err
-			}
-		}
-
-		for i := 0; i < numGPSLocs; i++ {
-			slog.Debug("Processing GPS location", "i", i)
-			var lastGPS GpsCoordinates
-			if i == 0 {
-				if !segmentData.StartOfRoute {
-					lastGPS = GpsCoordinates{
-						Latitude:             device.LastGPSLat.Float64Value(),
-						Longitude:            device.LastGPSLng.Float64Value(),
-						SpeedMetersPerSecond: device.LastGPSSpeed.Float64Value(),
-					}
-				} else {
-					// First entry in route, distance is zero
-					continue
-				}
-			} else {
-				lastGPS = segmentData.GPSLocations[i-1]
-			}
-			gps := segmentData.GPSLocations[i]
-			slog.Info("Last GPS", "lat", lastGPS.Latitude, "lng", lastGPS.Longitude, "speed", lastGPS.SpeedMetersPerSecond)
-			slog.Info("Current GPS", "lat", gps.Latitude, "lng", gps.Longitude, "speed", gps.SpeedMetersPerSecond)
-			dist := utils.Haversine(lastGPS.Latitude, lastGPS.Longitude, gps.Latitude, gps.Longitude)
-			slog.Info("Distance", "distance", dist)
-			// How do we know if the distance is accurate and should be added?
-			if dist > 2 && gps.SpeedMetersPerSecond > 1 {
-				slog.Info("Distance is outside accuracy zone, adding to total length")
-				segmentData.GPSLocations[i].Distance = dist
-				route.Length += segmentData.GPSLocations[i].Distance
-			} else {
-				slog.Info("Distance is inside accuracy zone, not adding to total length", "distance", dist)
-			}
-			slog.Info("Total length", "length", route.Length)
-		}
+	if route.StartTime.IsZero() && segmentData.InitLogMonoTime != 0 {
+		route.StartTime = time.Unix(0, int64(route.GetWallTimeFromBootTime(segmentData.InitLogMonoTime)))
 	}
 
-	// TODO: Store gps data on route
+	if route.StartLat == 0 && route.StartLng == 0 && len(segmentData.KalmanPositions) > 0 {
+		route.StartLat = segmentData.KalmanPositions[0].Latitude
+		route.StartLng = segmentData.KalmanPositions[0].Longitude
+	}
 
-	// route.SegmentStartTimes = append(route.SegmentStartTimes, route.GetWallTimeFromBootTime(segmentData.InitLogMonoTime))
-	// route.SegmentEndTimes = append(route.SegmentEndTimes, route.GetWallTimeFromBootTime(segmentData.EndLogMonoTime))
+	// Accumulate distance from this segment using Kalman-filtered positions
+	// This provides accurate distance tracking using IMU-fused GPS data
+	// Convert from meters to miles (1 meter = 0.000621371 miles)
+	if segmentData.TotalDistance > 0 {
+		route.Length += segmentData.TotalDistance * 0.000621371
+	}
 
 	if segmentData.EndOfRoute {
-		route.EndLat = segmentData.EndCoordinates.Latitude
-		route.EndLng = segmentData.EndCoordinates.Longitude
+		if len(segmentData.KalmanPositions) > 0 {
+			lastPos := segmentData.KalmanPositions[len(segmentData.KalmanPositions)-1]
+			route.EndLat = lastPos.Latitude
+			route.EndLng = lastPos.Longitude
+		}
 		route.EndTime = time.Unix(0, int64(route.GetWallTimeFromBootTime(segmentData.EndLogMonoTime)))
 		route.AllSegmentsProcessed = true
 		// TODO: URL
