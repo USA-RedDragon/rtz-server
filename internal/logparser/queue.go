@@ -183,6 +183,10 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 		route.StartLng = segmentData.KalmanPositions[0].Longitude
 	}
 
+	route.SegmentStartTimes = append(route.SegmentStartTimes, route.GetWallTimeFromBootTime(segmentData.InitLogMonoTime))
+	route.SegmentEndTimes = append(route.SegmentEndTimes, route.GetWallTimeFromBootTime(segmentData.EndLogMonoTime))
+	route.SegmentNumbers = append(route.SegmentNumbers, uint64(len(route.SegmentNumbers)+1))
+
 	// Accumulate distance from this segment using Kalman-filtered positions
 	// This provides accurate distance tracking using IMU-fused GPS data
 	// Convert from meters to miles (1 meter = 0.000621371 miles)

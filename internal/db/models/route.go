@@ -32,8 +32,9 @@ type Route struct {
 	StartTime               time.Time `json:"start_time"`
 	URL                     string    `json:"url"`
 	Version                 string    `json:"version" binding:"required"`
-	// SegmentStartTimes       []uint64  `json:"segment_start_times" gorm:"type:integer[]"`
-	// SegmentEndTimes         []uint64  `json:"segment_end_times" gorm:"type:integer[]"`
+	SegmentStartTimes       []uint64  `json:"segment_start_times" gorm:"type:integer[]"`
+	SegmentEndTimes         []uint64  `json:"segment_end_times" gorm:"type:integer[]"`
+	SegmentNumbers          []uint64  `json:"segment_numbers" gorm:"type:integer[]"`
 
 	CreatedAt time.Time      `json:"create_time"`
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
