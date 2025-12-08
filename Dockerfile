@@ -1,4 +1,4 @@
-FROM alpine:3.21
+FROM alpine:3.23
 RUN apk add --no-cache ca-certificates sqlite
 # COPY --from=alpine:latest /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY hack/passwd /etc/passwd
