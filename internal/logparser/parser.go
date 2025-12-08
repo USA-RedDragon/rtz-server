@@ -4,47 +4,42 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 
 	"capnproto.org/go/capnp/v3"
 	"github.com/USA-RedDragon/rtz-server/internal/cereal"
 )
 
+// calculateECEFDistance calculates the Euclidean distance between two ECEF positions in meters
+func calculateECEFDistance(pos1, pos2 KalmanPosition) float64 {
+	dx := pos2.X - pos1.X
+	dy := pos2.Y - pos1.Y
+	dz := pos2.Z - pos1.Z
+	return math.Sqrt(dx*dx + dy*dy + dz*dz)
+}
+
 type GpsCoordinates struct {
-	Latitude             float64
-	Longitude            float64
-	LogMonoTime          uint64
-	SpeedMetersPerSecond float64
-	Bearing              float64
+	Latitude  float64
+	Longitude float64
 }
 
-type AccelerometerData struct {
-	X           float64
-	Y           float64
-	Z           float64
-	LogMonoTime uint64
-}
-
-type GyroscopeData struct {
-	X           float64
-	Y           float64
-	Z           float64
-	LogMonoTime uint64
+type KalmanPosition struct {
+	X         float64 // ECEF X coordinate in meters
+	Y         float64 // ECEF Y coordinate in meters
+	Z         float64 // ECEF Z coordinate in meters
+	Latitude  float64 // Geodetic latitude in degrees
+	Longitude float64 // Geodetic longitude in degrees
+	Valid     bool
 }
 
 type SegmentData struct {
-	GPSLocations            []GpsCoordinates
-	AccelData               []AccelerometerData
-	GyroData                []GyroscopeData
-	EndCoordinates          GpsCoordinates
 	EndLogMonoTime          uint64
 	FirstClockWallTimeNanos uint64
 	FirstClockLogMonoTime   uint64
-	CANPresent              bool
 	GitDirty                bool
 	GitCommit               string
 	Version                 string
 	DongleID                string
-	Radar                   bool
 	InitLogMonoTime         uint64
 	DeviceType              cereal.InitData_DeviceType
 	CarModel                string
@@ -52,6 +47,8 @@ type SegmentData struct {
 	GitBranch               string
 	StartOfRoute            bool
 	EndOfRoute              bool
+	KalmanPositions         []KalmanPosition
+	TotalDistance           float64
 }
 
 func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
@@ -74,91 +71,43 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 		// We're definitely not going to be handling every event type, so we can ignore the exhaustive linter warning
 		//nolint:golint,exhaustive
 		switch event.Which() {
-		case cereal.Event_Which_can:
-			segmentData.CANPresent = true
-		case cereal.Event_Which_accelerometer, cereal.Event_Which_accelerometer2:
-			var sensorData cereal.SensorEventData
-			var err error
-			switch event.Which() {
-			case cereal.Event_Which_accelerometer:
-				sensorData, err = event.Accelerometer()
-			case cereal.Event_Which_accelerometer2:
-				sensorData, err = event.Accelerometer2()
-			}
+		case cereal.Event_Which_liveLocationKalman:
+			liveLocation, err := event.LiveLocationKalman()
 			if err != nil {
 				return SegmentData{}, err
 			}
-			accel, err := sensorData.Acceleration()
-			if err != nil {
-				return SegmentData{}, err
+
+			positionECEF, err := liveLocation.PositionECEF()
+			if err == nil && positionECEF.Valid() {
+				values, err := positionECEF.Value()
+				if err == nil && values.Len() >= 3 {
+					positionGeodetic, err := liveLocation.PositionGeodetic()
+					var lat, lon float64
+					if err == nil && positionGeodetic.Valid() {
+						geoValues, err := positionGeodetic.Value()
+						if err == nil && geoValues.Len() >= 2 {
+							lat = geoValues.At(0) * 180.0 / math.Pi // Convert radians to degrees
+							lon = geoValues.At(1) * 180.0 / math.Pi // Convert radians to degrees
+						}
+					}
+
+					position := KalmanPosition{
+						X:         values.At(0),
+						Y:         values.At(1),
+						Z:         values.At(2),
+						Latitude:  lat,
+						Longitude: lon,
+						Valid:     true,
+					}
+
+					if len(segmentData.KalmanPositions) > 0 {
+						lastPos := segmentData.KalmanPositions[len(segmentData.KalmanPositions)-1]
+						distance := calculateECEFDistance(lastPos, position)
+						segmentData.TotalDistance += distance
+					}
+					segmentData.KalmanPositions = append(segmentData.KalmanPositions, position)
+				}
 			}
-			v, err := accel.V()
-			if err != nil {
-				return SegmentData{}, err
-			}
-			if v.Len() == 3 {
-				x := float64(v.At(0))
-				y := float64(v.At(1))
-				z := float64(v.At(2))
-				segmentData.AccelData = append(segmentData.AccelData, AccelerometerData{
-					X:           x,
-					Y:           y,
-					Z:           z,
-					LogMonoTime: event.LogMonoTime(),
-				})
-			}
-		case cereal.Event_Which_gyroscope, cereal.Event_Which_gyroscope2:
-			var sensorData cereal.SensorEventData
-			var err error
-			switch event.Which() {
-			case cereal.Event_Which_gyroscope:
-				sensorData, err = event.Gyroscope()
-			case cereal.Event_Which_gyroscope2:
-				sensorData, err = event.Gyroscope2()
-			}
-			if err != nil {
-				return SegmentData{}, err
-			}
-			gyro, err := sensorData.Gyro()
-			if err != nil {
-				return SegmentData{}, err
-			}
-			v, err := gyro.V()
-			if err != nil {
-				return SegmentData{}, err
-			}
-			if v.Len() == 3 {
-				x := float64(v.At(0))
-				y := float64(v.At(1))
-				z := float64(v.At(2))
-				segmentData.GyroData = append(segmentData.GyroData, GyroscopeData{
-					X:           x,
-					Y:           y,
-					Z:           z,
-					LogMonoTime: event.LogMonoTime(),
-				})
-			}
-		case cereal.Event_Which_gpsLocation, cereal.Event_Which_gpsLocationExternal:
-			var gpsLocation cereal.GpsLocationData
-			var err error
-			switch event.Which() {
-			case cereal.Event_Which_gpsLocation:
-				gpsLocation, err = event.GpsLocation()
-			case cereal.Event_Which_gpsLocationExternal:
-				gpsLocation, err = event.GpsLocationExternal()
-			}
-			if err != nil {
-				return SegmentData{}, err
-			}
-			gps := GpsCoordinates{
-				Latitude:             gpsLocation.Latitude(),
-				Longitude:            gpsLocation.Longitude(),
-				SpeedMetersPerSecond: float64(gpsLocation.Speed()),
-				Bearing:              float64(gpsLocation.BearingDeg()),
-				LogMonoTime:          event.LogMonoTime(),
-			}
-			segmentData.GPSLocations = append(segmentData.GPSLocations, gps)
-			segmentData.EndCoordinates = gps
 		case cereal.Event_Which_sentinel:
 			sentinel, err := event.Sentinel()
 			if err != nil {
@@ -170,8 +119,6 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 			case cereal.Sentinel_SentinelType_endOfRoute:
 				segmentData.EndOfRoute = true
 			}
-		case cereal.Event_Which_radarState:
-			segmentData.Radar = true
 		case cereal.Event_Which_clocks:
 			clocks, err := event.Clocks()
 			if err != nil {
