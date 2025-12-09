@@ -24,7 +24,7 @@ jobs:
         run: go install capnproto.org/go/capnp/v3/capnpc-go@latest
       - run: go generate ./...
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           version: latest
           skip-cache: true
