@@ -187,11 +187,11 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 		route.StartLng = segmentData.KalmanPositions[0].Longitude
 	}
 
-	route.SegmentStartTimes = append(route.SegmentStartTimes, route.GetWallTimeFromBootTime(segmentData.InitLogMonoTime))
-	route.SegmentEndTimes = append(route.SegmentEndTimes, route.GetWallTimeFromBootTime(segmentData.EndLogMonoTime))
+	route.SegmentStartTimes = append(route.SegmentStartTimes, int64(route.GetWallTimeFromBootTime(segmentData.InitLogMonoTime)))
+	route.SegmentEndTimes = append(route.SegmentEndTimes, int64(route.GetWallTimeFromBootTime(segmentData.EndLogMonoTime)))
 	nextSegmentNum := len(route.SegmentNumbers) + 1
 	if nextSegmentNum >= 0 {
-		route.SegmentNumbers = append(route.SegmentNumbers, uint64(nextSegmentNum))
+		route.SegmentNumbers = append(route.SegmentNumbers, int64(nextSegmentNum))
 	}
 
 	// Accumulate distance from this segment using Kalman-filtered positions
