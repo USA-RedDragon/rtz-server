@@ -16,7 +16,7 @@ import (
 	v1dot4 "github.com/USA-RedDragon/rtz-server/internal/server/apimodels/v1.4"
 	"github.com/USA-RedDragon/rtz-server/internal/storage"
 	"github.com/klauspost/compress/zstd"
-	"github.com/puzpuzpuz/xsync/v3"
+	"github.com/puzpuzpuz/xsync/v4"
 	"gorm.io/gorm"
 )
 

@@ -1,7 +1,7 @@
 package utils
 
 import (
-	"github.com/puzpuzpuz/xsync/v3"
+	"github.com/puzpuzpuz/xsync/v4"
 )
 
 type ChannelWatcher[T any] struct {
