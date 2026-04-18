@@ -14,7 +14,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/websocket"
 	gorillaWebsocket "github.com/gorilla/websocket"
 	"github.com/nats-io/nats.go"
-	"github.com/puzpuzpuz/xsync/v3"
+	"github.com/puzpuzpuz/xsync/v4"
 	"golang.org/x/sync/errgroup"
 )
 
