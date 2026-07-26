@@ -15,7 +15,7 @@ jobs:
     permissions:
       contents: write
       packages: write
-    uses: USA-RedDragon/reusable-actions/.github/workflows/goreleaser.yaml@01dfa5b8bca8336ab047d196c367ef4cc9025432 # v1.3.1
+    uses: USA-RedDragon/reusable-actions/.github/workflows/goreleaser.yaml@d65722ccb9ea7d4e4b770754a67aecc037033f1b # v2.0.21
     with:
       run-before: |
         sudo apt-get install -y capnproto
