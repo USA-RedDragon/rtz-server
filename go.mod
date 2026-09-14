@@ -1,6 +1,6 @@
 module github.com/USA-RedDragon/rtz-server
 
-go 1.24.0
+go 1.25
 
 require (
 	capnproto.org/go/capnp/v3 v3.1.0-alpha.2
@@ -15,7 +15,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
-	github.com/klauspost/compress v1.18.3
+	github.com/klauspost/compress v1.20.0
 	github.com/mattn/go-nulltype v0.0.0-20230117041332-6715e831ac05
 	github.com/nats-io/nats.go v1.48.0
 	github.com/prometheus/client_golang v1.23.2
