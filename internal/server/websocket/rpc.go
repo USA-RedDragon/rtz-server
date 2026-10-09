@@ -41,10 +41,10 @@ func CreateRPCWebsocket(config *config.Config, metrics *metrics.Metrics) *RPCWeb
 func (c *RPCWebsocket) Stop(ctx context.Context) error {
 	errGrp := errgroup.Group{}
 
-	c.dongles.Range(func(key string, value *dongle) bool {
+	c.dongles.Range(func(_ string, value *dongle) bool {
 		errGrp.Go(func() error {
 			closedChan := make(chan any)
-			value.conn.SetCloseHandler(func(code int, text string) error {
+			value.conn.SetCloseHandler(func(_ int, _ string) error {
 				close(closedChan)
 				return nil
 			})

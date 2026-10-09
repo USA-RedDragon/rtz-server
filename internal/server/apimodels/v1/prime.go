@@ -7,7 +7,7 @@ type PrimeSubscriptionResponse struct {
 	NextChargeAt      uint   `json:"next_charge_at"`
 	Plan              string `json:"plan"`
 	RequiresMigration bool   `json:"requires_migration"`
-	SubscribedAt      uint   `json:"subscribed_at"`
+	SubscribedAt      int64  `json:"subscribed_at"`
 	TrialEnd          uint   `json:"trial_end"`
 	UserID            string `json:"user_id"`
 }

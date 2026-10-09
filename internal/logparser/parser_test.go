@@ -10,7 +10,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/logparser"
 )
 
-func setMeasurement(t *testing.T, m cereal.LiveLocationKalman_Measurement, values ...float64) {
+func setMeasurement(t *testing.T, m cereal.LiveLocationKalman_Measurement, values [3]float64) {
 	t.Helper()
 	list, err := m.NewValue(int32(len(values)))
 	if err != nil {
@@ -41,12 +41,12 @@ func kalmanEvent(t *testing.T, buf *bytes.Buffer, x, y, z, lat, lon float64) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	setMeasurement(t, ecef, x, y, z)
+	setMeasurement(t, ecef, [3]float64{x, y, z})
 	geodetic, err := kalman.NewPositionGeodetic()
 	if err != nil {
 		t.Fatal(err)
 	}
-	setMeasurement(t, geodetic, lat*math.Pi/180, lon*math.Pi/180, 0)
+	setMeasurement(t, geodetic, [3]float64{lat * math.Pi / 180, lon * math.Pi / 180, 0})
 	if err := capnp.NewEncoder(buf).Encode(msg); err != nil {
 		t.Fatal(err)
 	}

@@ -23,14 +23,14 @@ func POSTPilotPair(c *gin.Context) {
 
 	data.PairToken = c.PostForm("pair_token")
 	if data.PairToken == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "pair_token is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "pair_token is required"})
 		return
 	}
 
 	db, ok := c.MustGet("db").(*gorm.DB)
 	if !ok {
 		slog.Error("Failed to get db from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
@@ -71,35 +71,35 @@ func POSTPilotPair(c *gin.Context) {
 			blk, _ := pem.Decode([]byte(device.PublicKey))
 			key, err := x509.ParsePKIXPublicKey(blk.Bytes)
 			if err != nil {
-				slog.Error("Failed to parse public key", "error", err)
+				slog.Error("Failed to parse public key", errorKey, err)
 				return nil, errors.New("pair_token has invalid identity")
 			}
 
 			return key, nil
 		})
 	if err != nil {
-		slog.Error("Failed to parse pair token", "error", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "pair_token is invalid"})
+		slog.Error("Failed to parse pair token", errorKey, err)
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "pair_token is invalid"})
 		return
 	}
 
 	if !token.Valid {
 		slog.Error("Invalid token")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "pair_token is invalid"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "pair_token is invalid"})
 		return
 	}
 
 	device, err := models.FindDeviceByDongleID(db, claims.Identity)
 	if err != nil {
-		slog.Error("Failed to find device", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to find device", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	user, ok := c.MustGet("user").(*models.User)
 	if !ok {
 		slog.Error("Failed to get user from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
@@ -110,8 +110,8 @@ func POSTPilotPair(c *gin.Context) {
 		IsPaired: true,
 	}).Error
 	if err != nil {
-		slog.Error("Failed to pair device", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to pair device", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
@@ -122,80 +122,80 @@ func POSTPilotAuth(c *gin.Context) {
 	config, ok := c.MustGet("config").(*config.Config)
 	if !ok {
 		slog.Error("Failed to get config from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	if !config.Registration.Enabled {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Registration is disabled"})
+		c.JSON(http.StatusNotFound, gin.H{errorKey: "Registration is disabled"})
 		return
 	}
 	paramIMEI, ok := c.GetQuery("imei")
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "imei is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "imei is required"})
 		return
 	}
 	if len(paramIMEI) != 15 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "imei must be 15 characters"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "imei must be 15 characters"})
 		return
 	}
 	imei, err := strconv.ParseInt(paramIMEI, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "imei is not an integer"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "imei is not an integer"})
 	}
 	if !utils.LuhnValid(int(imei)) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "imei is invalid"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "imei is invalid"})
 		return
 	}
 
 	paramIMEI2, ok := c.GetQuery("imei2")
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "imei2 is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "imei2 is required"})
 		return
 	}
 	var imei2 int64
 	if len(paramIMEI2) != 0 {
 		imei2, err = strconv.ParseInt(paramIMEI2, 10, 64)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "imei2 is not an integer"})
+			c.JSON(http.StatusBadRequest, gin.H{errorKey: "imei2 is not an integer"})
 		}
 	}
 	if !utils.LuhnValid(int(imei2)) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "imei2 is invalid"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "imei2 is invalid"})
 		return
 	}
 
 	paramSerial, ok := c.GetQuery("serial")
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "serial is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "serial is required"})
 		return
 	}
 	if len(paramSerial) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "serial is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "serial is required"})
 		return
 	}
 
 	paramPublicKey, ok := c.GetQuery("public_key")
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "public_key is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "public_key is required"})
 		return
 	}
 	if len(paramPublicKey) == 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "public_key is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "public_key is required"})
 		return
 	}
 
 	paramRegisterToken, ok := c.GetQuery("register_token")
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "register_token is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "register_token is required"})
 		return
 	}
 
 	blk, _ := pem.Decode([]byte(paramPublicKey))
 	key, err := x509.ParsePKIXPublicKey(blk.Bytes)
 	if err != nil {
-		slog.Error("Failed to parse public key", "error", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "public_key is invalid"})
+		slog.Error("Failed to parse public key", errorKey, err)
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "public_key is invalid"})
 		return
 	}
 
@@ -227,34 +227,34 @@ func POSTPilotAuth(c *gin.Context) {
 			return key, nil
 		})
 	if err != nil {
-		slog.Error("Failed to parse register token", "error", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "register_token is invalid"})
+		slog.Error("Failed to parse register token", errorKey, err)
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "register_token is invalid"})
 		return
 	}
 
 	if !token.Valid {
 		slog.Error("Invalid token")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "register_token is invalid"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "register_token is invalid"})
 		return
 	}
 
 	db, ok := c.MustGet("db").(*gorm.DB)
 	if !ok {
 		slog.Error("Failed to get db from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	_, err = models.FindDeviceBySerial(db, paramSerial)
 	// We can ignore the error here, as we're just checking if the device exists
 	if err == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "serial is already registered"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "serial is already registered"})
 		return
 	}
 
 	dongleID, err := models.GenerateDongleID(db)
 	if err != nil {
-		slog.Error("Failed to generate dongle ID", "error", err)
+		slog.Error("Failed to generate dongle ID", errorKey, err)
 	}
 
 	err = db.Create(&models.Device{
@@ -263,8 +263,8 @@ func POSTPilotAuth(c *gin.Context) {
 		PublicKey: paramPublicKey,
 	}).Error
 	if err != nil {
-		slog.Error("Failed to create device", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to create device", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 

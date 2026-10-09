@@ -31,20 +31,20 @@ var (
 func GETUploadURL(c *gin.Context) {
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "dongle_id is required"})
 		return
 	}
 
 	config, ok := c.MustGet("config").(*config.Config)
 	if !ok {
 		slog.Error("Failed to get config from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	path := c.Query("path")
 	if path == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "path is required"})
 		return
 	}
 
@@ -59,69 +59,69 @@ func GETUploadURL(c *gin.Context) {
 func PUTUpload(c *gin.Context) {
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "dongle_id is required"})
 		return
 	}
 	db, ok := c.MustGet("db").(*gorm.DB)
 	if !ok {
 		slog.Error("Failed to get db from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 	storage, ok := c.MustGet("storage").(storage.Storage)
 	if !ok {
 		slog.Error("Failed to get storage from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 	logQueue, ok := c.MustGet("logQueue").(*logparser.LogQueue)
 	if !ok {
 		slog.Error("Failed to get log queue from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 	device, err := models.FindDeviceByDongleID(db, dongleID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	path := c.Query("path")
 	if path == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "path is required"})
 		return
 	}
 
 	if !fs.ValidPath(path) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid path"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "Invalid path"})
 		return
 	}
 
 	err = storage.Mkdir(dongleID, 0755)
 	if err != nil && !errors.Is(err, fs.ErrExist) {
-		slog.Error("Failed to create dongle directory", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to create dongle directory", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	base, err := storage.Sub(dongleID)
 	if err != nil {
-		slog.Error("Failed to get base storage", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to get base storage", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 	defer base.Close()
 
 	err = base.MkdirAll(filepath.Dir(path), 0755)
 	if err != nil {
-		slog.Error("Failed to create directories", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to create directories", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	if err := writeUpload(base, path, c.Request.Body); err != nil {
-		slog.Error("Failed to write file", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to write file", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
@@ -133,8 +133,8 @@ func PUTUpload(c *gin.Context) {
 			FileName: filepath.Base(path),
 		}).Error
 		if err != nil {
-			slog.Error("Failed to create boot log", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			slog.Error("Failed to create boot log", errorKey, err)
+			c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 			return
 		}
 	case strings.Contains(path, "crash/"):
@@ -144,8 +144,8 @@ func PUTUpload(c *gin.Context) {
 			FileName: filepath.Base(path),
 		}).Error
 		if err != nil {
-			slog.Error("Failed to create crash log", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			slog.Error("Failed to create crash log", errorKey, err)
+			c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 			return
 		}
 	case newRouteRegex.Match([]byte(path)):
@@ -168,12 +168,12 @@ func PUTUpload(c *gin.Context) {
 		}
 		valid, err := validQlog(base, path)
 		if err != nil {
-			slog.Error("Failed to verify file", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			slog.Error("Failed to verify file", errorKey, err)
+			c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 			return
 		}
 		if !valid {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file"})
+			c.JSON(http.StatusBadRequest, gin.H{errorKey: "Invalid file"})
 			return
 		}
 		go logQueue.AddLog(path, dongleID, result)

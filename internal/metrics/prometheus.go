@@ -17,15 +17,15 @@ func NewMetrics() *Metrics {
 		athenaConnections: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Name: "athena_connections",
 			Help: "The total number of Athena connections",
-		}, []string{"dongle_id"}),
+		}, []string{labelDongleID}),
 		athenaErrors: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "athena_errors",
 			Help: "The total number of Athena errors",
-		}, []string{"dongle_id", "error_type"}),
+		}, []string{labelDongleID, "error_type"}),
 		logParserErrors: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Name: "log_parser_errors",
 			Help: "The total number of log parser errors",
-		}, []string{"dongle_id", "error_type"}),
+		}, []string{labelDongleID, "error_type"}),
 		logParserQueueSize: prometheus.NewGauge(prometheus.GaugeOpts{
 			Name: "log_parser_queue_size",
 			Help: "The current size of the log parser queue",

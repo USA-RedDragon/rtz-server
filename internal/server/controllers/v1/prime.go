@@ -14,24 +14,24 @@ import (
 func GETPrimeSubscription(c *gin.Context) {
 	dongleID, ok := c.GetQuery("dongle_id")
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: msgDongleIDRequired})
 		return
 	}
 	db, ok := c.MustGet("db").(*gorm.DB)
 	if !ok {
 		slog.Error("Failed to get db from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 	device, err := models.FindDeviceByDongleID(db, dongleID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	owner, err := models.FindUserByID(db, device.OwnerID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
@@ -45,7 +45,7 @@ func GETPrimeSubscription(c *gin.Context) {
 		IsPrimeSim:        false,
 		Plan:              "free",
 		RequiresMigration: false,
-		SubscribedAt:      uint(device.CreatedAt.Unix()),
+		SubscribedAt:      device.CreatedAt.Unix(),
 		UserID:            id,
 	})
 }

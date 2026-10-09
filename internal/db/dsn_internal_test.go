@@ -10,7 +10,7 @@ import (
 func TestPostgresDSNQuotesValues(t *testing.T) {
 	t.Parallel()
 	var cfg configPkg.Config
-	cfg.Persistence.Database = configPkg.Database{
+	cfg.Persistence.Database = configPkg.Database{ //nolint:gosec
 		Driver:          configPkg.DatabaseDriverPostgres,
 		Host:            "db.example.com",
 		Port:            5433,

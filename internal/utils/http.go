@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-//nolint:golint,gochecknoglobals
+//nolint:gochecknoglobals
 var client = http.Client{
 	Timeout: 5 * time.Second,
 }

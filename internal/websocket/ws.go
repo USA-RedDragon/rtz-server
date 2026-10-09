@@ -66,13 +66,13 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 	return func(c *gin.Context) {
 		dongleID, ok := c.Params.Get("dongle_id")
 		if !ok {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+			c.JSON(http.StatusBadRequest, gin.H{errorKey: "dongle_id is required"})
 			return
 		}
 		maybeNats, ok := c.Get("nats")
 		if !ok && config.NATS.Enabled {
 			slog.Error("Failed to get NATS from context")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 			return
 		}
 		nats, ok := maybeNats.(*nats.Conn)
@@ -82,23 +82,23 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 		db, ok := c.MustGet("db").(*gorm.DB)
 		if !ok {
 			slog.Error("Failed to get db from context")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 			return
 		}
 		metrics, ok := c.MustGet("metrics").(*metrics.Metrics)
 		if !ok {
 			slog.Error("Failed to get metrics from context")
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 			return
 		}
 		device, err := models.FindDeviceByDongleID(db, dongleID)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 			return
 		}
 		conn, err := handler.wsUpgrader.Upgrade(c.Writer, c.Request, nil)
 		if err != nil {
-			slog.Error("Failed to set websocket upgrade", "error", err)
+			slog.Error("Failed to set websocket upgrade", errorKey, err)
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
@@ -106,11 +106,11 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 		handler.conn.SetPongHandler(func(string) error {
 			err := handler.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 			if err != nil {
-				slog.Warn("Failed to set read deadline", "error", err)
+				slog.Warn("Failed to set read deadline", errorKey, err)
 			}
 			err = models.UpdateAthenaPingTimestamp(db, device.ID)
 			if err != nil {
-				slog.Warn("Error updating athena ping timestamp", "error", err)
+				slog.Warn("Error updating athena ping timestamp", errorKey, err)
 			}
 			return nil
 		})
@@ -149,7 +149,7 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 
 	err := h.conn.WriteMessage(websocket.PingMessage, []byte{})
 	if err != nil {
-		slog.Error("Failed to send ping", "error", err, "device_id", device.ID)
+		slog.Error("Failed to send ping", errorKey, err, "device_id", device.ID)
 		return
 	}
 

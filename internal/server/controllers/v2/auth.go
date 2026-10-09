@@ -23,26 +23,26 @@ func POSTAuth(c *gin.Context) {
 
 	data.Provider = c.PostForm("provider")
 	if data.Provider == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "provider is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "provider is required"})
 		return
 	}
 	data.Code = c.PostForm("code")
 	if data.Code == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "code is required"})
 		return
 	}
 
 	db, ok := c.MustGet("db").(*gorm.DB)
 	if !ok {
 		slog.Error("Failed to get db from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	config, ok := c.MustGet("config").(*config.Config)
 	if !ok {
 		slog.Error("Failed to get config from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
@@ -50,24 +50,24 @@ func POSTAuth(c *gin.Context) {
 	switch data.Provider {
 	case "g":
 		if !config.Auth.Google.Enabled {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Google auth is disabled"})
+			c.JSON(http.StatusBadRequest, gin.H{errorKey: "Google auth is disabled"})
 			return
 		}
 		user, ok = googleLogin(c, db, config, data.Code)
 	case "h":
 		if !config.Auth.GitHub.Enabled {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "GitHub auth is disabled"})
+			c.JSON(http.StatusBadRequest, gin.H{errorKey: "GitHub auth is disabled"})
 			return
 		}
 		user, ok = githubLogin(c, db, config, data.Code)
 	case "c":
 		if !config.Auth.Custom.Enabled {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Custom auth is disabled"})
+			c.JSON(http.StatusBadRequest, gin.H{errorKey: "Custom auth is disabled"})
 			return
 		}
 		user, ok = customLogin(c, db, config, data.Code)
 	default:
-		c.JSON(http.StatusBadRequest, gin.H{"error": "provider is invalid"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "provider is invalid"})
 		return
 	}
 	if !ok {
@@ -76,8 +76,8 @@ func POSTAuth(c *gin.Context) {
 
 	token, err := utils.GenerateJWT(config.JWT.Secret, user.ID)
 	if err != nil {
-		slog.Error("Failed to generate JWT", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to generate JWT", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
@@ -89,21 +89,21 @@ func POSTAuth(c *gin.Context) {
 func exchangeToken(c *gin.Context, tokenURL string, body url.Values, headers map[string]string, out any) bool {
 	resp, err := utils.HTTPRequest(c, http.MethodPost, tokenURL, strings.NewReader(body.Encode()), headers)
 	if err != nil {
-		slog.Error("Failed to make request", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to make request", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return false
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		slog.Error("Failed to get token", "status", resp.StatusCode)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return false
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
-		slog.Error("Failed to decode response", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to decode response", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return false
 	}
 	return true
@@ -118,19 +118,19 @@ func loginOrRegister(c *gin.Context, db *gorm.DB, config *config.Config, find fu
 		return user, true
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) || !config.Registration.Enabled {
-		slog.Error("Failed to register or login user", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to register or login user", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return models.User{}, false
 	}
 	if err := db.Create(&newUser).Error; err != nil {
-		slog.Error("Failed to create user", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to create user", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return models.User{}, false
 	}
 	user, err = find()
 	if err != nil {
-		slog.Error("Failed to find user", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to find user", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return models.User{}, false
 	}
 	return user, true
@@ -153,8 +153,8 @@ func googleLogin(c *gin.Context, db *gorm.DB, config *config.Config, code string
 
 	id, err := apis.GetGoogleUserID(c, tokenResponse.AccessToken)
 	if err != nil {
-		slog.Error("Failed to get Google user ID", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to get Google user ID", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return models.User{}, false
 	}
 
@@ -182,8 +182,8 @@ func githubLogin(c *gin.Context, db *gorm.DB, config *config.Config, code string
 
 	id, err := apis.GetGitHubUserID(c, tokenResponse.AccessToken)
 	if err != nil {
-		slog.Error("Failed to get GitHub user ID", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to get GitHub user ID", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return models.User{}, false
 	}
 
@@ -211,8 +211,8 @@ func customLogin(c *gin.Context, db *gorm.DB, config *config.Config, code string
 
 	id, err := apis.GetCustomUserID(c, config.Auth.Custom.UserURL, tokenResponse.AccessToken)
 	if err != nil {
-		slog.Error("Failed to get custom user ID", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to get custom user ID", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return models.User{}, false
 	}
 
@@ -224,24 +224,24 @@ func customLogin(c *gin.Context, db *gorm.DB, config *config.Config, code string
 func GETAuthRedirect(c *gin.Context) {
 	provider, ok := c.Params.Get("provider")
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "provider is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "provider is required"})
 		return
 	}
 
 	queryState := c.Query("state")
 	if queryState == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "state is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "state is required"})
 		return
 	}
 	// We expect state to be `service,$frontend_host`
 	stateParts := strings.Split(queryState, ",")
 	if len(stateParts) != 2 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "state is invalid"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "state is invalid"})
 		return
 	}
 
 	if stateParts[0] != "service" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "state is invalid"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "state is invalid"})
 		return
 	}
 
@@ -249,28 +249,28 @@ func GETAuthRedirect(c *gin.Context) {
 
 	code := c.Query("code")
 	if code == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "code is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "code is required"})
 		return
 	}
 
 	config, ok := c.MustGet("config").(*config.Config)
 	if !ok {
 		slog.Error("Failed to get config from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	referer, err := url.Parse("https://" + returnHostname)
 	if err != nil {
-		slog.Error("Failed to parse referer", "error", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is invalid"})
+		slog.Error("Failed to parse referer", errorKey, err)
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "Referer header is invalid"})
 		return
 	}
 
 	authRedirect := referer.JoinPath("/auth/")
 	if authRedirect == nil {
-		slog.Error("Failed to join path", "error", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Referer header is invalid"})
+		slog.Error("Failed to join path", errorKey, err)
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "Referer header is invalid"})
 		return
 	}
 
@@ -281,36 +281,36 @@ func GETAuthRedirect(c *gin.Context) {
 	case "g":
 		// Google
 		if !config.Auth.Google.Enabled {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Google auth is disabled"})
+			c.JSON(http.StatusBadRequest, gin.H{errorKey: "Google auth is disabled"})
 			return
 		}
-		queryError := c.Query("error")
+		queryError := c.Query(errorKey)
 		if queryError != "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": queryError})
+			c.JSON(http.StatusBadRequest, gin.H{errorKey: queryError})
 			return
 		}
 
 		scope := c.Query("scope")
 		if scope == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "scope is required"})
+			c.JSON(http.StatusBadRequest, gin.H{errorKey: "scope is required"})
 			return
 		}
 		if !strings.Contains(scope, "https://www.googleapis.com/auth/userinfo.email") {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "scope is invalid"})
+			c.JSON(http.StatusBadRequest, gin.H{errorKey: "scope is invalid"})
 			return
 		}
 		queries.Add("provider", "g")
 	case "h":
 		// GitHub
 		if !config.Auth.GitHub.Enabled {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "GitHub auth is disabled"})
+			c.JSON(http.StatusBadRequest, gin.H{errorKey: "GitHub auth is disabled"})
 			return
 		}
 		queries.Add("provider", "h")
 	case "c":
 		// Custom
 		if !config.Auth.Custom.Enabled {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Custom auth is disabled"})
+			c.JSON(http.StatusBadRequest, gin.H{errorKey: "Custom auth is disabled"})
 			return
 		}
 		queries.Add("provider", "c")

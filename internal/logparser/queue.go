@@ -61,7 +61,7 @@ func (q *LogQueue) Start() {
 			continue
 		}
 
-		if uint(q.activeJobsCount.Value()) < q.config.ParallelLogParsers {
+		if active := q.activeJobsCount.Value(); active < 0 || uint64(active) < uint64(q.config.ParallelLogParsers) {
 			q.activeJobsCount.Inc()
 			go func() {
 				q.activeJobs.Store(work.dongleID, &work)
@@ -90,6 +90,14 @@ func (q *LogQueue) Stop() {
 
 func (q *LogQueue) AddLog(path string, dongleID string, routeInfo v1dot4.RouteInfo) {
 	q.queue <- work{path: path, dongleID: dongleID, routeInfo: routeInfo}
+}
+
+func wallTimeNanos(route models.Route, bootTime uint64) int64 {
+	ns := route.GetWallTimeFromBootTime(bootTime)
+	if ns > math.MaxInt64 {
+		return math.MaxInt64
+	}
+	return int64(ns)
 }
 
 func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) error {
@@ -187,8 +195,8 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 		route.StartLng = segmentData.KalmanPositions[0].Longitude
 	}
 
-	route.SegmentStartTimes = append(route.SegmentStartTimes, int64(route.GetWallTimeFromBootTime(segmentData.InitLogMonoTime)))
-	route.SegmentEndTimes = append(route.SegmentEndTimes, int64(route.GetWallTimeFromBootTime(segmentData.EndLogMonoTime)))
+	route.SegmentStartTimes = append(route.SegmentStartTimes, wallTimeNanos(route, segmentData.InitLogMonoTime))
+	route.SegmentEndTimes = append(route.SegmentEndTimes, wallTimeNanos(route, segmentData.EndLogMonoTime))
 	nextSegmentNum := len(route.SegmentNumbers) + 1
 	if nextSegmentNum >= 0 {
 		route.SegmentNumbers = append(route.SegmentNumbers, int64(nextSegmentNum))
@@ -207,9 +215,9 @@ func (q *LogQueue) processLog(db *gorm.DB, storage storage.Storage, work work) e
 			route.EndLat = lastPos.Latitude
 			route.EndLng = lastPos.Longitude
 		}
-		route.EndTime = time.Unix(0, int64(route.GetWallTimeFromBootTime(segmentData.EndLogMonoTime)))
+		route.EndTime = time.Unix(0, wallTimeNanos(route, segmentData.EndLogMonoTime))
 		route.AllSegmentsProcessed = true
-		// TODO: URL
+		// the route URL is not set yet
 	}
 
 	return db.Save(&route).Error

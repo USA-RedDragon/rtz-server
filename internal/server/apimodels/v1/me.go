@@ -6,7 +6,7 @@ type GETMeResponse struct {
 	Email          string `json:"email"`
 	ID             string `json:"id"`
 	Prime          bool   `json:"prime"`
-	RegisteredDate uint   `json:"regdate"`
+	RegisteredDate int64  `json:"regdate"`
 	Superuser      bool   `json:"superuser"`
 	UserID         string `json:"user_id"`
 	Username       string `json:"username"`

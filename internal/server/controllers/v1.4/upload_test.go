@@ -88,10 +88,10 @@ func testDB(t *testing.T) *gorm.DB {
 	return db
 }
 
-func putUpload(db *gorm.DB, store *memStorage, path string, body io.Reader) int {
+func putUpload(t *testing.T, db *gorm.DB, store *memStorage, path string, body io.Reader) int {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodPut, "/v1.4/abc/upload?path="+path, body)
+	c.Request = httptest.NewRequestWithContext(t.Context(), http.MethodPut, "/v1.4/abc/upload?path="+path, body)
 	c.Params = gin.Params{{Key: "dongle_id", Value: "abc"}}
 	c.Set("db", db)
 	c.Set("storage", storage.Storage(store))
@@ -105,7 +105,7 @@ func TestPUTUploadClosesInvalidQlog(t *testing.T) {
 	db := testDB(t)
 	for _, path := range []string{"0000001a--abcdef0123--0/qlog.bz2", "0000001a--abcdef0123--0/qlog.zst"} {
 		store := &memStorage{files: map[string]*bytes.Buffer{}}
-		if code := putUpload(db, store, path, strings.NewReader("not a qlog")); code != http.StatusBadRequest {
+		if code := putUpload(t, db, store, path, strings.NewReader("not a qlog")); code != http.StatusBadRequest {
 			t.Errorf("%s: got status %d, want %d", path, code, http.StatusBadRequest)
 		}
 		if store.opened != store.closed {
@@ -118,7 +118,7 @@ func TestPUTUploadClosesFailedWrite(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
 	store := &memStorage{files: map[string]*bytes.Buffer{}}
-	if code := putUpload(db, store, "0000001a--abcdef0123--0/qlog.bz2", iotest.ErrReader(errors.New("read failed"))); code != http.StatusInternalServerError {
+	if code := putUpload(t, db, store, "0000001a--abcdef0123--0/qlog.bz2", iotest.ErrReader(errors.New("read failed"))); code != http.StatusInternalServerError {
 		t.Errorf("got status %d, want %d", code, http.StatusInternalServerError)
 	}
 	if store.opened != store.closed {

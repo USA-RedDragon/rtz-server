@@ -78,7 +78,7 @@ func (f *S3File) Close() error {
 	return errGrp.Wait()
 }
 
-//nolint:golint,unparam
+//nolint:unparam
 func newS3(region, bucket, root string, s3Client *s3.Client) (S3, error) {
 	return S3{
 		region:   region,

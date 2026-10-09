@@ -17,33 +17,33 @@ import (
 func HandleRPC(c *gin.Context) {
 	_, ok := c.Get("demo")
 	if ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Demo users cannot make RPC calls"})
+		c.JSON(http.StatusNotFound, gin.H{errorKey: "Demo users cannot make RPC calls"})
 		return
 	}
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "dongle_id is required"})
 		return
 	}
 
 	config, ok := c.MustGet("config").(*config.Config)
 	if !ok {
 		slog.Error("Failed to get config from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	metrics, ok := c.MustGet("metrics").(*metrics.Metrics)
 	if !ok {
 		slog.Error("Failed to get metrics from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	maybeNats, ok := c.Get("nats")
 	if !ok && config.NATS.Enabled {
 		slog.Error("Failed to get NATS from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 	nc, ok := maybeNats.(*nats.Conn)
@@ -53,23 +53,23 @@ func HandleRPC(c *gin.Context) {
 
 	var inboundCall apimodels.InboundRPCCall
 	if err := c.BindJSON(&inboundCall); err != nil {
-		slog.Error("Failed to bind RPC call", "error", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		slog.Error("Failed to bind RPC call", errorKey, err)
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "Invalid request"})
 		return
 	}
 
 	rpcCaller, ok := c.MustGet("rpcWebsocket").(*websocket.RPCWebsocket)
 	if !ok {
 		slog.Error("Failed to get rpc from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	// The frontend seemingly always provides a 0 id, but we need to track it through the system
 	uuid, err := uuid.NewRandom()
 	if err != nil {
-		slog.Error("Failed to generate UUID", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to generate UUID", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
@@ -83,15 +83,15 @@ func HandleRPC(c *gin.Context) {
 	resp, err := rpcCaller.Call(c, nc, metrics, dongleID, call)
 	if err != nil {
 		if errors.Is(err, websocket.ErrNotConnected) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Dongle not connected"})
+			c.JSON(http.StatusNotFound, gin.H{errorKey: "Dongle not connected"})
 			return
 		}
 		if errors.Is(err, nats.ErrNoResponders) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Dongle not connected"})
+			c.JSON(http.StatusNotFound, gin.H{errorKey: "Dongle not connected"})
 			return
 		}
-		slog.Error("Failed to call RPC", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to call RPC", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 

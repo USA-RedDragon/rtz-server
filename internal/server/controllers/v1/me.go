@@ -18,45 +18,45 @@ import (
 func GETRouteFiles(c *gin.Context) {
 	id, ok := c.Params.Get("id")
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "id is required"})
 		return
 	}
 	idParts := strings.Split(id, "|")
 	if len(idParts) != 2 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id must be in the format of <device_id>|<route>"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "id must be in the format of <device_id>|<route>"})
 		return
 	}
 	deviceID := idParts[0]
-	if deviceID == "1d3dc3e03047b0c7" {
+	if deviceID == demoDongleID {
 		url := c.Request.URL
 		url.Host = "api.comma.ai"
 		url.Scheme = "https"
 		resp, err := utils.HTTPRequest(c, http.MethodGet, url.String(), nil, map[string]string{
-			"Authorization": c.GetHeader("Authorization"),
+			headerAuthorization: c.GetHeader(headerAuthorization),
 		})
 		if err != nil {
-			slog.Error("GETRouteFiles", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			slog.Error("GETRouteFiles", errorKey, err)
+			c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 			return
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			slog.Error("GETRouteFiles", "status_code", resp.StatusCode)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 			return
 		}
 
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			slog.Error("GETRouteFiles", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			slog.Error("GETRouteFiles", errorKey, err)
+			c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 			return
 		}
 
 		c.Data(http.StatusOK, "application/json", bodyBytes)
 		return
 	}
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented"})
+	c.JSON(http.StatusNotImplemented, gin.H{errorKey: msgNotImplemented})
 }
 
 func GETAthenaOfflineQueue(c *gin.Context) {
@@ -65,51 +65,51 @@ func GETAthenaOfflineQueue(c *gin.Context) {
 		c.Data(http.StatusOK, "application/json", []byte("[]"))
 		return
 	}
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented"})
+	c.JSON(http.StatusNotImplemented, gin.H{errorKey: msgNotImplemented})
 }
 
 func GETRouteQCameraM3U8(c *gin.Context) {
 	id, ok := c.Params.Get("id")
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "id is required"})
 		return
 	}
 	idParts := strings.Split(id, "|")
 	if len(idParts) != 2 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "id must be in the format of <device_id>|<route>"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "id must be in the format of <device_id>|<route>"})
 		return
 	}
 	deviceID := idParts[0]
-	if deviceID == "1d3dc3e03047b0c7" {
+	if deviceID == demoDongleID {
 		url := c.Request.URL
 		url.Host = "api.comma.ai"
 		url.Scheme = "https"
 		resp, err := utils.HTTPRequest(c, http.MethodGet, url.String(), nil, map[string]string{
-			"Authorization": c.GetHeader("Authorization"),
+			headerAuthorization: c.GetHeader(headerAuthorization),
 		})
 		if err != nil {
-			slog.Error("GETRouteQCameraM3U8", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			slog.Error("GETRouteQCameraM3U8", errorKey, err)
+			c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 			return
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
 			slog.Error("GETRouteQCameraM3U8", "status_code", resp.StatusCode)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 			return
 		}
 
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
-			slog.Error("GETRouteQCameraM3U8", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			slog.Error("GETRouteQCameraM3U8", errorKey, err)
+			c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 			return
 		}
 
 		c.Data(http.StatusOK, "application/x-mpegURL", bodyBytes)
 		return
 	}
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "Not implemented"})
+	c.JSON(http.StatusNotImplemented, gin.H{errorKey: msgNotImplemented})
 }
 
 func GETMe(c *gin.Context) {
@@ -128,7 +128,7 @@ func GETMe(c *gin.Context) {
 	user, ok := c.MustGet("user").(*models.User)
 	if !ok {
 		slog.Error("Failed to get user from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
@@ -136,7 +136,7 @@ func GETMe(c *gin.Context) {
 		Email:          "no emails here",
 		ID:             fmt.Sprintf("%d", user.ID),
 		Prime:          true,
-		RegisteredDate: uint(user.CreatedAt.Unix()),
+		RegisteredDate: user.CreatedAt.Unix(),
 		Superuser:      user.Superuser,
 	}
 
@@ -158,7 +158,7 @@ func GETMyDevices(c *gin.Context) {
 		c.JSON(http.StatusOK, []v1.GETMyDevicesResponse{{
 			Device: models.Device{
 				DeviceType:     "threex",
-				DongleID:       "1d3dc3e03047b0c7",
+				DongleID:       demoDongleID,
 				IsPaired:       true,
 				LastAthenaPing: 0,
 				Prime:          false,
@@ -181,14 +181,14 @@ func GETMyDevices(c *gin.Context) {
 	user, ok := c.MustGet("user").(*models.User)
 	if !ok {
 		slog.Error("Failed to get user from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	db, ok := c.MustGet("db").(*gorm.DB)
 	if !ok {
 		slog.Error("Failed to get db from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
@@ -198,8 +198,8 @@ func GETMyDevices(c *gin.Context) {
 			c.JSON(http.StatusOK, []v1.GETMyDevicesResponse{})
 			return
 		}
-		slog.Error("Failed to get devices", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to get devices", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
@@ -219,15 +219,15 @@ func GETMyDevices(c *gin.Context) {
 
 	sharedDevices, err := models.ListSharedToByUserID(db, user.ID)
 	if err != nil {
-		slog.Error("Failed to get shared devices", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to get shared devices", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 	for _, sharedDevice := range sharedDevices {
 		device, err := models.FindDeviceByID(db, sharedDevice.DeviceID)
 		if err != nil {
-			slog.Error("Failed to get shared device", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			slog.Error("Failed to get shared device", errorKey, err)
+			c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 			return
 		}
 		devicesResp = append(devicesResp, v1.GETMyDevicesResponse{

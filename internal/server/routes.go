@@ -54,7 +54,7 @@ func applyRoutes(r *gin.Engine, config *config.Config, rpcWebsocket *websocketCo
 
 	r.NoRoute(func(c *gin.Context) {
 		slog.Warn("Not Found", "path", c.Request.URL.Path)
-		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+		c.JSON(http.StatusNotFound, gin.H{errorKey: "Not Found"})
 	})
 }
 

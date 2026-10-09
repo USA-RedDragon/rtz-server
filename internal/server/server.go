@@ -117,8 +117,9 @@ func NewServer(config *config.Config, db *gorm.DB, nats *nats.Conn, logQueue *lo
 
 func (s *Server) Start() error {
 	waitGrp := sync.WaitGroup{}
+	var listenConfig net.ListenConfig
 	if s.ipv4Server != nil {
-		ipv4Listener, err := net.Listen("tcp4", s.ipv4Server.Addr)
+		ipv4Listener, err := listenConfig.Listen(context.Background(), "tcp4", s.ipv4Server.Addr)
 		if err != nil {
 			return err
 		}
@@ -126,13 +127,13 @@ func (s *Server) Start() error {
 		go func() {
 			defer waitGrp.Done()
 			if err := s.ipv4Server.Serve(ipv4Listener); err != nil && !s.stopped.Load() {
-				slog.Error("HTTP IPv4 server error", "error", err.Error())
+				slog.Error("HTTP IPv4 server error", errorKey, err.Error())
 			}
 		}()
 	}
 
 	if s.ipv6Server != nil {
-		ipv6Listener, err := net.Listen("tcp6", s.ipv6Server.Addr)
+		ipv6Listener, err := listenConfig.Listen(context.Background(), "tcp6", s.ipv6Server.Addr)
 		if err != nil {
 			return err
 		}
@@ -140,7 +141,7 @@ func (s *Server) Start() error {
 		go func() {
 			defer waitGrp.Done()
 			if err := s.ipv6Server.Serve(ipv6Listener); err != nil && !s.stopped.Load() {
-				slog.Error("HTTP IPv6 server error", "error", err.Error())
+				slog.Error("HTTP IPv6 server error", errorKey, err.Error())
 			}
 		}()
 	}
@@ -148,7 +149,7 @@ func (s *Server) Start() error {
 
 	if s.config.HTTP.Metrics.Enabled {
 		if s.metricsIPV4Server != nil {
-			metricsIPV4Listener, err := net.Listen("tcp4", s.metricsIPV4Server.Addr)
+			metricsIPV4Listener, err := listenConfig.Listen(context.Background(), "tcp4", s.metricsIPV4Server.Addr)
 			if err != nil {
 				return err
 			}
@@ -156,13 +157,13 @@ func (s *Server) Start() error {
 			go func() {
 				defer waitGrp.Done()
 				if err := s.metricsIPV4Server.Serve(metricsIPV4Listener); err != nil && !s.stopped.Load() {
-					slog.Error("Metrics IPv4 server error", "error", err.Error())
+					slog.Error("Metrics IPv4 server error", errorKey, err.Error())
 				}
 			}()
 		}
 
 		if s.metricsIPV6Server != nil {
-			metricsIPV6Listener, err := net.Listen("tcp6", s.metricsIPV6Server.Addr)
+			metricsIPV6Listener, err := listenConfig.Listen(context.Background(), "tcp6", s.metricsIPV6Server.Addr)
 			if err != nil {
 				return err
 			}
@@ -170,7 +171,7 @@ func (s *Server) Start() error {
 			go func() {
 				defer waitGrp.Done()
 				if err := s.metricsIPV6Server.Serve(metricsIPV6Listener); err != nil && !s.stopped.Load() {
-					slog.Error("Metrics IPv6 server error", "error", err.Error())
+					slog.Error("Metrics IPv6 server error", errorKey, err.Error())
 				}
 			}()
 		}

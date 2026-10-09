@@ -9,7 +9,7 @@ import (
 
 // https://goreleaser.com/cookbooks/using-main.version/
 //
-//nolint:golint,gochecknoglobals
+//nolint:gochecknoglobals
 var (
 	version = "dev"
 	commit  = "none"

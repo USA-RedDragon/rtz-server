@@ -32,18 +32,18 @@ func GETDevice(c *gin.Context) {
 
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "dongle_id is required"})
 		return
 	}
 	db, ok := c.MustGet("db").(*gorm.DB)
 	if !ok {
 		slog.Error("Failed to get db from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 	device, err := models.FindDeviceByDongleID(db, dongleID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
@@ -69,18 +69,18 @@ func GETDeviceStats(c *gin.Context) {
 	}
 	dongleID, ok := c.Params.Get("dongle_id")
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "dongle_id is required"})
+		c.JSON(http.StatusBadRequest, gin.H{errorKey: "dongle_id is required"})
 		return
 	}
 	db, ok := c.MustGet("db").(*gorm.DB)
 	if !ok {
 		slog.Error("Failed to get db from context")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 	device, err := models.FindDeviceByDongleID(db, dongleID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
@@ -88,27 +88,27 @@ func GETDeviceStats(c *gin.Context) {
 
 	allTrips, err := models.CountRoutesSince(db, device.ID, device.CreatedAt)
 	if err != nil {
-		slog.Error("Failed to count routes", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to count routes", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	weekTrips, err := models.CountRoutesSince(db, device.ID, time.Now().AddDate(0, 0, -7))
 	if err != nil {
-		slog.Error("Failed to count routes", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		slog.Error("Failed to count routes", errorKey, err)
+		c.JSON(http.StatusInternalServerError, gin.H{errorKey: msgTryAgainLater})
 		return
 	}
 
 	c.JSON(http.StatusOK, v1dot1.StatsResponse{
 		All: v1dot1.Stats{
-			Distance: 0, // TODO: Implement
-			Minutes:  0, // TODO: Implement
+			Distance: 0, // not implemented yet
+			Minutes:  0, // not implemented yet
 			Routes:   allTrips,
 		},
 		Week: v1dot1.Stats{
-			Distance: 0, // TODO: Implement
-			Minutes:  0, // TODO: Implement
+			Distance: 0, // not implemented yet
+			Minutes:  0, // not implemented yet
 			Routes:   weekTrips,
 		},
 	})

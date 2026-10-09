@@ -210,51 +210,14 @@ func (c *Config) Validate() error {
 	if c.Mapbox.SecretToken == "" {
 		return ErrMapboxSecretTokenRequired
 	}
-	if c.Persistence.Database.Driver == "" {
-		return ErrDatabaseDriverRequired
-	}
-	switch c.Persistence.Database.Driver {
-	case DatabaseDriverSQLite, DatabaseDriverMySQL, DatabaseDriverPostgres:
-	default:
-		return ErrInvalidDatabaseDriver
-	}
-	if c.Persistence.Database.Driver != DatabaseDriverSQLite && c.Persistence.Database.Host == "" {
-		return ErrDBHostRequired
-	}
-	if c.Persistence.Database.Database == "" {
-		return ErrDBDatabaseRequired
-	}
-	switch c.Persistence.Uploads.Driver {
-	case UploadsDriverFilesystem, UploadsDriverS3:
-	default:
-		return ErrInvalidUploadsDriver
-	}
-	if c.Persistence.Uploads.Driver == UploadsDriverFilesystem && c.Persistence.Uploads.FilesystemOptions.Directory == "" {
-		return ErrUploadsFSDirectoryRequired
-	}
-	if c.Persistence.Uploads.Driver == UploadsDriverS3 && c.Persistence.Uploads.S3Options.Bucket == "" {
-		return ErrUploadsS3BucketRequired
-	}
-	if c.Persistence.Uploads.Driver == UploadsDriverS3 && c.Persistence.Uploads.S3Options.Region == "" {
-		return ErrUploadsS3RegionRequired
+	if err := c.Persistence.validate(); err != nil {
+		return err
 	}
 	if c.NATS.Enabled && c.NATS.URL == "" {
 		return ErrNATSURLRequired
 	}
-	if c.Auth.GitHub.Enabled && (c.Auth.GitHub.ClientID == "" || c.Auth.GitHub.ClientSecret == "") {
-		return ErrGitHubOAuthRequired
-	}
-	if c.Auth.Google.Enabled && (c.Auth.Google.ClientID == "" || c.Auth.Google.ClientSecret == "") {
-		return ErrGoogleOAuthRequired
-	}
-	if c.Auth.Custom.Enabled && (c.Auth.Custom.ClientID == "" || c.Auth.Custom.ClientSecret == "") {
-		return ErrCustomOAuthRequired
-	}
-	if c.Auth.Custom.Enabled && c.Auth.Custom.TokenURL == "" {
-		return ErrCustomTokenURLRequired
-	}
-	if c.Auth.Custom.Enabled && c.Auth.Custom.UserURL == "" {
-		return ErrCustomUserURLRequired
+	if err := c.Auth.validate(); err != nil {
+		return err
 	}
 	if c.ParallelLogParsers == 0 {
 		return ErrParallelLogParsersNotZero
@@ -265,5 +228,56 @@ func (c *Config) Validate() error {
 		return ErrInvalidLogLevel
 	}
 
+	return nil
+}
+
+func (p *Persistence) validate() error {
+	if p.Database.Driver == "" {
+		return ErrDatabaseDriverRequired
+	}
+	switch p.Database.Driver {
+	case DatabaseDriverSQLite, DatabaseDriverMySQL, DatabaseDriverPostgres:
+	default:
+		return ErrInvalidDatabaseDriver
+	}
+	if p.Database.Driver != DatabaseDriverSQLite && p.Database.Host == "" {
+		return ErrDBHostRequired
+	}
+	if p.Database.Database == "" {
+		return ErrDBDatabaseRequired
+	}
+	switch p.Uploads.Driver {
+	case UploadsDriverFilesystem, UploadsDriverS3:
+	default:
+		return ErrInvalidUploadsDriver
+	}
+	if p.Uploads.Driver == UploadsDriverFilesystem && p.Uploads.FilesystemOptions.Directory == "" {
+		return ErrUploadsFSDirectoryRequired
+	}
+	if p.Uploads.Driver == UploadsDriverS3 && p.Uploads.S3Options.Bucket == "" {
+		return ErrUploadsS3BucketRequired
+	}
+	if p.Uploads.Driver == UploadsDriverS3 && p.Uploads.S3Options.Region == "" {
+		return ErrUploadsS3RegionRequired
+	}
+	return nil
+}
+
+func (a *Auth) validate() error {
+	if a.GitHub.Enabled && (a.GitHub.ClientID == "" || a.GitHub.ClientSecret == "") {
+		return ErrGitHubOAuthRequired
+	}
+	if a.Google.Enabled && (a.Google.ClientID == "" || a.Google.ClientSecret == "") {
+		return ErrGoogleOAuthRequired
+	}
+	if a.Custom.Enabled && (a.Custom.ClientID == "" || a.Custom.ClientSecret == "") {
+		return ErrCustomOAuthRequired
+	}
+	if a.Custom.Enabled && a.Custom.TokenURL == "" {
+		return ErrCustomTokenURLRequired
+	}
+	if a.Custom.Enabled && a.Custom.UserURL == "" {
+		return ErrCustomUserURLRequired
+	}
 	return nil
 }

@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/pflag"
 )
 
-//nolint:golint,gochecknoglobals
+//nolint:gochecknoglobals
 var requiredFlags = []string{
 	"--jwt.secret", "changeme",
 	"--http.backend_url", "http://localhost:8081",
@@ -208,7 +208,7 @@ func TestInvalidDrivers(t *testing.T) {
 
 // Parallel tests are not allowed with t.Setenv
 //
-//nolint:golint,paralleltest
+//nolint:paralleltest
 func TestEnvConfig(t *testing.T) {
 	t.Setenv("HTTP__PORT", "8087")
 	t.Setenv("HTTP__METRICS__PORT", "8088")

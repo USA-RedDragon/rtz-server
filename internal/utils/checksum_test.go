@@ -25,7 +25,6 @@ func TestLuhn(t *testing.T) {
 	}
 
 	for _, tt := range validLuhns {
-		tt := tt
 		t.Run(fmt.Sprintf("LuhnValid[%d]", tt), func(t *testing.T) {
 			t.Parallel()
 			if got := utils.LuhnValid(tt); !got {
@@ -35,7 +34,6 @@ func TestLuhn(t *testing.T) {
 	}
 
 	for _, tt := range invalidLuhns {
-		tt := tt
 		t.Run(fmt.Sprintf("LuhnInValid[%d]", tt), func(t *testing.T) {
 			t.Parallel()
 			if got := utils.LuhnValid(tt); got {
