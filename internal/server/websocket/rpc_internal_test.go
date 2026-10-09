@@ -10,6 +10,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	"github.com/USA-RedDragon/rtz-server/internal/server/apimodels"
 	"github.com/USA-RedDragon/rtz-server/internal/utils"
+	"github.com/nats-io/nats.go"
 )
 
 //nolint:gochecknoglobals
@@ -53,5 +54,39 @@ func TestLateResponseAfterTimeout(t *testing.T) {
 	}
 	if resp.ID != "fast" {
 		t.Errorf("got response %q, want fast", resp.ID)
+	}
+}
+
+type fakeNATS struct {
+	reply []byte
+}
+
+func (f fakeNATS) Request(string, []byte, time.Duration) (*nats.Msg, error) {
+	return &nats.Msg{Data: f.reply}, nil
+}
+
+func TestCallNATS(t *testing.T) {
+	t.Parallel()
+	m := testMetrics()
+
+	resp, err := callNATS(t.Context(), fakeNATS{reply: []byte(`{"id":"1"}`)}, m, "abc", apimodels.RPCCall{ID: "1"})
+	if err != nil || resp.ID != "1" {
+		t.Errorf("got %v, %v, want response 1", resp, err)
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		_, err := callNATS(ctx, fakeNATS{}, m, "abc", apimodels.RPCCall{ID: "2"})
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Error("expected an error while the dongle keeps refusing")
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("callNATS kept retrying after the context was done")
 	}
 }

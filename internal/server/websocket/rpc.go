@@ -79,57 +79,7 @@ func (c *RPCWebsocket) Call(ctx context.Context, nc *nats.Conn, metrics *metrics
 	if !loaded {
 		// Dongle is not here, send to NATS if enabled
 		if nc != nil {
-			msg, err := json.Marshal(call)
-			if err != nil {
-				return apimodels.RPCResponse{}, err
-			}
-
-			retry := 0
-			for {
-				if retry > 3 {
-					return apimodels.RPCResponse{}, err
-				}
-				retry++
-				timeout := 5 * time.Second
-				// Special cases for longer RPC calls
-				switch call.Method {
-				case "takeSnapshot":
-					timeout = 30 * time.Second
-				default:
-				}
-				var resp *nats.Msg
-				resp, err = nc.Request("rpc:call:"+dongleID, msg, timeout)
-				if err != nil {
-					switch {
-					case errors.Is(err, nats.ErrTimeout):
-						continue
-					case errors.Is(err, nats.ErrNoResponders):
-						// This could be a dongle reconnecting
-						time.Sleep(1 * time.Second)
-						continue
-					default:
-						return apimodels.RPCResponse{}, err
-					}
-				}
-				if len(resp.Data) == 0 {
-					// This is essentially a NAK
-					// We should retry and not count towards the limit
-					// because the dongle is probably reconnecting
-					retry--
-					continue
-				}
-
-				var rpcResp apimodels.RPCResponse
-				slog.Debug("Received RPC response from NATS", "response", string(resp.Data))
-				err = json.Unmarshal(resp.Data, &rpcResp)
-				if err != nil {
-					metrics.IncrementAthenaErrors(dongleID, "rpc_call_nats_unmarshal")
-					slog.Warn("Error unmarshalling RPC response", "error", err)
-					return apimodels.RPCResponse{}, err
-				}
-
-				return rpcResp, nil
-			}
+			return callNATS(ctx, nc, metrics, dongleID, call)
 		}
 		return apimodels.RPCResponse{}, ErrNotConnected
 	}
@@ -154,5 +104,80 @@ func (c *RPCWebsocket) Call(ctx context.Context, nc *nats.Conn, metrics *metrics
 		return apimodels.RPCResponse{}, fmt.Errorf("timeout")
 	case resp := <-responseChan:
 		return resp, nil
+	}
+}
+
+// natsRequester is the part of *nats.Conn that callNATS uses.
+type natsRequester interface {
+	Request(subj string, data []byte, timeout time.Duration) (*nats.Msg, error)
+}
+
+func callNATS(ctx context.Context, nc natsRequester, metrics *metrics.Metrics, dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
+	msg, err := json.Marshal(call)
+	if err != nil {
+		return apimodels.RPCResponse{}, err
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
+	defer cancel()
+
+	retry := 0
+	for {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return apimodels.RPCResponse{}, ctxErr
+		}
+		if retry > 3 {
+			return apimodels.RPCResponse{}, err
+		}
+		retry++
+		timeout := 5 * time.Second
+		// Special cases for longer RPC calls
+		switch call.Method {
+		case "takeSnapshot":
+			timeout = 30 * time.Second
+		default:
+		}
+		var resp *nats.Msg
+		resp, err = nc.Request("rpc:call:"+dongleID, msg, timeout)
+		if err != nil {
+			switch {
+			case errors.Is(err, nats.ErrTimeout):
+				continue
+			case errors.Is(err, nats.ErrNoResponders):
+				// This could be a dongle reconnecting
+				waitForRetry(ctx)
+				continue
+			default:
+				return apimodels.RPCResponse{}, err
+			}
+		}
+		if len(resp.Data) == 0 {
+			// This is essentially a NAK
+			// We should retry and not count towards the limit
+			// because the dongle is probably reconnecting
+			retry--
+			waitForRetry(ctx)
+			continue
+		}
+
+		var rpcResp apimodels.RPCResponse
+		slog.Debug("Received RPC response from NATS", "response", string(resp.Data))
+		err = json.Unmarshal(resp.Data, &rpcResp)
+		if err != nil {
+			metrics.IncrementAthenaErrors(dongleID, "rpc_call_nats_unmarshal")
+			slog.Warn("Error unmarshalling RPC response", "error", err)
+			return apimodels.RPCResponse{}, err
+		}
+
+		return rpcResp, nil
+	}
+}
+
+func waitForRetry(ctx context.Context) {
+	timer := time.NewTimer(time.Second)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+	case <-timer.C:
 	}
 }
