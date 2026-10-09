@@ -126,3 +126,35 @@ func TestConnectionsDoNotShareSockets(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckOrigin(t *testing.T) {
+	t.Parallel()
+	srv, rec := newServer(t, []string{"https://example.com:443", "https://*.example.org"})
+
+	tests := []struct {
+		origin  string
+		allowed bool
+	}{
+		{"", true},
+		{"https://example.com", true},
+		{"https://EXAMPLE.com", true},
+		{"https://example.com.attacker.test", false},
+		{"https://notexample.com", false},
+		{"http://example.com", false},
+		{"https://app.example.org", true},
+		{"https://example.org.attacker.test", false},
+	}
+	for _, tt := range tests {
+		header := http.Header{}
+		if tt.origin != "" {
+			header.Set("Origin", tt.origin)
+		}
+		_, err := dial(t, srv, "a", header)
+		if allowed := err == nil; allowed != tt.allowed {
+			t.Errorf("%q: allowed %v, want %v (%v)", tt.origin, allowed, tt.allowed, err)
+		}
+		if err == nil {
+			waitFor(t, rec.connected)
+		}
+	}
+}

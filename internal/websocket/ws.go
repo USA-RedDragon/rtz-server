@@ -43,20 +43,7 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 				if origin == "" {
 					return true
 				}
-				origin = strings.ToLower(origin)
-				for _, host := range config.HTTP.CORSHosts {
-					host = strings.ToLower(host)
-					if strings.HasSuffix(host, ":443") && strings.HasPrefix(origin, "https://") {
-						host = strings.TrimSuffix(host, ":443")
-					}
-					if strings.HasSuffix(host, ":80") && strings.HasPrefix(origin, "http://") {
-						host = strings.TrimSuffix(host, ":80")
-					}
-					if strings.Contains(origin, host) {
-						return true
-					}
-				}
-				return false
+				return originAllowed(origin, config.HTTP.CORSHosts)
 			},
 			EnableCompression: true,
 		},
@@ -117,6 +104,29 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 		connHandler := &WSHandler{handler: handler.handler, conn: conn}
 		connHandler.handle(c.Request.Context(), c.Request, &device, db, nats, metrics)
 	}
+}
+
+// originAllowed reports whether origin matches one of the CORS hosts, which
+// are origins such as https://example.com and may contain one * wildcard.
+func originAllowed(origin string, hosts []string) bool {
+	origin = strings.ToLower(origin)
+	for _, host := range hosts {
+		host = strings.ToLower(host)
+		if strings.HasPrefix(host, "https://") {
+			host = strings.TrimSuffix(host, ":443")
+		}
+		if strings.HasPrefix(host, "http://") {
+			host = strings.TrimSuffix(host, ":80")
+		}
+		if prefix, suffix, wildcard := strings.Cut(host, "*"); wildcard {
+			if len(origin) >= len(prefix)+len(suffix) && strings.HasPrefix(origin, prefix) && strings.HasSuffix(origin, suffix) {
+				return true
+			}
+		} else if origin == host {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.Device, db *gorm.DB, nats *nats.Conn, metrics *metrics.Metrics) {
