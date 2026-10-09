@@ -122,12 +122,7 @@ func VerifyDeviceJWT(did string, signingKey string, tokenString string) error {
 				return nil, errors.New("identity does not match device")
 			}
 
-			blk, _ := pem.Decode([]byte(signingKey))
-			key, err := x509.ParsePKIXPublicKey(blk.Bytes)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse public key: %w", err)
-			}
-			return key, nil
+			return ParseDevicePublicKey(signingKey)
 		})
 	if err != nil {
 		return err
@@ -136,4 +131,17 @@ func VerifyDeviceJWT(did string, signingKey string, tokenString string) error {
 		return errors.New("invalid token")
 	}
 	return nil
+}
+
+// ParseDevicePublicKey parses a device's PEM encoded public key.
+func ParseDevicePublicKey(pemKey string) (any, error) {
+	blk, _ := pem.Decode([]byte(pemKey))
+	if blk == nil {
+		return nil, errors.New("failed to parse public key: no PEM data")
+	}
+	key, err := x509.ParsePKIXPublicKey(blk.Bytes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse public key: %w", err)
+	}
+	return key, nil
 }

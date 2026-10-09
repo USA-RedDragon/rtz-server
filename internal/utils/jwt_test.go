@@ -199,6 +199,11 @@ func TestJWT(t *testing.T) {
 	if err == nil {
 		t.Error("expected error, got nil")
 	}
+
+	err = utils.VerifyDeviceJWT("test", "not a PEM key", tokenStr)
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
 }
 
 func TestGenerateVerify(t *testing.T) {

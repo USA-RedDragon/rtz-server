@@ -101,3 +101,31 @@ func TestRequireDeviceAuthWithoutDongleID(t *testing.T) {
 		}
 	}
 }
+
+func TestRequireCookieAuthBadStoredKey(t *testing.T) {
+	t.Parallel()
+	gin.SetMode(gin.TestMode)
+
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory"), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := db.AutoMigrate(&models.User{}, &models.Device{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&models.Device{DongleID: "abc", Serial: "serial", PublicKey: "not a PEM key"}).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	r := gin.New()
+	r.Use(gin.Recovery(), func(c *gin.Context) { c.Set("db", db) })
+	r.GET("/ws/v2/:dongle_id", requireCookieAuth(&config.Config{}), func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/ws/v2/abc", nil)
+	req.AddCookie(&http.Cookie{Name: "jwt", Value: deviceToken(t, newRSAKey(t), "abc"), Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode})
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("got status %d, want %d", w.Code, http.StatusUnauthorized)
+	}
+}

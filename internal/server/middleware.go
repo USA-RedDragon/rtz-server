@@ -1,8 +1,6 @@
 package server
 
 import (
-	"crypto/x509"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -150,12 +148,7 @@ func requireCookieAuth(_ *config.Config) gin.HandlerFunc {
 					return nil, errors.New("token has no expiration")
 				}
 
-				blk, _ := pem.Decode([]byte(device.PublicKey))
-				key, err := x509.ParsePKIXPublicKey(blk.Bytes)
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse public key: %w", err)
-				}
-				return key, nil
+				return utils.ParseDevicePublicKey(device.PublicKey)
 			})
 		if err != nil {
 			slog.Error("Failed to parse device JWT token cookie", errorKey, err)
