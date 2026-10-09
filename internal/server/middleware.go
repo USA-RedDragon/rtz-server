@@ -234,34 +234,15 @@ func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {
 			// Try verifying as device JWT
 			dongleID, ok := c.Params.Get("dongle_id")
 			if !ok || dongleID == "" {
-				// Get the identity from the JWT
-				dongleIDChan := make(chan string)
-				go func() {
-					claims := new(utils.DeviceJWT)
-					_, err := jwt.NewParser(
-						jwt.WithLeeway(5*time.Minute),
-						jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Name}),
-					).ParseWithClaims(jwtString, claims, func(token *jwt.Token) (interface{}, error) {
-						if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-							dongleIDChan <- ""
-							return nil, fmt.Errorf("invalid signing method: %s", token.Header["alg"])
-						}
-						claims, ok = token.Claims.(*utils.DeviceJWT)
-						if !ok {
-							dongleIDChan <- ""
-							return nil, errors.New("invalid claims")
-						}
-						dongleIDChan <- claims.Identity
-						return nil, nil
-					})
-					if err != nil {
-						dongleIDChan <- ""
-					}
-				}()
-				dongleID = <-dongleIDChan
-				if dongleID == "" {
-					deviceAuthErr = errors.New("missing dongle_id")
+				// The identity is only used to look up the device whose key
+				// then verifies the token below.
+				claims := new(utils.DeviceJWT)
+				if _, _, err := jwt.NewParser().ParseUnverified(jwtString, claims); err == nil {
+					dongleID = claims.Identity
 				}
+			}
+			if dongleID == "" {
+				deviceAuthErr = errors.New("missing dongle_id")
 			} else {
 				device, err := models.FindDeviceByDongleID(db, dongleID)
 				if err != nil {
@@ -291,14 +272,11 @@ func requireAuth(config *config.Config, authType AuthType) gin.HandlerFunc {
 		// Neither work, say why
 		if deviceAuthErr != nil {
 			slog.Error("Failed to verify device JWT", errorKey, deviceAuthErr)
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{errorKey: msgUnauthorized})
-			return
 		}
 		if userAuthErr != nil {
 			slog.Error("Failed to verify user JWT", errorKey, userAuthErr)
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{errorKey: msgUnauthorized})
-			return
 		}
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{errorKey: msgUnauthorized})
 	}
 }
 
