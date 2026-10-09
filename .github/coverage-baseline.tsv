@@ -34,5 +34,5 @@ internal/utils/geo.go	8	8
 internal/utils/http.go	9	0
 internal/utils/jwt.go	54	38
 internal/websocket/writer.go	8	6
-internal/websocket/ws.go	99	80
+internal/websocket/ws.go	109	88
 main.go	4	0
