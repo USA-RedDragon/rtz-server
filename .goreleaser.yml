@@ -1,4 +1,5 @@
 ---
+version: 2
 project_name: rtz-server
 
 release:
@@ -8,41 +9,29 @@ release:
     owner: USA-RedDragon
     name: "{{ .ProjectName }}"
 
-dockers:
-  - image_templates:
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:{{ .Tag }}-amd64"
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}-amd64"
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}.{{ .Minor }}-amd64"
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:latest-amd64"
-    use: buildx
-    goarch: amd64
+dockers_v2:
+  - images:
+      - "ghcr.io/usa-reddragon/{{ .ProjectName }}"
+    tags:
+      - "{{ .Tag }}"
+      - "v{{ .Major }}"
+      - "v{{ .Major }}.{{ .Minor }}"
+      - latest
+    platforms:
+      - linux/amd64
     extra_files:
       - hack/passwd
       - hack/group
-    build_flag_templates:
-      - "--pull"
-      - "--label=org.opencontainers.image.created={{.Date}}"
-      - "--label=org.opencontainers.image.title={{.ProjectName}}"
-      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
-      - "--label=org.opencontainers.image.version={{.Version}}"
-      - --label=org.opencontainers.image.licenses=MIT
-      - --label=org.opencontainers.image.url=https://github.com/USA-RedDragon/{{ .ProjectName }}
-      - --label=org.opencontainers.image.source=https://github.com/USA-RedDragon/{{ .ProjectName }}
-      - "--platform=linux/amd64"
-
-docker_manifests:
-  - name_template: "ghcr.io/usa-reddragon/{{ .ProjectName }}:{{ .Tag }}"
-    image_templates:
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:{{ .Tag }}-amd64"
-  - name_template: "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}"
-    image_templates:
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}-amd64"
-  - name_template: "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}.{{ .Minor }}"
-    image_templates:
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:v{{ .Major }}.{{ .Minor }}-amd64"
-  - name_template: "ghcr.io/usa-reddragon/{{ .ProjectName }}:latest"
-    image_templates:
-      - "ghcr.io/usa-reddragon/{{ .ProjectName }}:latest-amd64"
+    labels:
+      org.opencontainers.image.created: "{{ .Date }}"
+      org.opencontainers.image.title: "{{ .ProjectName }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.licenses: MIT
+      org.opencontainers.image.url: https://github.com/USA-RedDragon/{{ .ProjectName }}
+      org.opencontainers.image.source: https://github.com/USA-RedDragon/{{ .ProjectName }}
+    flags:
+      - --pull
 
 builds:
   - main: .
