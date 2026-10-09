@@ -3,6 +3,7 @@ package db
 import (
 	"fmt"
 	"runtime"
+	"strings"
 	"time"
 
 	configPkg "github.com/USA-RedDragon/rtz-server/internal/config"
@@ -50,25 +51,34 @@ func getDialect(config *configPkg.Config) gorm.Dialector {
 			extraParamsStr)
 		dialector = mysql.Open(dsn)
 	case configPkg.DatabaseDriverPostgres:
-		dsn := "host=" + config.Persistence.Database.Host + " dbname=" + config.Persistence.Database.Database
-		if config.Persistence.Database.Port != 0 {
-			dsn += fmt.Sprintf(" port=%d", config.Persistence.Database.Port)
-		}
-		if config.Persistence.Database.Username != "" {
-			dsn += " user=" + config.Persistence.Database.Username
-		}
-		if config.Persistence.Database.Password != "" {
-			dsn += " password=" + config.Persistence.Database.Password
-		}
-		if config.Persistence.Database.ExtraParameters != "" {
-			dsn += " " + config.Persistence.Database.ExtraParameters
-		}
 		dialector = postgres.New(postgres.Config{
-			DSN:                  dsn,
+			DSN:                  postgresDSN(config),
 			PreferSimpleProtocol: true,
 		})
 	}
 	return dialector
+}
+
+// postgresDSN builds a key/value connection string, quoting each value so
+// spaces and quotes in credentials survive.
+func postgresDSN(config *configPkg.Config) string {
+	quote := func(v string) string {
+		return "'" + strings.ReplaceAll(strings.ReplaceAll(v, `\`, `\\`), "'", `\'`) + "'"
+	}
+	dsn := "host=" + quote(config.Persistence.Database.Host) + " dbname=" + quote(config.Persistence.Database.Database)
+	if config.Persistence.Database.Port != 0 {
+		dsn += fmt.Sprintf(" port=%d", config.Persistence.Database.Port)
+	}
+	if config.Persistence.Database.Username != "" {
+		dsn += " user=" + quote(config.Persistence.Database.Username)
+	}
+	if config.Persistence.Database.Password != "" {
+		dsn += " password=" + quote(config.Persistence.Database.Password)
+	}
+	if config.Persistence.Database.ExtraParameters != "" {
+		dsn += " " + config.Persistence.Database.ExtraParameters
+	}
+	return dsn
 }
 
 func MakeDB(config *configPkg.Config) (db *gorm.DB, err error) {
