@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -118,31 +119,8 @@ func PUTUpload(c *gin.Context) {
 		return
 	}
 
-	fileReader := bufio.NewReader(c.Request.Body)
-	f, err := base.Create(path)
-	if err != nil {
-		slog.Error("Failed to create file", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-		return
-	}
-	w := bufio.NewWriter(f)
-	_, err = io.Copy(w, fileReader)
-	if err != nil {
+	if err := writeUpload(base, path, c.Request.Body); err != nil {
 		slog.Error("Failed to write file", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-		return
-	}
-
-	err = w.Flush()
-	if err != nil {
-		slog.Error("Failed to flush file", "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-		return
-	}
-
-	err = f.Close()
-	if err != nil {
-		slog.Error("Failed to close file", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
 		return
 	}
@@ -185,53 +163,20 @@ func PUTUpload(c *gin.Context) {
 			}
 		}
 
-		// Verify file type
-		switch {
-		case strings.Contains(path, "qlog.bz2"):
-			file, err := base.Open(path)
-			if err != nil {
-				slog.Error("Failed to open file", "error", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-				return
-			}
-			header := make([]byte, 3)
-			read, err := file.Read(header)
-			if err != nil {
-				slog.Error("Failed to read header", "error", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-				return
-			}
-			if read != 3 || string(header) != "BZh" {
-				slog.Error("Invalid header", "header", string(header))
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file"})
-				return
-			}
-			file.Close()
-			go logQueue.AddLog(path, dongleID, result)
-		case strings.Contains(path, "qlog.zst"):
-			file, err := base.Open(path)
-			if err != nil {
-				slog.Error("Failed to open file", "error", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-				return
-			}
-			var magic uint32
-			err = binary.Read(file, binary.LittleEndian, &magic)
-			if err != nil {
-				slog.Error("Failed to read magic", "error", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-				return
-			}
-			// 0xFD2FB528 is the magic number for zstd
-			// https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames
-			if magic != 0xFD2FB528 {
-				slog.Error("Invalid magic", "magic", magic)
-				c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file"})
-				return
-			}
-			file.Close()
-			go logQueue.AddLog(path, dongleID, result)
+		if !strings.Contains(path, "qlog.bz2") && !strings.Contains(path, "qlog.zst") {
+			break
 		}
+		valid, err := validQlog(base, path)
+		if err != nil {
+			slog.Error("Failed to verify file", "error", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+			return
+		}
+		if !valid {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file"})
+			return
+		}
+		go logQueue.AddLog(path, dongleID, result)
 	case oldRouteRegex.Match([]byte(path)):
 		slog.Warn("Old route upload", "path", path)
 	default:
@@ -239,4 +184,59 @@ func PUTUpload(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{})
+}
+
+func writeUpload(base storage.Storage, path string, body io.Reader) error {
+	f, err := base.Create(path)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	w := bufio.NewWriter(f)
+	if _, err := io.Copy(w, bufio.NewReader(body)); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+	if err := w.Flush(); err != nil {
+		_ = f.Close()
+		return fmt.Errorf("failed to flush file: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("failed to close file: %w", err)
+	}
+	return nil
+}
+
+// validQlog reports whether the qlog at path starts with the bzip2 or zstd
+// magic its extension promises.
+func validQlog(base storage.Storage, path string) (bool, error) {
+	file, err := base.Open(path)
+	if err != nil {
+		return false, fmt.Errorf("failed to open file: %w", err)
+	}
+	defer file.Close()
+
+	if strings.Contains(path, "qlog.bz2") {
+		header := make([]byte, 3)
+		read, err := file.Read(header)
+		if err != nil {
+			return false, fmt.Errorf("failed to read header: %w", err)
+		}
+		if read != 3 || string(header) != "BZh" {
+			slog.Error("Invalid header", "header", string(header))
+			return false, nil
+		}
+		return true, nil
+	}
+
+	var magic uint32
+	if err := binary.Read(file, binary.LittleEndian, &magic); err != nil {
+		return false, fmt.Errorf("failed to read magic: %w", err)
+	}
+	// 0xFD2FB528 is the magic number for zstd
+	// https://github.com/facebook/zstd/blob/dev/doc/zstd_compression_format.md#zstandard-frames
+	if magic != 0xFD2FB528 {
+		slog.Error("Invalid magic", "magic", magic)
+		return false, nil
+	}
+	return true, nil
 }
