@@ -41,6 +41,12 @@ func (r *recorder) OnDisconnect(_ *http.Request, _ *models.Device, _ *gorm.DB, _
 
 func newServer(t *testing.T, corsHosts []string) (*httptest.Server, *recorder) {
 	t.Helper()
+	rec := &recorder{connected: make(chan string, 2), messages: make(chan message, 8)}
+	return serve(t, rec, corsHosts), rec
+}
+
+func serve(t *testing.T, ws websocket.Websocket, corsHosts []string) *httptest.Server {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory"), &gorm.Config{})
@@ -56,7 +62,6 @@ func newServer(t *testing.T, corsHosts []string) (*httptest.Server, *recorder) {
 		}
 	}
 
-	rec := &recorder{connected: make(chan string, 2), messages: make(chan message, 8)}
 	cfg := &config.Config{}
 	cfg.HTTP.CORSHosts = corsHosts
 	r := gin.New()
@@ -64,10 +69,10 @@ func newServer(t *testing.T, corsHosts []string) (*httptest.Server, *recorder) {
 		c.Set("db", db)
 		c.Set("metrics", (*metrics.Metrics)(nil))
 	})
-	r.GET("/ws/:dongle_id", websocket.CreateHandler(rec, cfg))
+	r.GET("/ws/:dongle_id", websocket.CreateHandler(ws, cfg))
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
-	return srv, rec
+	return srv
 }
 
 func dial(t *testing.T, srv *httptest.Server, dongleID string, header http.Header) (*gorillaWebsocket.Conn, error) {
@@ -155,6 +160,34 @@ func TestCheckOrigin(t *testing.T) {
 		}
 		if err == nil {
 			waitFor(t, rec.connected)
+		}
+	}
+}
+
+type eagerWriter struct {
+	recorder
+}
+
+func (e *eagerWriter) OnConnect(_ context.Context, _ *http.Request, w websocket.Writer, device *models.Device, _ *gorm.DB, _ *nats.Conn, _ *metrics.Metrics, _ *gorillaWebsocket.Conn) {
+	for range 50 {
+		w.WriteMessage(websocket.Message{Type: gorillaWebsocket.TextMessage, Data: []byte("hello")})
+	}
+	e.connected <- device.DongleID
+}
+
+func TestPingDoesNotRaceWrites(t *testing.T) {
+	t.Parallel()
+	eager := &eagerWriter{recorder{connected: make(chan string, 1)}}
+	srv := serve(t, eager, nil)
+
+	conn, err := dial(t, srv, "a", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, eager.connected)
+	for range 50 {
+		if _, msg, err := conn.ReadMessage(); err != nil || string(msg) != "hello" {
+			t.Fatalf("got %q, %v", msg, err)
 		}
 	}
 }

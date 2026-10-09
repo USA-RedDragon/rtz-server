@@ -157,7 +157,7 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 		}
 	}()
 
-	err := h.conn.WriteMessage(websocket.PingMessage, []byte{})
+	err := h.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(writeWait))
 	if err != nil {
 		slog.Error("Failed to send ping", errorKey, err, "device_id", device.ID)
 		return
