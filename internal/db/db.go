@@ -86,7 +86,7 @@ func MakeDB(config *configPkg.Config) (db *gorm.DB, err error) {
 	if err != nil {
 		return db, fmt.Errorf("failed to open database: %w", err)
 	}
-	if config.HTTP.OTLPEndpoint != "" {
+	if config.HTTP.Tracing.OTLPEndpoint != "" {
 		if err = db.Use(otelgorm.NewPlugin()); err != nil {
 			return db, fmt.Errorf("failed to trace database: %w", err)
 		}

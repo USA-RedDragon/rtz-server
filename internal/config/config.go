@@ -1,27 +1,27 @@
 package config
 
+//go:generate go tool configulator -type Config
+
 import (
-	"context"
-	"fmt"
-	"os"
 	"strings"
 
+	configulator "github.com/USA-RedDragon/configulator/v2"
+	cpflag "github.com/USA-RedDragon/configulator/v2/flags/pflag"
 	"github.com/go-errors/errors"
-	"github.com/spf13/cobra"
+	"github.com/goccy/go-yaml"
 	"github.com/spf13/pflag"
-	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	HTTP               HTTP         `json:"http"`
-	Persistence        Persistence  `json:"persistence"`
-	Registration       Registration `json:"registration"`
-	Auth               Auth         `json:"auth"`
-	JWT                JWT          `json:"jwt"`
-	Mapbox             Mapbox       `json:"mapbox"`
-	NATS               NATS         `json:"nats"`
-	ParallelLogParsers uint         `json:"parallel_log_parsers" yaml:"parallel_log_parsers"`
-	LogLevel           LogLevel     `json:"log_level" yaml:"log_level"`
+	HTTP               HTTP         `name:"http"`
+	Persistence        Persistence  `name:"persistence"`
+	Registration       Registration `name:"registration"`
+	Auth               Auth         `name:"auth"`
+	JWT                JWT          `name:"jwt"`
+	Mapbox             Mapbox       `name:"mapbox"`
+	NATS               NATS         `name:"nats"`
+	ParallelLogParsers uint         `name:"parallel_log_parsers" default:"4" description:"Number of parallel log parsers"`
+	LogLevel           LogLevel     `name:"log_level" default:"info" description:"Log level, one of: debug, info, warn, error"`
 }
 
 type LogLevel string
@@ -34,61 +34,53 @@ const (
 )
 
 type NATS struct {
-	Enabled bool   `json:"enabled"`
-	URL     string `json:"url"`
-	Token   string `json:"token"`
-}
-
-type Sentinel struct {
-	Enabled    bool     `json:"enabled"`
-	MasterName string   `json:"master_name" yaml:"master_name"`
-	Addresses  []string `json:"addresses"`
-	Password   string   `json:"password"`
-	Username   string   `json:"username"`
+	Enabled bool   `name:"enabled" description:"Enable NATS. Required when running more than one instance, such as blue/green deployments, so websockets reach the instance the device is connected to"`
+	URL     string `name:"url" description:"NATS URL"`
+	Token   string `name:"token" secret:"true" description:"NATS token"`
 }
 
 type JWT struct {
-	Secret string `json:"secret"`
+	Secret string `name:"secret" required:"true" secret:"true" description:"JWT signing secret"`
 }
 
 type Auth struct {
-	Google Google `json:"google"`
-	GitHub GitHub `json:"github"`
-	Custom Custom `json:"custom"`
+	Google Google `name:"google"`
+	GitHub GitHub `name:"github"`
+	Custom Custom `name:"custom"`
 }
 
 type Mapbox struct {
-	SecretToken string `json:"secret_token" yaml:"secret_token"`
-	PublicToken string `json:"public_token" yaml:"public_token"`
+	SecretToken string `name:"secret_token" required:"true" secret:"true" description:"Mapbox secret token"`
+	PublicToken string `name:"public_token" required:"true" description:"Mapbox public token"`
 }
 
 type Google struct {
-	Enabled      bool   `json:"enabled"`
-	ClientID     string `json:"client_id" yaml:"client_id"`
-	ClientSecret string `json:"client_secret" yaml:"client_secret"`
+	Enabled      bool   `name:"enabled" description:"Enable Google OAuth"`
+	ClientID     string `name:"client_id" description:"Google OAuth client ID"`
+	ClientSecret string `name:"client_secret" secret:"true" description:"Google OAuth client secret"`
 }
 
 type GitHub struct {
-	Enabled      bool   `json:"enabled"`
-	ClientID     string `json:"client_id" yaml:"client_id"`
-	ClientSecret string `json:"client_secret" yaml:"client_secret"`
+	Enabled      bool   `name:"enabled" description:"Enable GitHub OAuth"`
+	ClientID     string `name:"client_id" description:"GitHub OAuth client ID"`
+	ClientSecret string `name:"client_secret" secret:"true" description:"GitHub OAuth client secret"`
 }
 
 type Custom struct {
-	Enabled      bool   `json:"enabled"`
-	ClientID     string `json:"client_id" yaml:"client_id"`
-	ClientSecret string `json:"client_secret" yaml:"client_secret"`
-	TokenURL     string `json:"token_url" yaml:"token_url"`
-	UserURL      string `json:"user_url" yaml:"user_url"`
+	Enabled      bool   `name:"enabled" description:"Enable custom OAuth"`
+	ClientID     string `name:"client_id" description:"Custom OAuth client ID"`
+	ClientSecret string `name:"client_secret" secret:"true" description:"Custom OAuth client secret"`
+	TokenURL     string `name:"token_url" description:"Custom OAuth token URL"`
+	UserURL      string `name:"user_url" description:"Custom OAuth user URL"`
 }
 
 type Registration struct {
-	Enabled bool `json:"enabled"`
+	Enabled bool `name:"enabled" description:"Enable user registration"`
 }
 
 type Persistence struct {
-	Database Database `json:"database"`
-	Uploads  Uploads  `json:"uploads"`
+	Database Database `name:"database"`
+	Uploads  Uploads  `name:"uploads"`
 }
 
 type UploadsDriver string
@@ -99,19 +91,19 @@ const (
 )
 
 type Uploads struct {
-	Driver            UploadsDriver     `json:"driver"`
-	FilesystemOptions FilesystemOptions `json:"filesystem_options" yaml:"filesystem_options"`
-	S3Options         S3Options         `json:"s3_options" yaml:"s3_options"`
+	Driver            UploadsDriver     `name:"driver" default:"filesystem" description:"Storage driver for uploaded videos and driving logs, one of: filesystem, s3"`
+	FilesystemOptions FilesystemOptions `name:"filesystem_options"`
+	S3Options         S3Options         `name:"s3_options"`
 }
 
 type FilesystemOptions struct {
-	Directory string `json:"directory"`
+	Directory string `name:"directory" default:"uploads/" description:"Filesystem uploads directory, created if it does not exist"`
 }
 
 type S3Options struct {
-	Region   string `json:"region"`
-	Bucket   string `json:"bucket"`
-	Endpoint string `json:"endpoint"`
+	Region   string `name:"region" description:"S3 region. Credentials come from the standard AWS environment variables, the AWS CLI config or an IAM role"`
+	Bucket   string `name:"bucket" description:"S3 bucket"`
+	Endpoint string `name:"endpoint" description:"Custom S3 endpoint, which switches to path-style addressing"`
 }
 
 type DatabaseDriver string
@@ -123,167 +115,54 @@ const (
 )
 
 type Database struct {
-	Driver          DatabaseDriver `json:"driver"`
-	Database        string         `json:"database"`
-	Username        string         `json:"username"`
-	Password        string         `json:"password"`
-	Host            string         `json:"host"`
-	Port            uint16         `json:"port"`
-	ExtraParameters string         `json:"extra_parameters" yaml:"extra_parameters"`
-}
-
-type HTTPListener struct {
-	IPV4Host string `json:"ipv4_host" yaml:"ipv4_host"`
-	IPV6Host string `json:"ipv6_host" yaml:"ipv6_host"`
-	Port     uint16 `json:"port"`
+	Driver          DatabaseDriver `name:"driver" default:"sqlite" description:"Database driver, one of: sqlite, mysql, postgres"`
+	Database        string         `name:"database" default:"rtz.db" description:"Path to the SQLite database file, or the database name for other drivers"`
+	Username        string         `name:"username" description:"Database username"`
+	Password        string         `name:"password" secret:"true" description:"Database password"`
+	Host            string         `name:"host" description:"Database host, required for mysql and postgres"`
+	Port            uint16         `name:"port" description:"Database port, 0 uses the driver's default"`
+	ExtraParameters string         `name:"extra_parameters" description:"Extra parameters passed to the database driver"`
 }
 
 type Tracing struct {
-	Enabled      bool   `json:"enabled"`
-	OTLPEndpoint string `json:"otlp_endpoint" yaml:"otlp_endpoint"`
+	Enabled      bool   `name:"enabled" description:"Enable OpenTelemetry tracing"`
+	OTLPEndpoint string `name:"otlp_endpoint" description:"OpenTelemetry collector endpoint, required when tracing is enabled"`
 }
 
 type PProf struct {
-	Enabled bool `json:"enabled"`
+	Enabled bool `name:"enabled" description:"Enable pprof"`
 }
 
 type Metrics struct {
-	HTTPListener
-	Enabled bool `json:"enabled"`
+	IPV4Host string `name:"ipv4_host" default:"127.0.0.1" description:"Prometheus metrics server IPv4 host"`
+	IPV6Host string `name:"ipv6_host" default:"::1" description:"Prometheus metrics server IPv6 host"`
+	Port     uint16 `name:"port" default:"8081" description:"Prometheus metrics server port, shared by IPv4 and IPv6"`
+	Enabled  bool   `name:"enabled" description:"Enable the Prometheus metrics server"`
 }
 
 type HTTP struct {
-	HTTPListener
-	Tracing
-	BackendURL     string   `json:"backend_url" yaml:"backend_url"`
-	PProf          PProf    `json:"pprof"`
-	TrustedProxies []string `json:"trusted_proxies" yaml:"trusted_proxies"`
-	Metrics        Metrics  `json:"metrics"`
-	CORSHosts      []string `json:"cors_hosts" yaml:"cors_hosts"`
+	IPV4Host       string   `name:"ipv4_host" default:"0.0.0.0" description:"HTTP server IPv4 host"`
+	IPV6Host       string   `name:"ipv6_host" default:"::" description:"HTTP server IPv6 host"`
+	Port           uint16   `name:"port" default:"8080" description:"HTTP server port, shared by IPv4 and IPv6"`
+	Tracing        Tracing  `name:"tracing"`
+	BackendURL     string   `name:"backend_url" required:"true" description:"Public URL of this server"`
+	PProf          PProf    `name:"pprof"`
+	TrustedProxies []string `name:"trusted_proxies" description:"IP addresses or CIDR ranges of reverse proxies trusted to set X-Forwarded-For"`
+	Metrics        Metrics  `name:"metrics"`
+	CORSHosts      []string `name:"cors_hosts" description:"Hosts allowed by CORS"`
 }
 
-//nolint:golint,gochecknoglobals
-var (
-	ConfigFileKey                                   = "config"
-	HTTPIPV4HostKey                                 = "http.ipv4_host"
-	HTTPIPV6HostKey                                 = "http.ipv6_host"
-	HTTPPortKey                                     = "http.port"
-	HTTPTracingEnabledKey                           = "http.tracing.enabled"
-	HTTPTracingOTLPEndKey                           = "http.tracing.otlp_endpoint"
-	HTTPPProfEnabledKey                             = "http.pprof.enabled"
-	HTTPTrustedProxiesKey                           = "http.trusted_proxies"
-	HTTPMetricsEnabledKey                           = "http.metrics.enabled"
-	HTTPMetricsIPV4HostKey                          = "http.metrics.ipv4_host"
-	HTTPMetricsIPV6HostKey                          = "http.metrics.ipv6_host"
-	HTTPMetricsPortKey                              = "http.metrics.port"
-	HTTPCORSHostsKey                                = "http.cors_hosts"
-	HTTPBackendURLKey                               = "http.backend_url"
-	PersistenceDatabaseDriverKey                    = "persistence.database.driver"
-	PersistenceDatabaseDatabaseKey                  = "persistence.database.database"
-	PersistenceDatabaseUsernameKey                  = "persistence.database.username"
-	PersistenceDatabasePasswordKey                  = "persistence.database.password"
-	PersistenceDatabaseHostKey                      = "persistence.database.host"
-	PersistenceDatabasePortKey                      = "persistence.database.port"
-	PersistenceDatabaseExtraParametersKey           = "persistence.database.extra_parameters"
-	PersistenceUploadsDriverKey                     = "persistence.uploads.driver"
-	PersistenceUploadsFilesystemOptionsDirectoryKey = "persistence.uploads.filesystem_options.directory"
-	PersistenceUploadsS3OptionsBucketKey            = "persistence.uploads.s3_options.bucket"
-	PersistenceUploadsS3OptionsRegionKey            = "persistence.uploads.s3_options.region"
-	PersistenceUploadsS3OptionsEndpointKey          = "persistence.uploads.s3_options.endpoint"
-	RegistrationEnabledKey                          = "registration.enabled"
-	AuthGoogleEnabledKey                            = "auth.google.enabled"
-	AuthGoogleClientIDKey                           = "auth.google.client_id"
-	//nolint:golint,gosec
-	AuthGoogleClientSecretKey = "auth.google.client_secret"
-	AuthGitHubEnabledKey      = "auth.github.enabled"
-	AuthGitHubClientIDKey     = "auth.github.client_id"
-	//nolint:golint,gosec
-	AuthGitHubClientSecretKey = "auth.github.client_secret"
-	AuthCustomEnabledKey      = "auth.custom.enabled"
-	AuthCustomClientIDKey     = "auth.custom.client_id"
-	//nolint:golint,gosec
-	AuthCustomClientSecretKey = "auth.custom.client_secret"
-	//nolint:golint,gosec
-	AuthCustomTokenURLKey = "auth.custom.token_url"
-	AuthCustomUserURLKey  = "auth.custom.user_url"
-	JWTSecretKey          = "jwt.secret"
-	MapboxPublicTokenKey  = "mapbox.public_token"
-	MapboxSecretTokenKey  = "mapbox.secret_token"
-	NATSEnabledKey        = "nats.enabled"
-	NATSURLKey            = "nats.url"
-	NATSTokenKey          = "nats.token"
-	LogLevelKey           = "log_level"
-	ParallelLogParsersKey = "parallel_log_parsers"
-)
-
-const (
-	DefaultConfigPath                                   = "config.yaml"
-	DefaultHTTPIPV4Host                                 = "0.0.0.0"
-	DefaultHTTPIPV6Host                                 = "::"
-	DefaultHTTPPort                                     = 8080
-	DefaultHTTPMetricsIPV4Host                          = "127.0.0.1"
-	DefaultHTTPMetricsIPV6Host                          = "::1"
-	DefaultHTTPMetricsPort                              = 8081
-	DefaultPersistenceDatabaseDriver                    = DatabaseDriverSQLite
-	DefaultPersistenceDatabaseDatabase                  = "rtz.db"
-	DefaultRegistrationEnabled                          = false
-	DefaultNATSEnabled                                  = false
-	DefaultAuthGitHubEnabled                            = false
-	DefaultAuthGoogleEnabled                            = false
-	DefaultAuthCustomEnabled                            = false
-	DefaultLogLevel                                     = LogLevelInfo
-	DefaultParallelLogParsers                           = 4
-	DefaultPersistenceUploadsDriver                     = UploadsDriverFilesystem
-	DefaultPersistenceUploadsFilesystemOptionsDirectory = "uploads/"
-)
-
-func RegisterFlags(cmd *cobra.Command) {
-	cmd.Flags().StringP(ConfigFileKey, "c", DefaultConfigPath, "Config file path")
-	cmd.Flags().String(HTTPIPV4HostKey, DefaultHTTPIPV4Host, "HTTP server IPv4 host")
-	cmd.Flags().String(HTTPIPV6HostKey, DefaultHTTPIPV6Host, "HTTP server IPv6 host")
-	cmd.Flags().Uint16(HTTPPortKey, DefaultHTTPPort, "HTTP server port")
-	cmd.Flags().Bool(HTTPTracingEnabledKey, false, "Enable Open Telemetry tracing")
-	cmd.Flags().String(HTTPTracingOTLPEndKey, "", "Open Telemetry endpoint")
-	cmd.Flags().Bool(HTTPPProfEnabledKey, false, "Enable pprof")
-	cmd.Flags().StringSlice(HTTPTrustedProxiesKey, []string{}, "Comma-separated list of trusted proxies")
-	cmd.Flags().Bool(HTTPMetricsEnabledKey, false, "Enable metrics server")
-	cmd.Flags().String(HTTPMetricsIPV4HostKey, DefaultHTTPMetricsIPV4Host, "Metrics server IPv4 host")
-	cmd.Flags().String(HTTPMetricsIPV6HostKey, DefaultHTTPMetricsIPV6Host, "Metrics server IPv6 host")
-	cmd.Flags().Uint16(HTTPMetricsPortKey, DefaultHTTPMetricsPort, "Metrics server port")
-	cmd.Flags().StringSlice(HTTPCORSHostsKey, []string{}, "Comma-separated list of CORS hosts")
-	cmd.Flags().String(HTTPBackendURLKey, "", "Backend URL")
-	cmd.Flags().String(PersistenceDatabaseDriverKey, string(DefaultPersistenceDatabaseDriver), "Database driver, one of: sqlite, mysql, postgres")
-	cmd.Flags().String(PersistenceDatabaseDatabaseKey, DefaultPersistenceDatabaseDatabase, "Database path")
-	cmd.Flags().String(PersistenceDatabaseUsernameKey, "", "Database username")
-	cmd.Flags().String(PersistenceDatabasePasswordKey, "", "Database password")
-	cmd.Flags().String(PersistenceDatabaseHostKey, "", "Database host")
-	cmd.Flags().Uint16(PersistenceDatabasePortKey, 0, "Database port")
-	cmd.Flags().String(PersistenceDatabaseExtraParametersKey, "", "Database extra parameters")
-	cmd.Flags().String(PersistenceUploadsDriverKey, string(DefaultPersistenceUploadsDriver), "Uploads driver, one of: memory, filesystem, s3")
-	cmd.Flags().String(PersistenceUploadsFilesystemOptionsDirectoryKey, DefaultPersistenceUploadsFilesystemOptionsDirectory, "Filesystem uploads directory")
-	cmd.Flags().String(PersistenceUploadsS3OptionsBucketKey, "", "S3 bucket")
-	cmd.Flags().String(PersistenceUploadsS3OptionsRegionKey, "", "S3 region")
-	cmd.Flags().String(PersistenceUploadsS3OptionsEndpointKey, "", "S3 endpoint")
-	cmd.Flags().Bool(RegistrationEnabledKey, DefaultRegistrationEnabled, "Enable registration")
-	cmd.Flags().Bool(AuthGoogleEnabledKey, DefaultAuthGoogleEnabled, "Enable Google OAuth")
-	cmd.Flags().String(AuthGoogleClientIDKey, "", "Google OAuth client ID")
-	cmd.Flags().String(AuthGoogleClientSecretKey, "", "Google OAuth client secret")
-	cmd.Flags().Bool(AuthGitHubEnabledKey, DefaultAuthGitHubEnabled, "Enable GitHub OAuth")
-	cmd.Flags().String(AuthGitHubClientIDKey, "", "GitHub OAuth client ID")
-	cmd.Flags().String(AuthGitHubClientSecretKey, "", "GitHub OAuth client secret")
-	cmd.Flags().Bool(AuthCustomEnabledKey, DefaultAuthCustomEnabled, "Enable custom OAuth")
-	cmd.Flags().String(AuthCustomClientIDKey, "", "Custom OAuth client ID")
-	cmd.Flags().String(AuthCustomClientSecretKey, "", "Custom OAuth client secret")
-	cmd.Flags().String(AuthCustomTokenURLKey, "", "Custom OAuth token URL")
-	cmd.Flags().String(AuthCustomUserURLKey, "", "Custom OAuth user URL")
-	cmd.Flags().String(JWTSecretKey, "", "JWT signing secret")
-	cmd.Flags().String(MapboxPublicTokenKey, "", "Mapbox public token")
-	cmd.Flags().String(MapboxSecretTokenKey, "", "Mapbox secret token")
-	cmd.Flags().Bool(NATSEnabledKey, DefaultNATSEnabled, "Enable NATS")
-	cmd.Flags().String(NATSURLKey, "", "NATS URL")
-	cmd.Flags().String(NATSTokenKey, "", "NATS token")
-	cmd.Flags().String(LogLevelKey, string(DefaultLogLevel), "Log level")
-	cmd.Flags().Uint(ParallelLogParsersKey, DefaultParallelLogParsers, "Number of parallel log parsers")
+// NewConfigulator registers the config flags on fs and returns the loader
+// that reads defaults, config.yaml (or --config), environment variables and
+// those flags.
+func NewConfigulator(fs *pflag.FlagSet) *configulator.Configulator[Config] {
+	c := configulator.New(ConfigSchema()).
+		WithEnvironmentVariables(&configulator.EnvironmentVariableOptions{Separator: "__"}).
+		WithFile(&configulator.FileOptions{
+			Search:   []string{"config.yaml"},
+			Decoders: configulator.Decoders{".yaml": yaml.Unmarshal, ".yml": yaml.Unmarshal},
+		})
+	return cpflag.Bind(c, fs, ConfigPFlagHooks(), nil)
 }
 
 var (
@@ -310,7 +189,12 @@ var (
 	ErrInvalidUploadsDriver       = errors.New("Invalid uploads driver, must be one of: filesystem, s3")
 )
 
+// Validate lowercases the driver names, then checks the settings that
+// depend on each other.
 func (c *Config) Validate() error {
+	c.Persistence.Database.Driver = DatabaseDriver(strings.ToLower(string(c.Persistence.Database.Driver)))
+	c.Persistence.Uploads.Driver = UploadsDriver(strings.ToLower(string(c.Persistence.Uploads.Driver)))
+
 	if c.JWT.Secret == "" {
 		return ErrJWTSecretRequired
 	}
@@ -379,411 +263,6 @@ func (c *Config) Validate() error {
 	case LogLevelDebug, LogLevelInfo, LogLevelWarn, LogLevelError:
 	default:
 		return ErrInvalidLogLevel
-	}
-
-	return nil
-}
-
-func LoadConfig(cmd *cobra.Command) (*Config, error) {
-	var config Config
-
-	// Load flags from envs
-	ctx, cancel := context.WithCancelCause(cmd.Context())
-	cmd.Flags().VisitAll(func(f *pflag.Flag) {
-		if ctx.Err() != nil {
-			return
-		}
-		optName := strings.ReplaceAll(strings.ReplaceAll(strings.ToUpper(f.Name), "-", "_"), ".", "__")
-		if val, ok := os.LookupEnv(optName); !f.Changed && ok {
-			if err := f.Value.Set(val); err != nil {
-				cancel(err)
-			}
-			f.Changed = true
-		}
-	})
-	if ctx.Err() != nil {
-		return &config, fmt.Errorf("failed to load env: %w", context.Cause(ctx))
-	}
-
-	configPath, err := cmd.Flags().GetString("config")
-	if err != nil {
-		return &config, fmt.Errorf("failed to get config path: %w", err)
-	}
-	if configPath != "" {
-		data, err := os.ReadFile(configPath)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return &config, fmt.Errorf("failed to read config: %w", err)
-		} else if err == nil {
-			if err := yaml.Unmarshal(data, &config); err != nil {
-				return &config, fmt.Errorf("failed to unmarshal config: %w", err)
-			}
-		}
-	}
-
-	err = overrideFlags(&config, cmd)
-	if err != nil {
-		return &config, fmt.Errorf("failed to override flags: %w", err)
-	}
-
-	// Defaults
-	if config.HTTP.IPV4Host == "" {
-		config.HTTP.IPV4Host = DefaultHTTPIPV4Host
-	}
-	if config.HTTP.IPV6Host == "" {
-		config.HTTP.IPV6Host = DefaultHTTPIPV6Host
-	}
-	if config.HTTP.Port == 0 {
-		config.HTTP.Port = DefaultHTTPPort
-	}
-	if config.HTTP.Metrics.IPV4Host == "" {
-		config.HTTP.Metrics.IPV4Host = DefaultHTTPMetricsIPV4Host
-	}
-	if config.HTTP.Metrics.IPV6Host == "" {
-		config.HTTP.Metrics.IPV6Host = DefaultHTTPMetricsIPV6Host
-	}
-	if config.HTTP.Metrics.Port == 0 {
-		config.HTTP.Metrics.Port = DefaultHTTPMetricsPort
-	}
-	if config.Persistence.Database.Driver == "" {
-		config.Persistence.Database.Driver = DefaultPersistenceDatabaseDriver
-	}
-	if config.Persistence.Database.Database == "" {
-		config.Persistence.Database.Database = DefaultPersistenceDatabaseDatabase
-	}
-	if config.Persistence.Uploads.Driver == "" {
-		config.Persistence.Uploads.Driver = DefaultPersistenceUploadsDriver
-	}
-	if config.Persistence.Uploads.FilesystemOptions.Directory == "" {
-		config.Persistence.Uploads.FilesystemOptions.Directory = DefaultPersistenceUploadsFilesystemOptionsDirectory
-	}
-	if config.ParallelLogParsers == 0 {
-		config.ParallelLogParsers = DefaultParallelLogParsers
-	}
-	if config.LogLevel == "" {
-		config.LogLevel = DefaultLogLevel
-	}
-
-	return &config, nil
-}
-
-func overrideFlags(config *Config, cmd *cobra.Command) error {
-	var err error
-	if cmd.Flags().Changed(HTTPIPV4HostKey) {
-		config.HTTP.IPV4Host, err = cmd.Flags().GetString(HTTPIPV4HostKey)
-		if err != nil {
-			return fmt.Errorf("failed to get HTTP IPv4 host: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPIPV6HostKey) {
-		config.HTTP.IPV6Host, err = cmd.Flags().GetString(HTTPIPV6HostKey)
-		if err != nil {
-			return fmt.Errorf("failed to get HTTP IPv6 host: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPPortKey) {
-		config.HTTP.Port, err = cmd.Flags().GetUint16(HTTPPortKey)
-		if err != nil {
-			return fmt.Errorf("failed to get HTTP port: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPPProfEnabledKey) {
-		config.HTTP.PProf.Enabled, err = cmd.Flags().GetBool(HTTPPProfEnabledKey)
-		if err != nil {
-			return fmt.Errorf("failed to get pprof enabled: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPTrustedProxiesKey) {
-		config.HTTP.TrustedProxies, err = cmd.Flags().GetStringSlice(HTTPTrustedProxiesKey)
-		if err != nil {
-			return fmt.Errorf("failed to get trusted proxies: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPMetricsEnabledKey) {
-		config.HTTP.Metrics.Enabled, err = cmd.Flags().GetBool(HTTPMetricsEnabledKey)
-		if err != nil {
-			return fmt.Errorf("failed to get metrics enabled: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPMetricsIPV4HostKey) {
-		config.HTTP.Metrics.IPV4Host, err = cmd.Flags().GetString(HTTPMetricsIPV4HostKey)
-		if err != nil {
-			return fmt.Errorf("failed to get metrics IPv4 host: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPMetricsIPV6HostKey) {
-		config.HTTP.Metrics.IPV6Host, err = cmd.Flags().GetString(HTTPMetricsIPV6HostKey)
-		if err != nil {
-			return fmt.Errorf("failed to get metrics IPv6 host: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPMetricsPortKey) {
-		config.HTTP.Metrics.Port, err = cmd.Flags().GetUint16(HTTPMetricsPortKey)
-		if err != nil {
-			return fmt.Errorf("failed to get metrics port: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPTracingEnabledKey) {
-		config.HTTP.Tracing.Enabled, err = cmd.Flags().GetBool(HTTPTracingEnabledKey)
-		if err != nil {
-			return fmt.Errorf("failed to get tracing enabled: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPTracingOTLPEndKey) {
-		config.HTTP.Tracing.OTLPEndpoint, err = cmd.Flags().GetString(HTTPTracingOTLPEndKey)
-		if err != nil {
-			return fmt.Errorf("failed to get tracing OTLP endpoint: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPCORSHostsKey) {
-		config.HTTP.CORSHosts, err = cmd.Flags().GetStringSlice(HTTPCORSHostsKey)
-		if err != nil {
-			return fmt.Errorf("failed to get CORS hosts: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(HTTPBackendURLKey) {
-		config.HTTP.BackendURL, err = cmd.Flags().GetString(HTTPBackendURLKey)
-		if err != nil {
-			return fmt.Errorf("failed to get backend URL: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(PersistenceDatabaseDriverKey) {
-		drvr, err := cmd.Flags().GetString(PersistenceDatabaseDriverKey)
-		if err != nil {
-			return fmt.Errorf("failed to get database driver: %w", err)
-		}
-		config.Persistence.Database.Driver = DatabaseDriver(strings.ToLower(drvr))
-	}
-
-	if cmd.Flags().Changed(PersistenceDatabaseDatabaseKey) {
-		config.Persistence.Database.Database, err = cmd.Flags().GetString(PersistenceDatabaseDatabaseKey)
-		if err != nil {
-			return fmt.Errorf("failed to get database name: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(PersistenceDatabaseUsernameKey) {
-		config.Persistence.Database.Username, err = cmd.Flags().GetString(PersistenceDatabaseUsernameKey)
-		if err != nil {
-			return fmt.Errorf("failed to get database username: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(PersistenceDatabasePasswordKey) {
-		config.Persistence.Database.Password, err = cmd.Flags().GetString(PersistenceDatabasePasswordKey)
-		if err != nil {
-			return fmt.Errorf("failed to get database password: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(PersistenceDatabaseHostKey) {
-		config.Persistence.Database.Host, err = cmd.Flags().GetString(PersistenceDatabaseHostKey)
-		if err != nil {
-			return fmt.Errorf("failed to get database host: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(PersistenceDatabasePortKey) {
-		config.Persistence.Database.Port, err = cmd.Flags().GetUint16(PersistenceDatabasePortKey)
-		if err != nil {
-			return fmt.Errorf("failed to get database port: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(PersistenceDatabaseExtraParametersKey) {
-		config.Persistence.Database.ExtraParameters, err = cmd.Flags().GetString(PersistenceDatabaseExtraParametersKey)
-		if err != nil {
-			return fmt.Errorf("failed to get database extra parameters: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(PersistenceUploadsDriverKey) {
-		drvr, err := cmd.Flags().GetString(PersistenceUploadsDriverKey)
-		if err != nil {
-			return fmt.Errorf("failed to get uploads driver: %w", err)
-		}
-		config.Persistence.Uploads.Driver = UploadsDriver(strings.ToLower(drvr))
-	}
-
-	if cmd.Flags().Changed(PersistenceUploadsFilesystemOptionsDirectoryKey) {
-		config.Persistence.Uploads.FilesystemOptions.Directory, err = cmd.Flags().GetString(PersistenceUploadsFilesystemOptionsDirectoryKey)
-		if err != nil {
-			return fmt.Errorf("failed to get filesystem uploads directory: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(PersistenceUploadsS3OptionsBucketKey) {
-		config.Persistence.Uploads.S3Options.Bucket, err = cmd.Flags().GetString(PersistenceUploadsS3OptionsBucketKey)
-		if err != nil {
-			return fmt.Errorf("failed to get S3 bucket: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(PersistenceUploadsS3OptionsRegionKey) {
-		config.Persistence.Uploads.S3Options.Region, err = cmd.Flags().GetString(PersistenceUploadsS3OptionsRegionKey)
-		if err != nil {
-			return fmt.Errorf("failed to get S3 region: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(PersistenceUploadsS3OptionsEndpointKey) {
-		config.Persistence.Uploads.S3Options.Endpoint, err = cmd.Flags().GetString(PersistenceUploadsS3OptionsEndpointKey)
-		if err != nil {
-			return fmt.Errorf("failed to get S3 endpoint: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(RegistrationEnabledKey) {
-		config.Registration.Enabled, err = cmd.Flags().GetBool(RegistrationEnabledKey)
-		if err != nil {
-			return fmt.Errorf("failed to get registration enabled: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(AuthGoogleClientIDKey) {
-		config.Auth.Google.ClientID, err = cmd.Flags().GetString(AuthGoogleClientIDKey)
-		if err != nil {
-			return fmt.Errorf("failed to get Google OAuth client ID: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(AuthGoogleClientSecretKey) {
-		config.Auth.Google.ClientSecret, err = cmd.Flags().GetString(AuthGoogleClientSecretKey)
-		if err != nil {
-			return fmt.Errorf("failed to get Google OAuth client secret: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(AuthGoogleEnabledKey) {
-		config.Auth.Google.Enabled, err = cmd.Flags().GetBool(AuthGoogleEnabledKey)
-		if err != nil {
-			return fmt.Errorf("failed to get Google OAuth enabled: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(AuthGitHubEnabledKey) {
-		config.Auth.GitHub.Enabled, err = cmd.Flags().GetBool(AuthGitHubEnabledKey)
-		if err != nil {
-			return fmt.Errorf("failed to get GitHub OAuth enabled: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(AuthGitHubClientIDKey) {
-		config.Auth.GitHub.ClientID, err = cmd.Flags().GetString(AuthGitHubClientIDKey)
-		if err != nil {
-			return fmt.Errorf("failed to get GitHub OAuth client ID: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(AuthGitHubClientSecretKey) {
-		config.Auth.GitHub.ClientSecret, err = cmd.Flags().GetString(AuthGitHubClientSecretKey)
-		if err != nil {
-			return fmt.Errorf("failed to get GitHub OAuth client secret: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(AuthCustomEnabledKey) {
-		config.Auth.Custom.Enabled, err = cmd.Flags().GetBool(AuthCustomEnabledKey)
-		if err != nil {
-			return fmt.Errorf("failed to get custom OAuth enabled: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(AuthCustomClientIDKey) {
-		config.Auth.Custom.ClientID, err = cmd.Flags().GetString(AuthCustomClientIDKey)
-		if err != nil {
-			return fmt.Errorf("failed to get custom OAuth client ID: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(AuthCustomClientSecretKey) {
-		config.Auth.Custom.ClientSecret, err = cmd.Flags().GetString(AuthCustomClientSecretKey)
-		if err != nil {
-			return fmt.Errorf("failed to get custom OAuth client secret: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(AuthCustomTokenURLKey) {
-		config.Auth.Custom.TokenURL, err = cmd.Flags().GetString(AuthCustomTokenURLKey)
-		if err != nil {
-			return fmt.Errorf("failed to get custom OAuth token URL: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(AuthCustomUserURLKey) {
-		config.Auth.Custom.UserURL, err = cmd.Flags().GetString(AuthCustomUserURLKey)
-		if err != nil {
-			return fmt.Errorf("failed to get custom OAuth user URL: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(JWTSecretKey) {
-		config.JWT.Secret, err = cmd.Flags().GetString(JWTSecretKey)
-		if err != nil {
-			return fmt.Errorf("failed to get JWT secret: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(MapboxPublicTokenKey) {
-		config.Mapbox.PublicToken, err = cmd.Flags().GetString(MapboxPublicTokenKey)
-		if err != nil {
-			return fmt.Errorf("failed to get Mapbox public token: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(MapboxSecretTokenKey) {
-		config.Mapbox.SecretToken, err = cmd.Flags().GetString(MapboxSecretTokenKey)
-		if err != nil {
-			return fmt.Errorf("failed to get Mapbox secret token: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(NATSEnabledKey) {
-		config.NATS.Enabled, err = cmd.Flags().GetBool(NATSEnabledKey)
-		if err != nil {
-			return fmt.Errorf("failed to get NATS enabled: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(NATSURLKey) {
-		config.NATS.URL, err = cmd.Flags().GetString(NATSURLKey)
-		if err != nil {
-			return fmt.Errorf("failed to get NATS URL: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(NATSTokenKey) {
-		config.NATS.Token, err = cmd.Flags().GetString(NATSTokenKey)
-		if err != nil {
-			return fmt.Errorf("failed to get NATS token: %w", err)
-		}
-	}
-
-	if cmd.Flags().Changed(LogLevelKey) {
-		ll, err := cmd.Flags().GetString(LogLevelKey)
-		if err != nil {
-			return fmt.Errorf("failed to get log level: %w", err)
-		}
-		config.LogLevel = LogLevel(ll)
-	}
-
-	if cmd.Flags().Changed(ParallelLogParsersKey) {
-		config.ParallelLogParsers, err = cmd.Flags().GetUint(ParallelLogParsersKey)
-		if err != nil {
-			return fmt.Errorf("failed to get number of parallel log parsers: %w", err)
-		}
 	}
 
 	return nil

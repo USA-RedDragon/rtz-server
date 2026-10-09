@@ -7,6 +7,7 @@ import (
 	"syscall"
 	"time"
 
+	configulator "github.com/USA-RedDragon/configulator/v2"
 	"github.com/USA-RedDragon/rtz-server/internal/config"
 	"github.com/USA-RedDragon/rtz-server/internal/db"
 	"github.com/USA-RedDragon/rtz-server/internal/logparser"
@@ -27,18 +28,20 @@ func NewCommand(version, commit string) *cobra.Command {
 			"version": version,
 			"commit":  commit,
 		},
-		RunE:          run,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	config.RegisterFlags(cmd)
+	c := config.NewConfigulator(cmd.Flags())
+	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
+		return run(cmd, c)
+	}
 	return cmd
 }
 
-func run(cmd *cobra.Command, _ []string) error {
+func run(cmd *cobra.Command, c *configulator.Configulator[config.Config]) error {
 	slog.Info("rtz-server", "version", cmd.Annotations["version"], "commit", cmd.Annotations["commit"])
 
-	cfg, err := config.LoadConfig(cmd)
+	cfg, err := c.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
@@ -52,11 +55,6 @@ func run(cmd *cobra.Command, _ []string) error {
 		slog.SetLogLoggerLevel(slog.LevelWarn)
 	case config.LogLevelError:
 		slog.SetLogLoggerLevel(slog.LevelError)
-	}
-
-	err = cfg.Validate()
-	if err != nil {
-		return fmt.Errorf("config validation failed: %w", err)
 	}
 
 	storage, err := storage.NewStorage(cfg)
