@@ -55,9 +55,8 @@ func (d *dongle) OnMessage(ctx context.Context, msg []byte, msgType int) {
 	}
 	if _, ok := rawJSON["method"]; ok {
 		d.handleDeviceCall(ctx, msg, msgType)
-	} else if _, ok := rawJSON["result"]; ok {
-		jsonRPC := apimodels.RPCResponse{}
-		err := json.Unmarshal(msg, &jsonRPC)
+	} else if _, ok := rawJSON["result"]; ok || rawJSON["error"] != nil {
+		jsonRPC, err := parseResponse(msg)
 		if err != nil {
 			d.metrics.IncrementAthenaErrors(d.device.DongleID, "unmarshal_rpc_response")
 			slog.Warn("Error unmarshalling RPC call:", "error", err)
@@ -71,6 +70,37 @@ func (d *dongle) OnMessage(ctx context.Context, msg []byte, msgType int) {
 		slog.Warn("Unknown message type")
 		slog.Info("Message", "type", msgType, "msg", msg)
 	}
+}
+
+// parseResponse decodes a JSON-RPC response from the device. A JSON-RPC error
+// object is reduced to its message.
+func parseResponse(msg []byte) (apimodels.RPCResponse, error) {
+	var raw struct {
+		ID             string          `json:"id"`
+		JSONRPCVersion string          `json:"jsonrpc"`
+		Result         any             `json:"result"`
+		Error          json.RawMessage `json:"error"`
+	}
+	if err := json.Unmarshal(msg, &raw); err != nil {
+		return apimodels.RPCResponse{}, err
+	}
+	resp := apimodels.RPCResponse{ID: raw.ID, JSONRPCVersion: raw.JSONRPCVersion, Result: raw.Result}
+	if len(raw.Error) == 0 || string(raw.Error) == "null" {
+		return resp, nil
+	}
+	var text string
+	var object struct {
+		Message string `json:"message"`
+	}
+	switch {
+	case json.Unmarshal(raw.Error, &text) == nil:
+		resp.Error = text
+	case json.Unmarshal(raw.Error, &object) == nil && object.Message != "":
+		resp.Error = object.Message
+	default:
+		resp.Error = string(raw.Error)
+	}
+	return resp, nil
 }
 
 // handleDeviceCall answers a call the device made to the server.

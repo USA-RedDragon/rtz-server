@@ -422,3 +422,27 @@ func TestDisconnectCleansUpWhileNATSDrains(t *testing.T) {
 		t.Error("cleanup did not finish while NATS was draining")
 	}
 }
+
+func TestCallReturnsDeviceErrors(t *testing.T) {
+	t.Parallel()
+	ws, srv := newRPCServer(t, false)
+	conn := connectDevice(t, ws, srv, false)
+	go func() {
+		msg, err := readDeviceMessage(conn)
+		if err != nil {
+			return
+		}
+		reply := `{"jsonrpc":"2.0","id":"` + msg.ID + `","error":{"code":-32601,"message":"Method not found"}}`
+		_ = conn.WriteMessage(gorillaWebsocket.TextMessage, []byte(reply))
+	}()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	resp, err := ws.Call(ctx, nil, testMetrics(), "a", apimodels.RPCCall{ID: "1", Method: "nope"})
+	if err != nil {
+		t.Fatalf("the device's error never reached the caller: %v", err)
+	}
+	if resp.ID != "1" || resp.Error != "Method not found" {
+		t.Errorf("got %+v, want the device's error", resp)
+	}
+}
