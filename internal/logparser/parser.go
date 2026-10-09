@@ -71,8 +71,8 @@ func DecodeSegmentData(reader io.Reader) (SegmentData, error) {
 		// We're definitely not going to be handling every event type, so we can ignore the exhaustive linter warning
 		//nolint:golint,exhaustive
 		switch event.Which() {
-		case cereal.Event_Which_liveLocationKalman:
-			liveLocation, err := event.LiveLocationKalman()
+		case cereal.Event_Which_liveLocationKalmanDEPRECATED:
+			liveLocation, err := event.LiveLocationKalmanDEPRECATED()
 			if err != nil {
 				return SegmentData{}, err
 			}
