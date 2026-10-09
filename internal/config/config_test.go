@@ -319,3 +319,28 @@ func TestFileExtraParameters(t *testing.T) {
 		t.Errorf("unexpected extra parameters: %q", testConfig.Persistence.Database.ExtraParameters)
 	}
 }
+
+func TestInvalidDrivers(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		flags []string
+		want  error
+	}{
+		{[]string{"--persistence.database.driver", "oracle"}, config.ErrInvalidDatabaseDriver},
+		{[]string{"--persistence.uploads.driver", "memory"}, config.ErrInvalidUploadsDriver},
+	}
+	for _, tt := range tests {
+		cmd := cmd.NewCommand("testing", "deadbeef")
+		cmd.SetContext(context.Background())
+		if err := cmd.ParseFlags(append(tt.flags, requiredFlags...)); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		testConfig, err := config.LoadConfig(cmd)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if err := testConfig.Validate(); !errors.Is(err, tt.want) {
+			t.Errorf("%v: got %v, want %v", tt.flags, err, tt.want)
+		}
+	}
+}

@@ -306,6 +306,8 @@ var (
 	ErrUploadsFSDirectoryRequired = errors.New("Filesystem uploads directory is required")
 	ErrUploadsS3BucketRequired    = errors.New("S3 bucket is required")
 	ErrUploadsS3RegionRequired    = errors.New("S3 region is required")
+	ErrInvalidDatabaseDriver      = errors.New("Invalid database driver, must be one of: sqlite, mysql, postgres")
+	ErrInvalidUploadsDriver       = errors.New("Invalid uploads driver, must be one of: filesystem, s3")
 )
 
 func (c *Config) Validate() error {
@@ -324,14 +326,24 @@ func (c *Config) Validate() error {
 	if c.Mapbox.SecretToken == "" {
 		return ErrMapboxSecretTokenRequired
 	}
-	if c.Persistence.Database.Driver != DatabaseDriverSQLite && c.Persistence.Database.Host == "" {
-		return ErrDBHostRequired
-	}
 	if c.Persistence.Database.Driver == "" {
 		return ErrDatabaseDriverRequired
 	}
+	switch c.Persistence.Database.Driver {
+	case DatabaseDriverSQLite, DatabaseDriverMySQL, DatabaseDriverPostgres:
+	default:
+		return ErrInvalidDatabaseDriver
+	}
+	if c.Persistence.Database.Driver != DatabaseDriverSQLite && c.Persistence.Database.Host == "" {
+		return ErrDBHostRequired
+	}
 	if c.Persistence.Database.Database == "" {
 		return ErrDBDatabaseRequired
+	}
+	switch c.Persistence.Uploads.Driver {
+	case UploadsDriverFilesystem, UploadsDriverS3:
+	default:
+		return ErrInvalidUploadsDriver
 	}
 	if c.Persistence.Uploads.Driver == UploadsDriverFilesystem && c.Persistence.Uploads.FilesystemOptions.Directory == "" {
 		return ErrUploadsFSDirectoryRequired
