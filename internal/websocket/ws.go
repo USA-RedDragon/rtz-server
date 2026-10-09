@@ -45,9 +45,15 @@ type WSHandler struct {
 	wsUpgrader websocket.Upgrader
 	handler    Websocket
 	conn       *websocket.Conn
+	// pongWait is how long a connection may go without a pong before it is closed.
+	pongWait time.Duration
 }
 
 func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
+	return createHandler(ws, config, pongWait)
+}
+
+func createHandler(ws Websocket, config *config.Config, pongWait time.Duration) func(*gin.Context) {
 	handler := &WSHandler{
 		wsUpgrader: websocket.Upgrader{
 			HandshakeTimeout: 0,
@@ -64,7 +70,8 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 			},
 			EnableCompression: true,
 		},
-		handler: ws,
+		handler:  ws,
+		pongWait: pongWait,
 	}
 
 	return func(c *gin.Context) {
@@ -107,7 +114,7 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 			return
 		}
 		conn.SetPongHandler(func(string) error {
-			err := conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+			err := conn.SetReadDeadline(time.Now().Add(handler.pongWait))
 			if err != nil {
 				slog.Warn("Failed to set read deadline", errorKey, err)
 			}
@@ -118,7 +125,7 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 			return nil
 		})
 
-		connHandler := &WSHandler{handler: handler.handler, conn: conn}
+		connHandler := &WSHandler{handler: handler.handler, conn: conn, pongWait: handler.pongWait}
 		connHandler.handle(c.Request.Context(), c.Request, &device, db, nats, metrics)
 	}
 }

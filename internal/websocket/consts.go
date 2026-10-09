@@ -4,6 +4,7 @@ import "time"
 
 const (
 	writeWait        = 10 * time.Second
+	pongWait         = 60 * time.Second
 	errorKey         = "error"
 	msgTryAgainLater = "Try again later"
 )
