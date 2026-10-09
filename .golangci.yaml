@@ -1,16 +1,4 @@
-run:
-  timeout: 30m
-
-issues:
-  exclude-rules:
-    - path: ".*\\_test\\.go$"
-      linters:
-        - gochecknoglobals
-        - goconst
-        - gocyclo
-  exclude-files:
-    - ".*\\_capnp\\.go$"
-
+version: "2"
 linters:
   enable:
     - asasalint
@@ -18,6 +6,7 @@ linters:
     - bidichk
     - containedctx
     - contextcheck
+    - copyloopvar
     - decorder
     - dogsled
     - dupword
@@ -26,9 +15,7 @@ linters:
     - errname
     - errorlint
     - exhaustive
-    - copyloopvar
     - forcetypeassert
-    - gci
     - gocheckcompilerdirectives
     - gochecknoglobals
     - gochecknoinits
@@ -36,7 +23,6 @@ linters:
     - gocritic
     - gocyclo
     - godox
-    - gofmt
     - goheader
     - gomoddirectives
     - gosec
@@ -59,3 +45,38 @@ linters:
     - usestdlibvars
     - wastedassign
     - whitespace
+  settings:
+    gomoddirectives:
+      replace-allow-list:
+        - github.com/gin-gonic/gin
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - gochecknoglobals
+          - goconst
+          - gocyclo
+        path: _test\.go$
+    paths:
+      - .*\.capnp\.go$
+      - .*_configulator\.go$
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  enable:
+    - gci
+    - gofmt
+  exclusions:
+    generated: lax
+    paths:
+      - .*\.capnp\.go$
+      - .*_configulator\.go$
+      - third_party$
+      - builtin$
+      - examples$
