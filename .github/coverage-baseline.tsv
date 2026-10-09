@@ -24,8 +24,8 @@ internal/server/controllers/v2/pilot.go	152	0
 internal/server/middleware.go	210	83
 internal/server/routes.go	52	51
 internal/server/server.go	89	54
-internal/server/websocket/rpc.go	72	55
-internal/server/websocket/websocket.go	117	57
+internal/server/websocket/rpc.go	72	57
+internal/server/websocket/websocket.go	117	56
 internal/storage/filesystem.go	27	4
 internal/storage/s3.go	32	0
 internal/storage/storage.go	16	5
