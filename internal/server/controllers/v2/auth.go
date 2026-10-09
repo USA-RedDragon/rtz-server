@@ -3,7 +3,6 @@ package v2
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -54,216 +53,24 @@ func POSTAuth(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Google auth is disabled"})
 			return
 		}
-		//nolint:golint,gosec
-		tokenURL := "https://oauth2.googleapis.com/token"
-
-		urldata := url.Values{}
-		urldata.Set("code", data.Code)
-		urldata.Set("client_id", config.Auth.Google.ClientID)
-		urldata.Set("client_secret", config.Auth.Google.ClientSecret)
-		urldata.Set("redirect_uri", config.HTTP.BackendURL+"/v2/auth/g/redirect/")
-		urldata.Set("grant_type", "authorization_code")
-
-		resp, err := utils.HTTPRequest(c, http.MethodPost, tokenURL, strings.NewReader(urldata.Encode()), map[string]string{
-			"Content-Type": "application/x-www-form-urlencoded",
-		})
-		if err != nil {
-			slog.Error("Failed to make request", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			slog.Error("Failed to get token", "status", resp.StatusCode)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-
-		tokenResponse := v2.GoogleTokenResponse{}
-
-		err = json.NewDecoder(resp.Body).Decode(&tokenResponse)
-		if err != nil {
-			slog.Error("Failed to decode response", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-
-		id, err := apis.GetGoogleUserID(c, tokenResponse.AccessToken)
-		if err != nil {
-			slog.Error("Failed to get Google user ID", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-
-		user, err = models.FindUserByGoogleID(db, id)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) && config.Registration.Enabled {
-				// Create user
-				err = db.Create(&models.User{
-					GoogleUserID: nulltype.NullStringOf(id),
-				}).Error
-				if err != nil {
-					slog.Error("Failed to create user", "error", err)
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-					return
-				}
-				user, err = models.FindUserByGoogleID(db, id)
-				if err != nil {
-					slog.Error("Failed to find user", "error", err)
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-					return
-				}
-			} else {
-				slog.Error("Failed to register or login user", "error", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-				return
-			}
-		}
+		user, ok = googleLogin(c, db, config, data.Code)
 	case "h":
 		if !config.Auth.GitHub.Enabled {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "GitHub auth is disabled"})
 			return
 		}
-		urldata := url.Values{}
-		urldata.Set("code", data.Code)
-		urldata.Set("client_id", config.Auth.GitHub.ClientID)
-		urldata.Set("client_secret", config.Auth.GitHub.ClientSecret)
-
-		tokenURL := fmt.Sprintf(
-			"https://github.com/login/oauth/access_token?code=%s&client_id=%s&client_secret=%s",
-			data.Code,
-			config.Auth.GitHub.ClientID,
-			config.Auth.GitHub.ClientSecret)
-
-		resp, err := utils.HTTPRequest(c, http.MethodPost, tokenURL, strings.NewReader(urldata.Encode()), map[string]string{
-			"Accept": "application/json",
-		})
-		if err != nil {
-			slog.Error("Failed to make request", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			slog.Error("Failed to get token", "status", resp.StatusCode)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-
-		tokenResponse := v2.GitHubTokenResponse{}
-
-		err = json.NewDecoder(resp.Body).Decode(&tokenResponse)
-		if err != nil {
-			slog.Error("Failed to decode response", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-
-		id, err := apis.GetGitHubUserID(c, tokenResponse.AccessToken)
-		if err != nil {
-			slog.Error("Failed to get GitHub user ID", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-
-		user, err = models.FindUserByGitHubID(db, id)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) && config.Registration.Enabled {
-				// Create user
-				err = db.Create(&models.User{
-					GitHubUserID: nulltype.NullInt64Of(int64(id)),
-				}).Error
-				if err != nil {
-					slog.Error("Failed to create user", "error", err)
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-					return
-				}
-				user, err = models.FindUserByGitHubID(db, id)
-				if err != nil {
-					slog.Error("Failed to find user", "error", err)
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-					return
-				}
-			} else {
-				slog.Error("Failed to register or login user", "error", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-				return
-			}
-		}
+		user, ok = githubLogin(c, db, config, data.Code)
 	case "c":
 		if !config.Auth.Custom.Enabled {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Custom auth is disabled"})
 			return
 		}
-		urldata := url.Values{}
-		urldata.Set("code", data.Code)
-		urldata.Set("client_id", config.Auth.Custom.ClientID)
-		urldata.Set("client_secret", config.Auth.Custom.ClientSecret)
-		urldata.Set("grant_type", "authorization_code")
-		urldata.Set("scope", "user:email")
-		urldata.Set("redirect_uri", config.HTTP.BackendURL+"/v2/auth/c/redirect/")
-
-		resp, err := utils.HTTPRequest(c, http.MethodPost, config.Auth.Custom.TokenURL, strings.NewReader(urldata.Encode()), map[string]string{
-			"Accept":       "application/json",
-			"Content-Type": "application/x-www-form-urlencoded",
-		})
-		if err != nil {
-			slog.Error("Failed to make request", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			slog.Error("Failed to get token", "status", resp.StatusCode)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-
-		tokenResponse := v2.GitHubTokenResponse{}
-
-		err = json.NewDecoder(resp.Body).Decode(&tokenResponse)
-		if err != nil {
-			slog.Error("Failed to decode response", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-
-		id, err := apis.GetCustomUserID(c, config.Auth.Custom.UserURL, tokenResponse.AccessToken)
-		if err != nil {
-			slog.Error("Failed to get GitHub user ID", "error", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-			return
-		}
-
-		user, err = models.FindUserByCustomID(db, id)
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) && config.Registration.Enabled {
-				// Create user
-				err = db.Create(&models.User{
-					CustomUserID: nulltype.NullInt64Of(int64(id)),
-				}).Error
-				if err != nil {
-					slog.Error("Failed to create user", "error", err)
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-					return
-				}
-				user, err = models.FindUserByCustomID(db, id)
-				if err != nil {
-					slog.Error("Failed to find user", "error", err)
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-					return
-				}
-			} else {
-				slog.Error("Failed to register or login user", "error", err)
-				c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
-				return
-			}
-		}
+		user, ok = customLogin(c, db, config, data.Code)
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "provider is invalid"})
+		return
+	}
+	if !ok {
 		return
 	}
 
@@ -275,6 +82,143 @@ func POSTAuth(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"access_token": token})
+}
+
+// exchangeToken posts body to tokenURL and decodes the JSON reply into out.
+// On failure it writes the error response and returns false.
+func exchangeToken(c *gin.Context, tokenURL string, body url.Values, headers map[string]string, out any) bool {
+	resp, err := utils.HTTPRequest(c, http.MethodPost, tokenURL, strings.NewReader(body.Encode()), headers)
+	if err != nil {
+		slog.Error("Failed to make request", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		slog.Error("Failed to get token", "status", resp.StatusCode)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return false
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		slog.Error("Failed to decode response", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return false
+	}
+	return true
+}
+
+// loginOrRegister finds the user, creating newUser first when it doesn't
+// exist and registration is enabled. On failure it writes the error response
+// and returns false.
+func loginOrRegister(c *gin.Context, db *gorm.DB, config *config.Config, find func() (models.User, error), newUser models.User) (models.User, bool) {
+	user, err := find()
+	if err == nil {
+		return user, true
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) || !config.Registration.Enabled {
+		slog.Error("Failed to register or login user", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return models.User{}, false
+	}
+	if err := db.Create(&newUser).Error; err != nil {
+		slog.Error("Failed to create user", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return models.User{}, false
+	}
+	user, err = find()
+	if err != nil {
+		slog.Error("Failed to find user", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return models.User{}, false
+	}
+	return user, true
+}
+
+func googleLogin(c *gin.Context, db *gorm.DB, config *config.Config, code string) (models.User, bool) {
+	urldata := url.Values{}
+	urldata.Set("code", code)
+	urldata.Set("client_id", config.Auth.Google.ClientID)
+	urldata.Set("client_secret", config.Auth.Google.ClientSecret)
+	urldata.Set("redirect_uri", config.HTTP.BackendURL+"/v2/auth/g/redirect/")
+	urldata.Set("grant_type", "authorization_code")
+
+	tokenResponse := v2.GoogleTokenResponse{}
+	if !exchangeToken(c, "https://oauth2.googleapis.com/token", urldata, map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
+	}, &tokenResponse) {
+		return models.User{}, false
+	}
+
+	id, err := apis.GetGoogleUserID(c, tokenResponse.AccessToken)
+	if err != nil {
+		slog.Error("Failed to get Google user ID", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return models.User{}, false
+	}
+
+	return loginOrRegister(c, db, config, func() (models.User, error) {
+		return models.FindUserByGoogleID(db, id)
+	}, models.User{GoogleUserID: nulltype.NullStringOf(id)})
+}
+
+func githubTokenURL(urldata url.Values) string {
+	return "https://github.com/login/oauth/access_token?" + urldata.Encode()
+}
+
+func githubLogin(c *gin.Context, db *gorm.DB, config *config.Config, code string) (models.User, bool) {
+	urldata := url.Values{}
+	urldata.Set("code", code)
+	urldata.Set("client_id", config.Auth.GitHub.ClientID)
+	urldata.Set("client_secret", config.Auth.GitHub.ClientSecret)
+
+	tokenResponse := v2.GitHubTokenResponse{}
+	if !exchangeToken(c, githubTokenURL(urldata), urldata, map[string]string{
+		"Accept": "application/json",
+	}, &tokenResponse) {
+		return models.User{}, false
+	}
+
+	id, err := apis.GetGitHubUserID(c, tokenResponse.AccessToken)
+	if err != nil {
+		slog.Error("Failed to get GitHub user ID", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return models.User{}, false
+	}
+
+	return loginOrRegister(c, db, config, func() (models.User, error) {
+		return models.FindUserByGitHubID(db, id)
+	}, models.User{GitHubUserID: nulltype.NullInt64Of(int64(id))})
+}
+
+func customLogin(c *gin.Context, db *gorm.DB, config *config.Config, code string) (models.User, bool) {
+	urldata := url.Values{}
+	urldata.Set("code", code)
+	urldata.Set("client_id", config.Auth.Custom.ClientID)
+	urldata.Set("client_secret", config.Auth.Custom.ClientSecret)
+	urldata.Set("grant_type", "authorization_code")
+	urldata.Set("scope", "user:email")
+	urldata.Set("redirect_uri", config.HTTP.BackendURL+"/v2/auth/c/redirect/")
+
+	tokenResponse := v2.GitHubTokenResponse{}
+	if !exchangeToken(c, config.Auth.Custom.TokenURL, urldata, map[string]string{
+		"Accept":       "application/json",
+		"Content-Type": "application/x-www-form-urlencoded",
+	}, &tokenResponse) {
+		return models.User{}, false
+	}
+
+	id, err := apis.GetCustomUserID(c, config.Auth.Custom.UserURL, tokenResponse.AccessToken)
+	if err != nil {
+		slog.Error("Failed to get custom user ID", "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Try again later"})
+		return models.User{}, false
+	}
+
+	return loginOrRegister(c, db, config, func() (models.User, error) {
+		return models.FindUserByCustomID(db, id)
+	}, models.User{CustomUserID: nulltype.NullInt64Of(int64(id))})
 }
 
 func GETAuthRedirect(c *gin.Context) {
