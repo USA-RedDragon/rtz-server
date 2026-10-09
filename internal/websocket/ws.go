@@ -102,9 +102,8 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 			c.AbortWithStatus(http.StatusInternalServerError)
 			return
 		}
-		handler.conn = conn
-		handler.conn.SetPongHandler(func(string) error {
-			err := handler.conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		conn.SetPongHandler(func(string) error {
+			err := conn.SetReadDeadline(time.Now().Add(60 * time.Second))
 			if err != nil {
 				slog.Warn("Failed to set read deadline", errorKey, err)
 			}
@@ -115,7 +114,8 @@ func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
 			return nil
 		})
 
-		handler.handle(c.Request.Context(), c.Request, &device, db, nats, metrics)
+		connHandler := &WSHandler{handler: handler.handler, conn: conn}
+		connHandler.handle(c.Request.Context(), c.Request, &device, db, nats, metrics)
 	}
 }
 
