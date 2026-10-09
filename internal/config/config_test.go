@@ -36,7 +36,7 @@ func TestExampleConfig(t *testing.T) {
 	}
 }
 
-func TesMissingOLTPEndpoint(t *testing.T) {
+func TestMissingOTLPEndpoint(t *testing.T) {
 	t.Parallel()
 
 	cmd := cmd.NewCommand("testing", "deadbeef")
