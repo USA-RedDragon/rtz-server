@@ -1,0 +1,26 @@
+name: Config docs
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions: {}
+
+concurrency:
+  group: "${{ github.workflow }} @ ${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  config-docs:
+    permissions:
+      contents: read
+    uses: USA-RedDragon/reusable-actions/.github/workflows/configulator-docs.yaml@c5ee15922a0ff4229b0f06a8d0551541b5cabfdc # v2.0.34
+    with:
+      dir: internal/config
+      type: Config
+      env-separator: __
+      app-id: ${{ vars.AUTO_COMMIT_APP_ID }}
+    secrets:
+      app-key: ${{ secrets.AUTO_COMMIT_APP_KEY }}

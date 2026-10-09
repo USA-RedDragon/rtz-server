@@ -1,130 +1,108 @@
-# This is an example configuration file for the RTZ server
-# Copy this file to config.yaml and modify it to suit your needs.
-
-# HTTP server configuration
+# Sample configuration
 http:
-  # The URL of the backend
-  backend_url: 'http://localhost:8080'
-
-  # The IPv4 address to bind the HTTP server to
-  ipv4_host: '0.0.0.0' # 0.0.0.0 = all interfaces
-
-  # The IPv6 address to bind the HTTP server to
-  ipv6_host: '::' # :: = all interfaces
-
-  # The port to bind the HTTP server to, both IPv4 and IPv6 share the same port
+  # HTTP server IPv4 host
+  ipv4_host: "0.0.0.0"
+  # HTTP server IPv6 host
+  ipv6_host: "::"
+  # HTTP server port, shared by IPv4 and IPv6
   port: 8080
-
-  # Sets Gin's trusted proxies. This is useful when you have a reverse proxy in front of your application that sets the X-Forwarded-For header.
-  # This is a list of IP addresses or CIDR ranges that are trusted proxies.
-  trusted_proxies: []
-
-  # Sets which hosts are allowed by CORS. This is a list of hostnames or IP addresses.
-  cors_hosts: []
-
-  # OpenTelemetry configuration
   tracing:
-
     # Enable OpenTelemetry tracing
     enabled: false
-
-    # The OpenTelemetry collector endpoint
-    otlp_endpoint: ''
-
-  # Golang pprof configuration
+    # OpenTelemetry collector endpoint, required when tracing is enabled
+    # otlp_endpoint: ""
+  # Public URL of this server
+  # backend_url: ""
   pprof:
-
-    # Enable Golang pprof
+    # Enable pprof
     enabled: false
-
-  # Prometheus metrics configuration
+  # IP addresses or CIDR ranges of reverse proxies trusted to set X-Forwarded-For
+  # trusted_proxies: []
   metrics:
-
-    # Enable Prometheus metrics
-    enabled: false
-
-    # The IPv4 address to bind the Prometheus metrics server to
-    ipv4_host: '127.0.0.1' # 127.0.0.1 = localhost
-
-    # The IPv6 address to bind the Prometheus metrics server to
-    ipv6_host: '::1' # ::1 = localhost
-
-    # The port to bind the Prometheus metrics server to, both IPv4 and IPv6 share the same port
+    # Prometheus metrics server IPv4 host
+    ipv4_host: "127.0.0.1"
+    # Prometheus metrics server IPv6 host
+    ipv6_host: "::1"
+    # Prometheus metrics server port, shared by IPv4 and IPv6
     port: 8081
-
-# Persistence configuration
+    # Enable the Prometheus metrics server
+    enabled: false
+  # Hosts allowed by CORS
+  # cors_hosts: []
 persistence:
-  # Database configuration
   database:
-    driver: 'sqlite' # sqlite, mysql, postgres
-    database: 'rtz.sqlite3' # Path to the SQLite3 database file or database name for other drivers
-    # host: 'localhost' # Hostname of the database server
-    # port: 3306 # Port of the database server
-    # username: 'root' # Username to connect to the database server
-    # password: '' # Password to connect to the database server
-    # extra_parameters: '' # Extra parameters to pass to the database driver
-
-  # Storage for uploaded video and driving logs
+    # Database driver, one of: sqlite, mysql, postgres
+    driver: "sqlite"
+    # Path to the SQLite database file, or the database name for other drivers
+    database: "rtz.db"
+    # Database username
+    # username: ""
+    # Database password
+    # password: "(secret)"
+    # Database host, required for mysql and postgres
+    # host: ""
+    # Database port, 0 uses the driver's default
+    # port: 0
+    # Extra parameters passed to the database driver
+    # extra_parameters: ""
   uploads:
-    ##### Filesystem Example #####
-    ##### This stores the files on the local filesystem
-    ##### The directory will be created if it does not exist
-    # driver: 'filesystem'
-    # filesystem_options:
-    #   directory: 'uploads/'
-
-    ##### S3 Example #####
-    ##### Authentication shall be done via the standard AWS environment variables
-    ##### AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN
-    ####
-    ##### Alternatively, you can use the AWS CLI to configure the credentials
-    ##### aws configure
-    ####
-    ##### Or you can provide the credentials via IAM roles if running on AWS
-    # driver: 's3'
-    # s3_options:
-    #  region: 'us-east-1'
-    #  bucket: 'connect'
-    #  endpoint: ''
-
-# NATS MUST BE configured if you are going to run multiple instances of the server
-# or use blue/green deployments, otherwise websockets will only work for users
-# if they happen to hit the same instance where the device has a websocket connection.
-nats:
-  enabled: false
-  token: ''
-  url: 'nats://localhost:4222'
-
-# User registration configuration
+    # Storage driver for uploaded videos and driving logs, one of: filesystem, s3
+    driver: "filesystem"
+    filesystem_options:
+      # Filesystem uploads directory, created if it does not exist
+      directory: "uploads/"
+    s3_options:
+      # S3 region. Credentials come from the standard AWS environment variables, the AWS CLI config or an IAM role
+      # region: ""
+      # S3 bucket
+      # bucket: ""
+      # Custom S3 endpoint, which switches to path-style addressing
+      # endpoint: ""
 registration:
   # Enable user registration
   enabled: false
-
 auth:
   google:
+    # Enable Google OAuth
     enabled: false
-    client_id: ''
-    client_secret: ''
+    # Google OAuth client ID
+    # client_id: ""
+    # Google OAuth client secret
+    # client_secret: "(secret)"
   github:
+    # Enable GitHub OAuth
     enabled: false
-    client_id: ''
-    client_secret: ''
+    # GitHub OAuth client ID
+    # client_id: ""
+    # GitHub OAuth client secret
+    # client_secret: "(secret)"
   custom:
+    # Enable custom OAuth
     enabled: false
-    client_id: ''
-    client_secret: ''
-    token_url: ''
-    user_url: ''
-
+    # Custom OAuth client ID
+    # client_id: ""
+    # Custom OAuth client secret
+    # client_secret: "(secret)"
+    # Custom OAuth token URL
+    # token_url: ""
+    # Custom OAuth user URL
+    # user_url: ""
 jwt:
-  secret: 'secret'
-
+  # JWT signing secret
+  # secret: "(secret)"
 mapbox:
-  public_token: 'changeme'
-  secret_token: 'changeme'
-
-# The number of parallel log parsers to run
+  # Mapbox secret token
+  # secret_token: "(secret)"
+  # Mapbox public token
+  # public_token: ""
+nats:
+  # Enable NATS. Required when running more than one instance, such as blue/green deployments, so websockets reach the instance the device is connected to
+  enabled: false
+  # NATS URL
+  # url: ""
+  # NATS token
+  # token: "(secret)"
+# Number of parallel log parsers
 parallel_log_parsers: 4
-
-# Log configuration, one of debug, info, warn, error
-log_level: info
+# Log level, one of: debug, info, warn, error
+log_level: "info"
