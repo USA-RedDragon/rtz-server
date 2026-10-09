@@ -47,13 +47,15 @@ type WSHandler struct {
 	conn       *websocket.Conn
 	// pongWait is how long a connection may go without a pong before it is closed.
 	pongWait time.Duration
+	// pingPeriod is how often a ping is sent, and must be less than pongWait.
+	pingPeriod time.Duration
 }
 
 func CreateHandler(ws Websocket, config *config.Config) func(*gin.Context) {
-	return createHandler(ws, config, pongWait)
+	return createHandler(ws, config, pongWait, pingPeriod)
 }
 
-func createHandler(ws Websocket, config *config.Config, pongWait time.Duration) func(*gin.Context) {
+func createHandler(ws Websocket, config *config.Config, pongWait, pingPeriod time.Duration) func(*gin.Context) {
 	handler := &WSHandler{
 		wsUpgrader: websocket.Upgrader{
 			HandshakeTimeout: 0,
@@ -70,8 +72,9 @@ func createHandler(ws Websocket, config *config.Config, pongWait time.Duration) 
 			},
 			EnableCompression: true,
 		},
-		handler:  ws,
-		pongWait: pongWait,
+		handler:    ws,
+		pongWait:   pongWait,
+		pingPeriod: pingPeriod,
 	}
 
 	return func(c *gin.Context) {
@@ -125,7 +128,7 @@ func createHandler(ws Websocket, config *config.Config, pongWait time.Duration) 
 			return nil
 		})
 
-		connHandler := &WSHandler{handler: handler.handler, conn: conn, pongWait: handler.pongWait}
+		connHandler := &WSHandler{handler: handler.handler, conn: conn, pongWait: handler.pongWait, pingPeriod: handler.pingPeriod}
 		connHandler.handle(c.Request.Context(), c.Request, &device, db, nats, metrics)
 	}
 }
@@ -156,7 +159,12 @@ func originAllowed(origin string, hosts []string) bool {
 func (h *WSHandler) handle(parent context.Context, r *http.Request, device *models.Device, db *gorm.DB, nats *nats.Conn, metrics *metrics.Metrics) {
 	defer func() { _ = h.conn.Close() }()
 
-	err := h.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(writeWait))
+	err := h.conn.SetReadDeadline(time.Now().Add(h.pongWait))
+	if err != nil {
+		slog.Error("Failed to set read deadline", errorKey, err, "device_id", device.ID)
+		return
+	}
+	err = h.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(writeWait))
 	if err != nil {
 		slog.Error("Failed to send ping", errorKey, err, "device_id", device.ID)
 		return
@@ -173,16 +181,22 @@ func (h *WSHandler) handle(parent context.Context, r *http.Request, device *mode
 	writerDone := make(chan struct{})
 	go func() {
 		defer close(writerDone)
+		ticker := time.NewTicker(h.pingPeriod)
+		defer ticker.Stop()
 		for {
+			var err error
 			select {
 			case <-ctx.Done():
 				return
+			case <-ticker.C:
+				err = h.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(writeWait))
 			case msg := <-writer.messages:
-				if err := h.conn.WriteMessage(msg.Type, msg.Data); err != nil {
-					// Closing the socket ends the read loop below.
-					_ = h.conn.Close()
-					return
-				}
+				err = h.conn.WriteMessage(msg.Type, msg.Data)
+			}
+			if err != nil {
+				// Closing the socket ends the read loop below.
+				_ = h.conn.Close()
+				return
 			}
 		}
 	}()

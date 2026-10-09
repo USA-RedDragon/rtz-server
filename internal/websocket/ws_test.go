@@ -54,6 +54,13 @@ func newServer(t *testing.T, corsHosts []string) (*httptest.Server, *recorder) {
 
 func serve(t *testing.T, ws websocket.Websocket, corsHosts []string) *httptest.Server {
 	t.Helper()
+	cfg := &config.Config{}
+	cfg.HTTP.CORSHosts = corsHosts
+	return serveHandler(t, websocket.CreateHandler(ws, cfg))
+}
+
+func serveHandler(t *testing.T, handler gin.HandlerFunc) *httptest.Server {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory"), &gorm.Config{})
@@ -69,14 +76,12 @@ func serve(t *testing.T, ws websocket.Websocket, corsHosts []string) *httptest.S
 		}
 	}
 
-	cfg := &config.Config{}
-	cfg.HTTP.CORSHosts = corsHosts
 	r := gin.New()
 	r.Use(func(c *gin.Context) {
 		c.Set("db", db)
 		c.Set("metrics", (*metrics.Metrics)(nil))
 	})
-	r.GET("/ws/:dongle_id", websocket.CreateHandler(ws, cfg))
+	r.GET("/ws/:dongle_id", handler)
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
 	return srv

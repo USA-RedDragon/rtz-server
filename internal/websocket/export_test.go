@@ -8,6 +8,6 @@ import (
 )
 
 // CreateHandlerWithTimings is CreateHandler with custom ping timings.
-func CreateHandlerWithTimings(ws Websocket, config *config.Config, pongWait, _ time.Duration) func(*gin.Context) {
-	return createHandler(ws, config, pongWait)
+func CreateHandlerWithTimings(ws Websocket, config *config.Config, pongWait, pingPeriod time.Duration) func(*gin.Context) {
+	return createHandler(ws, config, pongWait, pingPeriod)
 }
