@@ -18,7 +18,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func (c *RPCWebsocket) OnMessage(_ *http.Request, _ websocket.Writer, msg []byte, msgType int, device *models.Device, _ *gorm.DB, metrics *metrics.Metrics) {
+func (c *RPCWebsocket) OnMessage(_ *http.Request, w websocket.Writer, msg []byte, msgType int, device *models.Device, _ *gorm.DB, metrics *metrics.Metrics) {
 	var rawJSON map[string]interface{}
 	err := json.Unmarshal(msg, &rawJSON)
 	if err != nil {
@@ -41,35 +41,30 @@ func (c *RPCWebsocket) OnMessage(_ *http.Request, _ websocket.Writer, msg []byte
 			return
 		}
 
-		go func() {
-			switch jsonRPC.Method {
-			case "forwardLogs":
-				slog.Debug("RPC: forwardLogs", "device", device.DongleID, "logs", jsonRPC.Params)
-				dongle.bidiChannel.outbound <- apimodels.RPCResponse{
-					ID:             jsonRPC.ID,
-					JSONRPCVersion: jsonRPC.JSONRPCVersion,
-					Result: map[string]bool{
-						"success": true,
-					},
-				}
-			case "storeStats":
-				slog.Debug("RPC: storeStats", "device", device.DongleID, "stats", jsonRPC.Params)
-			default:
-				metrics.IncrementAthenaErrors(device.DongleID, "unknown_rpc_method")
-				slog.Warn("Unknown RPC method", "method", jsonRPC.Method)
-				slog.Info("Message", "type", msgType, "msg", msg)
-				return
-			}
-			if dongle.bidiChannel.open {
-				dongle.bidiChannel.outbound <- apimodels.RPCResponse{
-					ID:             jsonRPC.ID,
-					JSONRPCVersion: jsonRPC.JSONRPCVersion,
-					Result: map[string]bool{
-						"success": true,
-					},
-				}
-			}
-		}()
+		switch jsonRPC.Method {
+		case "forwardLogs":
+			slog.Debug("RPC: forwardLogs", "device", device.DongleID, "logs", jsonRPC.Params)
+		case "storeStats":
+			slog.Debug("RPC: storeStats", "device", device.DongleID, "stats", jsonRPC.Params)
+		default:
+			metrics.IncrementAthenaErrors(device.DongleID, "unknown_rpc_method")
+			slog.Warn("Unknown RPC method", "method", jsonRPC.Method)
+			slog.Info("Message", "type", msgType, "msg", msg)
+			return
+		}
+		reply, err := json.Marshal(apimodels.RPCResponse{
+			ID:             jsonRPC.ID,
+			JSONRPCVersion: jsonRPC.JSONRPCVersion,
+			Result: map[string]bool{
+				"success": true,
+			},
+		})
+		if err != nil {
+			metrics.IncrementAthenaErrors(device.DongleID, "marshal_rpc_response")
+			slog.Warn("Error marshalling RPC response", "error", err)
+			return
+		}
+		w.WriteMessage(websocket.Message{Type: gorillaWebsocket.TextMessage, Data: reply})
 	} else if _, ok := rawJSON["result"]; ok {
 		jsonRPC := apimodels.RPCResponse{}
 		err := json.Unmarshal(msg, &jsonRPC)
