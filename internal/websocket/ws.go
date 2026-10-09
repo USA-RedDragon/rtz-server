@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/USA-RedDragon/rtz-server/internal/config"
@@ -18,10 +19,26 @@ import (
 
 const bufferSize = 1024
 
+// handlerGrace bounds how long a closed connection waits for its OnMessage
+// calls to return before OnDisconnect runs anyway.
+const handlerGrace = 5 * time.Second
+
+// Websocket handles the connections to one websocket endpoint.
 type Websocket interface {
-	OnMessage(r *http.Request, w Writer, msg []byte, t int, device *models.Device, db *gorm.DB, metrics *metrics.Metrics)
-	OnConnect(ctx context.Context, r *http.Request, w Writer, device *models.Device, db *gorm.DB, nats *nats.Conn, metrics *metrics.Metrics, conn *websocket.Conn)
-	OnDisconnect(r *http.Request, device *models.Device, db *gorm.DB, metrics *metrics.Metrics)
+	// OnConnect is called once a connection is established and returns the
+	// state for that connection. ctx is cancelled as soon as the connection
+	// ends, and from then on w refuses new messages.
+	OnConnect(ctx context.Context, r *http.Request, w Writer, device *models.Device, db *gorm.DB, nats *nats.Conn, metrics *metrics.Metrics, conn *websocket.Conn) Connection
+}
+
+// Connection is the state of a single websocket connection.
+type Connection interface {
+	// OnMessage is called in its own goroutine for every message received.
+	// ctx is cancelled when the connection ends.
+	OnMessage(ctx context.Context, msg []byte, msgType int)
+	// OnDisconnect is called exactly once after the connection has ended and
+	// its OnMessage calls have returned, or handlerGrace has passed.
+	OnDisconnect()
 }
 
 type WSHandler struct {
@@ -129,33 +146,8 @@ func originAllowed(origin string, hosts []string) bool {
 	return false
 }
 
-func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.Device, db *gorm.DB, nats *nats.Conn, metrics *metrics.Metrics) {
-	defer func() {
-		h.handler.OnDisconnect(r, device, db, metrics)
-		_ = h.conn.Close()
-	}()
-	writer := wsWriter{
-		writer: make(chan Message, bufferSize),
-		error:  make(chan string),
-	}
-
-	h.handler.OnConnect(c, r, writer, device, db, nats, metrics, h.conn)
-
-	go func() {
-		for {
-			select {
-			case <-c.Done():
-				return
-			case <-writer.error:
-				return
-			case msg := <-writer.writer:
-				err := h.conn.WriteMessage(msg.Type, msg.Data)
-				if err != nil {
-					return
-				}
-			}
-		}
-	}()
+func (h *WSHandler) handle(parent context.Context, r *http.Request, device *models.Device, db *gorm.DB, nats *nats.Conn, metrics *metrics.Metrics) {
+	defer func() { _ = h.conn.Close() }()
 
 	err := h.conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(writeWait))
 	if err != nil {
@@ -163,11 +155,58 @@ func (h *WSHandler) handle(c context.Context, r *http.Request, device *models.De
 		return
 	}
 
+	ctx, cancel := context.WithCancel(parent)
+	defer cancel()
+	writer := wsWriter{
+		messages: make(chan Message, bufferSize),
+		done:     ctx.Done(),
+	}
+	conn := h.handler.OnConnect(ctx, r, writer, device, db, nats, metrics, h.conn)
+
+	writerDone := make(chan struct{})
+	go func() {
+		defer close(writerDone)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg := <-writer.messages:
+				if err := h.conn.WriteMessage(msg.Type, msg.Data); err != nil {
+					// Closing the socket ends the read loop below.
+					_ = h.conn.Close()
+					return
+				}
+			}
+		}
+	}()
+
+	var handlers sync.WaitGroup
 	for {
 		t, msg, err := h.conn.ReadMessage()
 		if err != nil {
 			break
 		}
-		go h.handler.OnMessage(r, writer, msg, t, device, db, metrics)
+		handlers.Go(func() { conn.OnMessage(ctx, msg, t) })
+	}
+
+	cancel()
+	_ = h.conn.Close()
+	<-writerDone
+	waitFor(&handlers, handlerGrace, device)
+	conn.OnDisconnect()
+}
+
+func waitFor(wg *sync.WaitGroup, timeout time.Duration, device *models.Device) {
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+	case <-timer.C:
+		slog.Warn("Message handlers still running after disconnect", "device_id", device.ID)
 	}
 }

@@ -1,21 +1,29 @@
 package websocket
 
 import (
+	"github.com/USA-RedDragon/rtz-server/internal/db/models"
+	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	"github.com/USA-RedDragon/rtz-server/internal/server/apimodels"
-	"github.com/USA-RedDragon/rtz-server/internal/utils"
+	"github.com/USA-RedDragon/rtz-server/internal/websocket"
 	gorillaWebsocket "github.com/gorilla/websocket"
-	"github.com/nats-io/nats.go"
+	"github.com/puzpuzpuz/xsync/v3"
 )
 
-type bidiChannel struct {
-	open     bool
-	inbound  chan apimodels.RPCCall
-	outbound chan apimodels.RPCResponse
+// unsubscriber is the part of *nats.Subscription that a dongle uses.
+type unsubscriber interface {
+	Unsubscribe() error
 }
 
+// dongle is one device connection. Nothing in it is closed while the
+// connection may still use it; senders watch done instead.
 type dongle struct {
-	bidiChannel    *bidiChannel
-	channelWatcher *utils.ChannelWatcher[apimodels.RPCResponse]
-	conn           *gorillaWebsocket.Conn
-	natsSub        *nats.Subscription
+	rpc     *RPCWebsocket
+	device  *models.Device
+	metrics *metrics.Metrics
+	conn    *gorillaWebsocket.Conn
+	writer  websocket.Writer
+	// done is closed when the connection ends.
+	done    <-chan struct{}
+	pending *xsync.MapOf[string, chan apimodels.RPCResponse]
+	natsSub unsubscriber
 }

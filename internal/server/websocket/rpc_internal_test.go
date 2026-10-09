@@ -6,10 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/USA-RedDragon/rtz-server/internal/config"
 	"github.com/USA-RedDragon/rtz-server/internal/metrics"
 	"github.com/USA-RedDragon/rtz-server/internal/server/apimodels"
-	"github.com/USA-RedDragon/rtz-server/internal/utils"
+	gorillaWebsocket "github.com/gorilla/websocket"
 	"github.com/nats-io/nats.go"
 )
 
@@ -19,41 +18,30 @@ var testMetrics = sync.OnceValue(metrics.NewMetrics)
 func TestLateResponseAfterTimeout(t *testing.T) {
 	t.Parallel()
 	m := testMetrics()
-	ws := CreateRPCWebsocket(&config.Config{}, m)
-
-	bidi := &bidiChannel{
-		open:     true,
-		inbound:  make(chan apimodels.RPCCall),
-		outbound: make(chan apimodels.RPCResponse),
-	}
-	d := &dongle{bidiChannel: bidi, channelWatcher: utils.NewChannelWatcher(bidi.outbound)}
-	go d.channelWatcher.WatchChannel(func(resp apimodels.RPCResponse) string { return resp.ID })
-	ws.dongles.Store("abc", d)
-
-	go func() {
-		for call := range bidi.inbound {
-			if call.ID == "fast" {
-				bidi.outbound <- apimodels.RPCResponse{ID: call.ID}
-			}
-		}
-	}()
+	ws, srv := newRPCServer(t, false)
+	conn := connectDevice(t, ws, srv, false)
 
 	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
 	defer cancel()
-	if _, err := ws.Call(ctx, nil, m, "abc", apimodels.RPCCall{ID: "slow"}); err == nil {
+	if _, err := ws.Call(ctx, nil, m, "a", apimodels.RPCCall{ID: "slow", Method: "echo"}); err == nil {
 		t.Fatal("expected a timeout")
 	}
-
-	bidi.outbound <- apimodels.RPCResponse{ID: "slow"}
+	if msg, err := readDeviceMessage(conn); err != nil || msg.ID != "slow" {
+		t.Fatalf("got %+v, %v, want the slow call", msg, err)
+	}
+	if err := conn.WriteMessage(gorillaWebsocket.TextMessage, []byte(`{"id":"slow","jsonrpc":"2.0","result":"late"}`)); err != nil {
+		t.Fatal(err)
+	}
+	go answerCalls(conn, "fast")
 
 	ctx, cancel = context.WithTimeout(t.Context(), 2*time.Second)
 	defer cancel()
-	resp, err := ws.Call(ctx, nil, m, "abc", apimodels.RPCCall{ID: "fast"})
+	resp, err := ws.Call(ctx, nil, m, "a", apimodels.RPCCall{ID: "fast", Method: "echo"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.ID != "fast" {
-		t.Errorf("got response %q, want fast", resp.ID)
+	if resp.ID != "fast" || resp.Result != "fast" {
+		t.Errorf("got response %+v, want fast", resp)
 	}
 }
 

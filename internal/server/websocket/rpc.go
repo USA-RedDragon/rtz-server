@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log/slog"
 	"time"
 
@@ -84,27 +83,13 @@ func (c *RPCWebsocket) Call(ctx context.Context, nc *nats.Conn, metrics *metrics
 		return apimodels.RPCResponse{}, ErrNotConnected
 	}
 
-	if !dongle.bidiChannel.open {
-		return apimodels.RPCResponse{}, ErrNotConnected
-	}
-
-	responseChan := make(chan apimodels.RPCResponse, 1)
-	dongle.channelWatcher.Subscribe(call.ID, func(response apimodels.RPCResponse) {
-		responseChan <- response
-	})
-	defer dongle.channelWatcher.Unsubscribe(call.ID)
-
-	dongle.bidiChannel.inbound <- call
-
-	context, cancel := context.WithTimeout(ctx, 120*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
-	select {
-	case <-context.Done():
+	resp, err := dongle.call(ctx, call)
+	if errors.Is(err, context.DeadlineExceeded) {
 		metrics.IncrementAthenaErrors(dongleID, "rpc_call_timeout")
-		return apimodels.RPCResponse{}, fmt.Errorf("timeout")
-	case resp := <-responseChan:
-		return resp, nil
 	}
+	return resp, err
 }
 
 // natsRequester is the part of *nats.Conn that callNATS uses.

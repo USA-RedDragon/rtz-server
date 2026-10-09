@@ -2,6 +2,7 @@ package websocket_test
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -29,15 +30,21 @@ type recorder struct {
 	messages  chan message
 }
 
-func (r *recorder) OnMessage(_ *http.Request, _ websocket.Writer, msg []byte, _ int, device *models.Device, _ *gorm.DB, _ *metrics.Metrics) {
-	r.messages <- message{dongleID: device.DongleID, data: string(msg)}
+type recordedConn struct {
+	*recorder
+	dongleID string
 }
 
-func (r *recorder) OnConnect(_ context.Context, _ *http.Request, _ websocket.Writer, device *models.Device, _ *gorm.DB, _ *nats.Conn, _ *metrics.Metrics, _ *gorillaWebsocket.Conn) {
+func (r *recorder) OnConnect(_ context.Context, _ *http.Request, _ websocket.Writer, device *models.Device, _ *gorm.DB, _ *nats.Conn, _ *metrics.Metrics, _ *gorillaWebsocket.Conn) websocket.Connection {
 	r.connected <- device.DongleID
+	return recordedConn{r, device.DongleID}
 }
 
-func (r *recorder) OnDisconnect(_ *http.Request, _ *models.Device, _ *gorm.DB, _ *metrics.Metrics) {}
+func (c recordedConn) OnMessage(_ context.Context, msg []byte, _ int) {
+	c.messages <- message{dongleID: c.dongleID, data: string(msg)}
+}
+
+func (recordedConn) OnDisconnect() {}
 
 func newServer(t *testing.T, corsHosts []string) (*httptest.Server, *recorder) {
 	t.Helper()
@@ -168,11 +175,12 @@ type eagerWriter struct {
 	recorder
 }
 
-func (e *eagerWriter) OnConnect(_ context.Context, _ *http.Request, w websocket.Writer, device *models.Device, _ *gorm.DB, _ *nats.Conn, _ *metrics.Metrics, _ *gorillaWebsocket.Conn) {
+func (e *eagerWriter) OnConnect(ctx context.Context, _ *http.Request, w websocket.Writer, device *models.Device, _ *gorm.DB, _ *nats.Conn, _ *metrics.Metrics, _ *gorillaWebsocket.Conn) websocket.Connection {
 	for range 50 {
-		w.WriteMessage(websocket.Message{Type: gorillaWebsocket.TextMessage, Data: []byte("hello")})
+		_ = w.WriteMessage(ctx, websocket.Message{Type: gorillaWebsocket.TextMessage, Data: []byte("hello")})
 	}
 	e.connected <- device.DongleID
+	return recordedConn{&e.recorder, device.DongleID}
 }
 
 func TestPingDoesNotRaceWrites(t *testing.T) {
@@ -188,6 +196,63 @@ func TestPingDoesNotRaceWrites(t *testing.T) {
 	for range 50 {
 		if _, msg, err := conn.ReadMessage(); err != nil || string(msg) != "hello" {
 			t.Fatalf("got %q, %v", msg, err)
+		}
+	}
+}
+
+// flooder writes from OnMessage until the connection refuses, and records the
+// order in which its handler and OnDisconnect finish.
+type flooder struct {
+	events chan string
+}
+
+func (f *flooder) OnConnect(_ context.Context, _ *http.Request, w websocket.Writer, _ *models.Device, _ *gorm.DB, _ *nats.Conn, _ *metrics.Metrics, _ *gorillaWebsocket.Conn) websocket.Connection {
+	return floodConn{f, w}
+}
+
+type floodConn struct {
+	*flooder
+	w websocket.Writer
+}
+
+func (f floodConn) OnMessage(ctx context.Context, _ []byte, _ int) {
+	f.events <- "flooding"
+	for {
+		err := f.w.WriteMessage(ctx, websocket.Message{Type: gorillaWebsocket.TextMessage, Data: make([]byte, 4096)})
+		if err != nil {
+			if errors.Is(err, websocket.ErrConnectionClosed) {
+				f.events <- "handler stopped"
+			} else {
+				f.events <- err.Error()
+			}
+			return
+		}
+	}
+}
+
+func (f floodConn) OnDisconnect() {
+	f.events <- "disconnected"
+}
+
+func TestDisconnectWaitsForHandlers(t *testing.T) {
+	t.Parallel()
+	f := &flooder{events: make(chan string, 4)}
+	srv := serve(t, f, nil)
+
+	conn, err := dial(t, srv, "a", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := conn.WriteMessage(gorillaWebsocket.TextMessage, []byte("go")); err != nil {
+		t.Fatal(err)
+	}
+	if got := waitFor(t, f.events); got != "flooding" {
+		t.Fatalf("got %q", got)
+	}
+	_ = conn.Close()
+	for _, want := range []string{"handler stopped", "disconnected"} {
+		if got := waitFor(t, f.events); got != want {
+			t.Errorf("got %q, want %q", got, want)
 		}
 	}
 }

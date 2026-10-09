@@ -3,10 +3,12 @@ package websocket
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -90,16 +92,16 @@ func dialDevice(ctx context.Context, srv *httptest.Server, dongleID string, tiny
 	return conn, err
 }
 
-func connectDevice(t *testing.T, ws *RPCWebsocket, srv *httptest.Server, dongleID string, tinyBuffers bool) *gorillaWebsocket.Conn {
+func connectDevice(t *testing.T, ws *RPCWebsocket, srv *httptest.Server, tinyBuffers bool) *gorillaWebsocket.Conn {
 	t.Helper()
-	before, _ := ws.dongles.Load(dongleID)
-	conn, err := dialDevice(t.Context(), srv, dongleID, tinyBuffers)
+	before, _ := ws.dongles.Load("a")
+	conn, err := dialDevice(t.Context(), srv, "a", tinyBuffers)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = conn.Close() })
 	waitUntil(t, func() bool {
-		d, ok := ws.dongles.Load(dongleID)
+		d, ok := ws.dongles.Load("a")
 		return ok && d != before
 	})
 	return conn
@@ -151,13 +153,136 @@ func answerCalls(conn *gorillaWebsocket.Conn, result any) {
 	}
 }
 
+func TestDisconnectWhileHandlersSend(t *testing.T) {
+	t.Parallel()
+	ws, srv := newRPCServer(t, false)
+
+	for i := range 20 {
+		conn := connectDevice(t, ws, srv, false)
+		for j := range 100 {
+			for _, msg := range []string{
+				fmt.Sprintf(`{"method":"forwardLogs","id":"log-%d-%d","jsonrpc":"2.0","params":{}}`, i, j),
+				`{"result":{},"id":"unknown","jsonrpc":"2.0"}`,
+			} {
+				if err := conn.WriteMessage(gorillaWebsocket.TextMessage, []byte(msg)); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+		_ = conn.Close()
+		waitUntil(t, func() bool { return ws.dongles.Size() == 0 })
+	}
+}
+
+func TestCallReturnsWhenConnectionDrops(t *testing.T) {
+	t.Parallel()
+	ws, srv := newRPCServer(t, false)
+	conn := connectDevice(t, ws, srv, false)
+
+	errc := make(chan error, 1)
+	go func() {
+		_, err := ws.Call(t.Context(), nil, testMetrics(), "a", apimodels.RPCCall{ID: "1", Method: "getVersion"})
+		errc <- err
+	}()
+	for {
+		msg, err := readDeviceMessage(conn)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if msg.Method != "" {
+			break
+		}
+	}
+	_ = conn.Close()
+
+	select {
+	case err := <-errc:
+		if !errors.Is(err, ErrNotConnected) {
+			t.Errorf("got %v, want ErrNotConnected", err)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("Call kept waiting after the device disconnected")
+	}
+}
+
+func TestCallReturnsWhenContextIsCancelled(t *testing.T) {
+	t.Parallel()
+	ws, srv := newRPCServer(t, true)
+	connectDevice(t, ws, srv, true)
+
+	// The device never reads, so once the socket and the write queue are
+	// full every further Call can only return through its context.
+	params := strings.Repeat("x", 4096)
+	var wg sync.WaitGroup
+	for i := range 1500 {
+		wg.Go(func() {
+			ctx, cancel := context.WithTimeout(t.Context(), 500*time.Millisecond)
+			defer cancel()
+			_, err := ws.Call(ctx, nil, testMetrics(), "a", apimodels.RPCCall{ID: fmt.Sprint(i), Method: "echo", Params: params})
+			if err == nil {
+				t.Error("expected an error from a device that never answers")
+			}
+		})
+	}
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Call ignored its context while the connection was stalled")
+	}
+}
+
+func TestConnectDisconnectStress(t *testing.T) {
+	t.Parallel()
+	ws, srv := newRPCServer(t, false)
+
+	var wg sync.WaitGroup
+	for g := range 8 {
+		wg.Go(func() {
+			dongleID := []string{"a", "b"}[g%2]
+			for i := range 10 {
+				conn, err := dialDevice(t.Context(), srv, dongleID, false)
+				if err != nil {
+					t.Error(err)
+					return
+				}
+				log := fmt.Sprintf(`{"method":"forwardLogs","id":"log-%d-%d","jsonrpc":"2.0","params":{}}`, g, i)
+				_ = conn.WriteMessage(gorillaWebsocket.TextMessage, []byte(log))
+				go answerCalls(conn, "ok")
+
+				var calls sync.WaitGroup
+				for k := range 3 {
+					calls.Go(func() {
+						ctx, cancel := context.WithTimeout(t.Context(), 300*time.Millisecond)
+						defer cancel()
+						start := time.Now()
+						_, _ = ws.Call(ctx, nil, testMetrics(), dongleID, apimodels.RPCCall{ID: fmt.Sprintf("%d-%d-%d", g, i, k), Method: "echo"})
+						if elapsed := time.Since(start); elapsed > 2*time.Second {
+							t.Errorf("Call took %v", elapsed)
+						}
+					})
+				}
+				calls.Wait()
+				_ = conn.Close()
+			}
+		})
+	}
+	wg.Wait()
+	waitUntil(t, func() bool { return ws.dongles.Size() == 0 })
+}
+
 func TestDeviceCallsAreAnsweredOnce(t *testing.T) {
 	t.Parallel()
 	for _, method := range []string{"forwardLogs", "storeStats"} {
 		t.Run(method, func(t *testing.T) {
 			t.Parallel()
 			ws, srv := newRPCServer(t, false)
-			conn := connectDevice(t, ws, srv, "a", false)
+			conn := connectDevice(t, ws, srv, false)
 
 			// The server has a call of its own in flight with the same id, which
 			// the reply to the device must not resolve.
@@ -215,4 +340,3 @@ func TestDeviceCallsAreAnsweredOnce(t *testing.T) {
 		})
 	}
 }
-
