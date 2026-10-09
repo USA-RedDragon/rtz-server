@@ -3,6 +3,8 @@ package config_test
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/USA-RedDragon/rtz-server/cmd"
@@ -294,5 +296,26 @@ func TestEnvConfig(t *testing.T) {
 	}
 	if config.NATS.Token != "nats" {
 		t.Errorf("unexpected NATS token: %s", config.NATS.Token)
+	}
+}
+
+func TestFileExtraParameters(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	data := "persistence:\n  database:\n    extra_parameters: sslmode=require\n"
+	if err := os.WriteFile(path, []byte(data), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := cmd.NewCommand("testing", "deadbeef")
+	cmd.SetContext(context.Background())
+	if err := cmd.ParseFlags([]string{"--config", path}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	testConfig, err := config.LoadConfig(cmd)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if testConfig.Persistence.Database.ExtraParameters != "sslmode=require" {
+		t.Errorf("unexpected extra parameters: %q", testConfig.Persistence.Database.ExtraParameters)
 	}
 }

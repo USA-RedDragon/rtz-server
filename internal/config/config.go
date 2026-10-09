@@ -129,7 +129,7 @@ type Database struct {
 	Password        string         `json:"password"`
 	Host            string         `json:"host"`
 	Port            uint16         `json:"port"`
-	ExtraParameters string         `json:"extra_perimeters" yaml:"extra_perimeters"`
+	ExtraParameters string         `json:"extra_parameters" yaml:"extra_parameters"`
 }
 
 type HTTPListener struct {
