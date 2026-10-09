@@ -31,3 +31,8 @@ func (cw *ChannelWatcher[T]) WatchChannel(key func(T) string) {
 func (cw *ChannelWatcher[T]) Subscribe(id string, subscriber func(T)) {
 	cw.subscribers.Store(id, subscriber)
 }
+
+// Unsubscribe removes the subscriber for id if it has not been called yet.
+func (cw *ChannelWatcher[T]) Unsubscribe(id string) {
+	cw.subscribers.Delete(id)
+}

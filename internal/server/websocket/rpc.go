@@ -138,11 +138,11 @@ func (c *RPCWebsocket) Call(ctx context.Context, nc *nats.Conn, metrics *metrics
 		return apimodels.RPCResponse{}, ErrNotConnected
 	}
 
-	responseChan := make(chan apimodels.RPCResponse)
-	defer close(responseChan)
+	responseChan := make(chan apimodels.RPCResponse, 1)
 	dongle.channelWatcher.Subscribe(call.ID, func(response apimodels.RPCResponse) {
 		responseChan <- response
 	})
+	defer dongle.channelWatcher.Unsubscribe(call.ID)
 
 	dongle.bidiChannel.inbound <- call
 

@@ -146,11 +146,11 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 				return
 			}
 
-			responseChan := make(chan apimodels.RPCResponse)
-			defer close(responseChan)
+			responseChan := make(chan apimodels.RPCResponse, 1)
 			dongle.channelWatcher.Subscribe(call.ID, func(response apimodels.RPCResponse) {
 				responseChan <- response
 			})
+			defer dongle.channelWatcher.Unsubscribe(call.ID)
 
 			if !dongle.bidiChannel.open {
 				err := msg.Respond([]byte{})
