@@ -44,7 +44,7 @@ func applyMiddleware(
 	metrics *metrics.Metrics,
 	storage storage.Storage) {
 	r.Use(gin.Recovery())
-	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{SkipPaths: []string{"/health", "/metrics"}}))
+	r.Use(gin.LoggerWithConfig(gin.LoggerConfig{SkipPaths: []string{"/health", "/metrics"}, SkipQueryString: true}))
 	r.TrustedPlatform = "X-Real-IP"
 
 	// CORS
