@@ -69,5 +69,17 @@ jobs:
     with:
       coverage: true
     secrets:
-      codecov_token: ${{ secrets.CODECOV_TOKEN }}
       token: ${{ secrets.GITHUB_TOKEN }}
+
+  coverage:
+    needs: unit-tests-coverage
+    permissions:
+      contents: read
+      pull-requests: write
+    uses: USA-RedDragon/reusable-actions/.github/workflows/coverage.yaml@c5ee15922a0ff4229b0f06a8d0551541b5cabfdc # v2.0.34
+    with:
+      artifact: coverage
+      file: coverage.out
+      app-id: ${{ vars.AUTO_COMMIT_APP_ID }}
+    secrets:
+      app-key: ${{ secrets.AUTO_COMMIT_APP_KEY }}
