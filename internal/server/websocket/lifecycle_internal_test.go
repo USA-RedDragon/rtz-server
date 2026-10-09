@@ -340,3 +340,26 @@ func TestDeviceCallsAreAnsweredOnce(t *testing.T) {
 		})
 	}
 }
+
+func TestReconnectKeepsTheNewConnection(t *testing.T) {
+	t.Parallel()
+	ws, srv := newRPCServer(t, false)
+
+	first := connectDevice(t, ws, srv, false)
+	second := connectDevice(t, ws, srv, false)
+	go answerCalls(second, "second")
+	_ = first.Close()
+
+	for i := range 50 {
+		ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+		resp, err := ws.Call(ctx, nil, testMetrics(), "a", apimodels.RPCCall{ID: fmt.Sprint(i), Method: "echo"})
+		cancel()
+		if err != nil {
+			t.Fatalf("call %d: %v", i, err)
+		}
+		if resp.Result != "second" {
+			t.Fatalf("call %d: got %v, want an answer from the second connection", i, resp.Result)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}

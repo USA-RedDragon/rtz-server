@@ -184,7 +184,9 @@ func (d *dongle) handleNATSCall(ctx context.Context, msg *nats.Msg) {
 
 func (d *dongle) OnDisconnect() {
 	d.metrics.DecrementAthenaConnections(d.device.DongleID)
-	d.rpc.dongles.Delete(d.device.DongleID)
+	d.rpc.dongles.Compute(d.device.DongleID, func(current *dongle, loaded bool) (*dongle, bool) {
+		return current, !loaded || current == d
+	})
 	if d.natsSub != nil {
 		err := d.natsSub.Unsubscribe()
 		if err != nil && !errors.Is(err, nats.ErrConnectionDraining) && !errors.Is(err, nats.ErrConnectionClosed) {
