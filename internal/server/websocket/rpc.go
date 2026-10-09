@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/USA-RedDragon/rtz-server/internal/config"
@@ -14,7 +15,6 @@ import (
 	gorillaWebsocket "github.com/gorilla/websocket"
 	"github.com/nats-io/nats.go"
 	"github.com/puzpuzpuz/xsync/v3"
-	"golang.org/x/sync/errgroup"
 )
 
 var (
@@ -37,40 +37,42 @@ func CreateRPCWebsocket(config *config.Config, metrics *metrics.Metrics) *RPCWeb
 	return socket
 }
 
+// Stop asks every connected device to close its connection and waits until
+// each connection has been cleaned up, or ctx is done.
 func (c *RPCWebsocket) Stop(ctx context.Context) error {
-	errGrp := errgroup.Group{}
-
-	c.dongles.Range(func(_ string, value *dongle) bool {
-		errGrp.Go(func() error {
-			closedChan := make(chan any)
-			value.conn.SetCloseHandler(func(_ int, _ string) error {
-				close(closedChan)
-				return nil
-			})
-
-			// Close the socket
-			err := value.conn.WriteControl(
-				gorillaWebsocket.CloseMessage,
-				gorillaWebsocket.FormatCloseMessage(gorillaWebsocket.CloseServiceRestart, "Server is restarting"),
-				time.Now().Add(5*time.Second))
-			if err != nil {
-				slog.Warn("Error sending close message to websocket", "error", err)
-				return err
-			}
-			ctx, cancel := context.WithTimeout(ctx, 6*time.Second)
-			defer cancel()
-			select {
-			case <-ctx.Done():
-				slog.Warn("Timeout waiting for websocket to close")
-			case <-closedChan:
-			}
-
-			return nil
-		})
+	var wg sync.WaitGroup
+	c.dongles.Range(func(_ string, d *dongle) bool {
+		wg.Go(func() { d.stop(ctx) })
 		return true
 	})
+	wg.Wait()
+	return ctx.Err()
+}
 
-	return errGrp.Wait()
+func (d *dongle) stop(ctx context.Context) {
+	err := d.conn.WriteControl(
+		gorillaWebsocket.CloseMessage,
+		gorillaWebsocket.FormatCloseMessage(gorillaWebsocket.CloseServiceRestart, "Server is restarting"),
+		time.Now().Add(5*time.Second))
+	if err != nil {
+		slog.Warn("Error sending close message to websocket", "error", err)
+		_ = d.conn.Close()
+	}
+
+	timer := time.NewTimer(6 * time.Second)
+	defer timer.Stop()
+	select {
+	case <-d.closed:
+		return
+	case <-ctx.Done():
+	case <-timer.C:
+	}
+	slog.Warn("Timeout waiting for websocket to close")
+	_ = d.conn.Close()
+	select {
+	case <-d.closed:
+	case <-ctx.Done():
+	}
 }
 
 func (c *RPCWebsocket) Call(ctx context.Context, nc *nats.Conn, metrics *metrics.Metrics, dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {

@@ -23,7 +23,9 @@ type dongle struct {
 	conn    *gorillaWebsocket.Conn
 	writer  websocket.Writer
 	// done is closed when the connection ends.
-	done    <-chan struct{}
+	done <-chan struct{}
+	// closed is closed once OnDisconnect has finished.
+	closed  chan struct{}
 	pending *xsync.MapOf[string, chan apimodels.RPCResponse]
 	natsSub unsubscriber
 }

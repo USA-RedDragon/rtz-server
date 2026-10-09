@@ -26,6 +26,7 @@ func (c *RPCWebsocket) OnConnect(ctx context.Context, _ *http.Request, w websock
 		conn:    conn,
 		writer:  w,
 		done:    ctx.Done(),
+		closed:  make(chan struct{}),
 		pending: xsync.NewMapOf[string, chan apimodels.RPCResponse](),
 	}
 	c.dongles.Store(device.DongleID, d)
@@ -183,6 +184,7 @@ func (d *dongle) handleNATSCall(ctx context.Context, msg *nats.Msg) {
 }
 
 func (d *dongle) OnDisconnect() {
+	defer close(d.closed)
 	d.metrics.DecrementAthenaConnections(d.device.DongleID)
 	d.rpc.dongles.Compute(d.device.DongleID, func(current *dongle, loaded bool) (*dongle, bool) {
 		return current, !loaded || current == d

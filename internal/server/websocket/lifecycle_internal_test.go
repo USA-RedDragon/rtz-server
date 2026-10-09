@@ -20,6 +20,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	gorillaWebsocket "github.com/gorilla/websocket"
+	"github.com/nats-io/nats.go"
 	"gorm.io/gorm"
 )
 
@@ -361,5 +362,63 @@ func TestReconnectKeepsTheNewConnection(t *testing.T) {
 			t.Fatalf("call %d: got %v, want an answer from the second connection", i, resp.Result)
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func TestStopWaitsForCleanup(t *testing.T) {
+	t.Parallel()
+	ws, srv := newRPCServer(t, false)
+	conn := connectDevice(t, ws, srv, false)
+	go func() {
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				return
+			}
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	if err := ws.Stop(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if n := ws.dongles.Size(); n != 0 {
+		t.Errorf("%d connections were still registered after Stop returned", n)
+	}
+}
+
+type drainingSubscription struct {
+	unsubscribed bool
+}
+
+func (s *drainingSubscription) Unsubscribe() error {
+	s.unsubscribed = true
+	return nats.ErrConnectionDraining
+}
+
+func TestDisconnectCleansUpWhileNATSDrains(t *testing.T) {
+	t.Parallel()
+	ws := CreateRPCWebsocket(&config.Config{}, testMetrics())
+	sub := &drainingSubscription{}
+	d := &dongle{
+		rpc:     ws,
+		device:  &models.Device{DongleID: "a"},
+		metrics: testMetrics(),
+		closed:  make(chan struct{}),
+		natsSub: sub,
+	}
+	ws.dongles.Store("a", d)
+
+	d.OnDisconnect()
+	if !sub.unsubscribed {
+		t.Error("the NATS subscription was not removed")
+	}
+	if _, ok := ws.dongles.Load("a"); ok {
+		t.Error("the dongle is still registered")
+	}
+	select {
+	case <-d.closed:
+	default:
+		t.Error("cleanup did not finish while NATS was draining")
 	}
 }
