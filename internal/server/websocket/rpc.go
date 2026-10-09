@@ -96,7 +96,7 @@ func (c *RPCWebsocket) Call(ctx context.Context, nc *nats.Conn, metrics *metrics
 
 // natsRequester is the part of *nats.Conn that callNATS uses.
 type natsRequester interface {
-	Request(subj string, data []byte, timeout time.Duration) (*nats.Msg, error)
+	RequestWithContext(ctx context.Context, subj string, data []byte) (*nats.Msg, error)
 }
 
 func callNATS(ctx context.Context, nc natsRequester, metrics *metrics.Metrics, dongleID string, call apimodels.RPCCall) (apimodels.RPCResponse, error) {
@@ -125,10 +125,14 @@ func callNATS(ctx context.Context, nc natsRequester, metrics *metrics.Metrics, d
 		default:
 		}
 		var resp *nats.Msg
-		resp, err = nc.Request("rpc:call:"+dongleID, msg, timeout)
+		attemptCtx, cancelAttempt := context.WithTimeout(ctx, timeout)
+		resp, err = nc.RequestWithContext(attemptCtx, "rpc:call:"+dongleID, msg)
+		cancelAttempt()
 		if err != nil {
 			switch {
-			case errors.Is(err, nats.ErrTimeout):
+			case ctx.Err() != nil:
+				return apimodels.RPCResponse{}, ctx.Err()
+			case errors.Is(err, nats.ErrTimeout), errors.Is(err, context.DeadlineExceeded):
 				continue
 			case errors.Is(err, nats.ErrNoResponders):
 				// This could be a dongle reconnecting

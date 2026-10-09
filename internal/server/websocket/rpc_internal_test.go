@@ -2,6 +2,7 @@ package websocket
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -49,7 +50,7 @@ type fakeNATS struct {
 	reply []byte
 }
 
-func (f fakeNATS) Request(string, []byte, time.Duration) (*nats.Msg, error) {
+func (f fakeNATS) RequestWithContext(context.Context, string, []byte) (*nats.Msg, error) {
 	return &nats.Msg{Data: f.reply}, nil
 }
 
@@ -76,5 +77,27 @@ func TestCallNATS(t *testing.T) {
 		}
 	case <-time.After(3 * time.Second):
 		t.Fatal("callNATS kept retrying after the context was done")
+	}
+}
+
+// silentNATS never answers, like a server whose dongle is busy.
+type silentNATS struct{}
+
+func (silentNATS) RequestWithContext(ctx context.Context, _ string, _ []byte) (*nats.Msg, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func TestCallNATSReturnsWhenContextIsCancelled(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithTimeout(t.Context(), 100*time.Millisecond)
+	defer cancel()
+	start := time.Now()
+	_, err := callNATS(ctx, silentNATS{}, testMetrics(), "abc", apimodels.RPCCall{ID: "1", Method: "takeSnapshot"})
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Errorf("got %v, want the context's error", err)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Errorf("callNATS took %v after its context was done", elapsed)
 	}
 }
