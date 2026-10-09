@@ -18,7 +18,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/gorilla/websocket v1.5.3
 	github.com/jackc/pgx/v5 v5.10.0
-	github.com/klauspost/compress v1.20.0
+	github.com/klauspost/compress v1.20.1
 	github.com/mattn/go-nulltype v0.0.0-20230117041332-6715e831ac05
 	github.com/nats-io/nats.go v1.54.0
 	github.com/prometheus/client_golang v1.23.2
