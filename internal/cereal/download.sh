@@ -3,7 +3,7 @@
 set -eu
 
 # renovate: datasource=github-tags depName=commaai/openpilot
-OPENPILOT_VERSION=v0.10.3
+OPENPILOT_VERSION=v0.11.1
 # renovate: sha: datasource=git-refs depName=opendbc packageName=commaai/opendbc branch=master
 OPENDBC_SHA=15b8354e167d543392d0d46f2a3ac44e0b2f8a72
 
