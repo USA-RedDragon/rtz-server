@@ -25,7 +25,7 @@ internal/server/middleware.go	210	83
 internal/server/routes.go	52	51
 internal/server/server.go	89	54
 internal/server/websocket/rpc.go	72	57
-internal/server/websocket/websocket.go	117	56
+internal/server/websocket/websocket.go	117	57
 internal/storage/filesystem.go	27	4
 internal/storage/s3.go	32	0
 internal/storage/storage.go	16	5
@@ -33,6 +33,6 @@ internal/utils/checksum.go	11	11
 internal/utils/geo.go	8	8
 internal/utils/http.go	9	0
 internal/utils/jwt.go	54	38
-internal/websocket/writer.go	8	6
+internal/websocket/writer.go	8	7
 internal/websocket/ws.go	109	88
 main.go	4	0
