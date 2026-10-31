@@ -6,7 +6,7 @@ import (
 	"github.com/USA-RedDragon/rtz-server/internal/server/apimodels"
 	"github.com/USA-RedDragon/rtz-server/internal/websocket"
 	gorillaWebsocket "github.com/gorilla/websocket"
-	"github.com/puzpuzpuz/xsync/v3"
+	"github.com/puzpuzpuz/xsync/v4"
 )
 
 // unsubscriber is the part of *nats.Subscription that a dongle uses.
